@@ -1,0 +1,25 @@
+# #-*- mode: yaml -*-
+
+CompileFlags:                     # Tweak the parse settings
+  Add: [-xc, -Wall, -Wextra, -std=c11]
+  # Remove: -W*                     # strip all other warning-related flags
+  Compiler: clang               # Change argv[0] of compile flags to `clang`
+
+Diagnostics:
+  ClangTidy:
+  # Add: [bugprone-*, performance-*, readability-*, misc-*, clang-analyzer-*]
+    FastCheckFilter: Strict
+  Includes:
+  # IgnoreHeader: ["criterion*"]
+    AnalyzeAngledIncludes: false
+
+# MissingIncludes: Strict
+Completion:
+  AllScopes: true
+
+Documentation:
+  CommentFormat: Doxygen
+
+Index:
+  StandardLibrary: true
+  Background: Build
