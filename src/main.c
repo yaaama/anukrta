@@ -75,7 +75,8 @@ static void process_valid_frame (VideoReader* vreader) {
                   vreader->codec_ctx->frame_num);
 }
 
-/* Returns: 0 on success (even if no frame produced yet), negative on critical */
+/* Returns: 0 on success (even if no frame produced yet), negative on critical
+ */
 /* error */
 int decode_packet (VideoReader* vreader, int* frames_processed) {
   // 1. Send packet to decoder
@@ -85,7 +86,8 @@ int decode_packet (VideoReader* vreader, int* frames_processed) {
     return ret;
   }
 
-  /* 2. Loop to pull frames (A single packet might contain multiple frames, or 0) */
+  /* 2. Loop to pull frames (A single packet might contain multiple frames, or
+   * 0) */
   while (ret >= 0) {
     ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
 
@@ -150,8 +152,8 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   AVCodecParameters* codec_params = NULL;
 
   /* Finds best stream that matches our specifications */
-  vreader->video_stream_idx = av_find_best_stream(vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1,
-                                     -1, &codec, -1);
+  vreader->video_stream_idx = av_find_best_stream(
+      vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
   if (vreader->video_stream_idx == -1) {
     fprintf(stderr, "No video stream found.\n");
@@ -172,14 +174,19 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   // 4. Init Codec Context
   vreader->codec_ctx = avcodec_alloc_context3(codec);
+
   if (!vreader->codec_ctx) {
+    fprintf(stderr, "Failed to allocate memory.\n");
     return -1;
   }
 
   if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
+    fprintf(stderr, "Could not retrieve codec context.\n");
     return -1;
   }
+
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
+    fprintf(stderr, "Failed to initialise codec `%s`\n", codec->long_name);
     return -1;
   }
 
