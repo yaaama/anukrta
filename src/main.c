@@ -37,6 +37,7 @@ static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
 
   if (!fptr) {
     perror("Failure saving gray scale image, could not open file.");
+    return;
   }
 
   /* p5 image headers must end with 255
