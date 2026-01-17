@@ -145,23 +145,28 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   /* 3.
    * Find Video Stream & Codec */
+
   const AVCodec* codec = NULL;
   AVCodecParameters* codec_params = NULL;
 
-  for (unsigned int i = 0; i < vreader->fmt_ctx->nb_streams; i++) {
-    AVCodecParameters* local_p = vreader->fmt_ctx->streams[i]->codecpar;
-    const AVCodec* local_c = avcodec_find_decoder(local_p->codec_id);
-
-    if (local_p->codec_type == AVMEDIA_TYPE_VIDEO && !codec) {
-      codec = local_c;
-      codec_params = local_p;
-      vreader->video_stream_idx = i;  // NOLINT (*narrowing-conversions)
-      printf("Found Video Stream #%d (Codec: %s)\n", i, codec->name);
-    }
-  }
+  /* Finds best stream that matches our specifications */
+  vreader->video_stream_idx = av_find_best_stream(vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1,
+                                     -1, &codec, -1);
 
   if (vreader->video_stream_idx == -1) {
     fprintf(stderr, "No video stream found.\n");
+    return -1;
+  }
+
+  printf("Found video stream at index `%d`\n", vreader->video_stream_idx);
+
+  /* Get codec parameters */
+  codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
+  /* Get codec to decode frames */
+  codec = avcodec_find_decoder(codec_params->codec_id);
+
+  if (!codec) {
+    fprintf(stderr, "No codec found?...\n");
     return -1;
   }
 
@@ -218,7 +223,6 @@ long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
 
 long calculate_frame_steps (long duration, int segments) {
   long frame_steps = duration / segments;
-
   return frame_steps;
 }
 
@@ -309,7 +313,7 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
 
       av_packet_unref(vreader.packet);
       if (!frame_for_this_segment_found) {
-        printf("Warning: Could not extract frame for segment %d\n", i);
+        /* printf("Warning: Could not extract frame for segment %d\n", i); */
       }
     }
   }
