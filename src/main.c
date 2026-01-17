@@ -1,12 +1,14 @@
 /* Video similarity tool */
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
+#include <libavcodec/codec.h>
 #include <libavcodec/codec_par.h>
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/frame.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -116,16 +118,26 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   printf("Opening file `%s`", filename);
 
-  /* 1.
-   * Open input file and read header data
-   * avformat_find_stream_info will populate `AVFormatContext` struct.
+  /* 1. Open input file and read header data.
    */
+  bool got_info = true;
+
+  /* Opens input file and guesses format of file */
   if (avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL) != 0) {
-    fprintf(stderr, "Could not open file %s\n", filename);
-    return -1;
+    fprintf(stderr, "Could not open file (%s)\n", filename);
+    fprintf(stderr, "Will try to read stream information next...\n");
   }
+
+  /* Will read bytes from file/decode a few frames to fill out context that the
+     method above missed (`avformat_open_input` will only read header of file)
+   */
   if (avformat_find_stream_info(vreader->fmt_ctx, NULL) < 0) {
-    fprintf(stderr, "Could not find stream info\n");
+    fprintf(stderr, "Could not find stream info!\n");
+    got_info = false;
+  }
+
+  if (got_info == false) {
+    fprintf(stderr, "Failed to detect file format.\n");
     return -1;
   }
 
