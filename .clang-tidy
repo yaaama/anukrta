@@ -1,5 +1,25 @@
 ---
-Checks: "bugprone-*, cert-*, clang-analyzer-* clang-diagnostic-*, concurrency-*, google-*, llvm-*, misc-*, mpi-*, performance-*, portability-*, readability-*, -*cert-err33-c, -*cognitive-complexity, -*magic-numbers"
+  # clang-diagnostic-*,
+  # google-*,
+  # llvm-*,
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  misc-*,
+  -*cert-err33-c,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -Wunused-function,
+
+
 WarningsAsErrors: ""
 HeaderFileExtensions:
   - h

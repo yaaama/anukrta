@@ -3,20 +3,24 @@
 # ==========================================
 TARGET_NAME := anukrta
 SRC_DIR := src
-OBJ_DIR := build
-BIN_DIR := build/bin
+OBJ_DIR := build/objs
+BIN_DIR := build
 INC_DIR := include
 
 # Compiler settings
 CC := gcc
 
-DEV_FLAGS := -ggdb -Og -Wstrict-prototypes -Wold-style-definition -Wshadow	\
--Wvla -pedantic -Wno-unused-parameter -Wno-unused-variable
-# Standard warnings + optimizations + debug info
-RELEASE_FLAGS := -O2
-CFLAGS := -std=c11 -Wall -Wextra $(DEV_FLAGS)
-
 ASAN := 1
+DEV_FLAGS := -ggdb -O0 -g -Wstrict-prototypes -Wold-style-definition -Wshadow	\
+-Wvla -pedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
+# Standard warnings + optimizations + debug info
+
+RELEASE_FLAGS := -O2
+CFLAGS := -std=c11 -Wall -Wextra
+
+ifeq (${DEBUG}, 1)
+	CFLAGS += $(DEV_FLAGS)
+endif
 
 # ==========================================
 #   FFmpeg Configuration (No pkg-config)
@@ -89,11 +93,14 @@ clean:
 	@rm -rf $(OBJ_DIR) $(BIN_DIR)
 
 # 6. Include Dependencies
-	-include $(DEPS)
+# -include $(DEPS)
 
-bear:
-	@echo "Generating compile_database.json"
-	bear -- make -B
+compile_commands.json: clean
+	@echo "Generating compile_commands.json..."
+	bear -- $(MAKE) all
+
+# Alias for convenience
+bear: compile_commands.json
 
 test:
 	@echo "NOT IMPLEMENTED."
