@@ -439,7 +439,7 @@ int seek_to_timestamp (VideoReader* vreader, int64_t target_ts) {
   return 0;
 }
 
-int hash_video (char* filename, uint64_t* hashes, size_t segments) {
+int hash_video (char* filename, uint64_t* hashes, int segments) {
 
   VideoReader vreader;
 
@@ -458,7 +458,7 @@ int hash_video (char* filename, uint64_t* hashes, size_t segments) {
   /* Loop through file packets */
 
   /* We want to split the video into this many segments */
-  size_t total_video_segments = segments;
+  int total_video_segments = segments;
   long frame_step = calculate_frame_steps(video_duration, total_video_segments);
   /* Counter for # of frames successfully */
   int frames_decoded = 0;
@@ -468,7 +468,7 @@ int hash_video (char* filename, uint64_t* hashes, size_t segments) {
   for (int i = 0; i < total_video_segments; i++) {
     target_timestamp = ((long)i * frame_step);
 
-    printf("\n--- Segment %d/%zu : Seeking to TS %" PRId64 " ---\n", i + 1,
+    printf("\n--- Segment %d/%d : Seeking to TS %" PRId64 " ---\n", i + 1,
            total_video_segments, target_timestamp);
 
     /* Seek to timestamp */
