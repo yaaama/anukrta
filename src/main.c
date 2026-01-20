@@ -1,4 +1,5 @@
 /* Video similarity tool */
+#include <assert.h>
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
@@ -344,6 +345,11 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   vreader->frame = av_frame_alloc();
   vreader->packet = av_packet_alloc();
 
+  if (vreader->frame == NULL || vreader->packet == NULL) {
+    fprintf(stderr,"Failed to allocate memory for packet/frame.\n");
+    exit(1);
+  }
+
   return 0;
 }
 
@@ -376,6 +382,7 @@ void close_video_reader (VideoReader* vreader) {
 long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
 
   long duration = vid_stream->duration;
+  assert (duration > 0);
 
   if (duration == AV_NOPTS_VALUE) {
     fprintf(stderr,
@@ -396,6 +403,7 @@ long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
  * Returns the number of frames to seek ahead to for the next segment of video.
  **/
 long calculate_frame_steps (long duration, int segments) {
+  assert(duration > 0 && segments > 0);
   long frame_steps = duration / segments;
   return frame_steps;
 }
