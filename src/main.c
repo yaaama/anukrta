@@ -7,6 +7,7 @@
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
+#include <libavutil/error.h>
 #include <libavutil/frame.h>
 #include <libavutil/pixfmt.h>
 #include <libswscale/swscale.h>
@@ -110,26 +111,11 @@ int normalize_colourspace (AVFrame* frame, SwsContext* context) {
   return 0;
 }
 
-uint64_t average_hash (AVFrame* src_frame) {
-  uint64_t hash = 0;
-  int width = 8;
-  int height = 8;
-
-  /* Create small frame to hold shrunken src frame */
-  AVFrame* smallframe = av_frame_alloc();
-  smallframe->format = AV_PIX_FMT_GRAY8;
-  smallframe->width = width;
-  smallframe->height = height;
-
-  if (av_frame_get_buffer(smallframe, 0) != 0) {
-    fprintf(stderr, "Could not initialise frame.\n");
-    av_frame_free(&smallframe);
-  }
+int scale_frame (AVFrame* src_frame, AVFrame* out_frame, size_t width,
+                 size_t height) {
 
   enum AVPixelFormat input_fmt = src_frame->format;
 
-  /* Map deprecated formats to standard formats
-   * This stops sws_getContext from complaining */
   switch (input_fmt) {
     case AV_PIX_FMT_YUVJ420P:
       {
@@ -152,20 +138,50 @@ uint64_t average_hash (AVFrame* src_frame) {
 
   /* Initialize the Scaler (SwsContext) */
   /* Convert from Source Format -> Gray8 @ 8x8 */
-  struct SwsContext* sws_ctx =
-      sws_getContext(src_frame->width, src_frame->height, input_fmt, width,
-                     height, AV_PIX_FMT_GRAY8, SWS_BILINEAR, NULL, NULL, NULL);
+  struct SwsContext* sws_ctx = sws_getContext(
+      src_frame->width, src_frame->height, input_fmt, (int)width, (int)height,
+      out_frame->format, SWS_AREA, NULL, NULL, NULL);
 
   if (!sws_ctx) {
     fprintf(stderr, "Failed to create SwsContext.\n");
-    av_frame_free(&smallframe);
-    return 0;
+    return -1;
   }
 
   /* Normalise colourspaces */
-  normalize_colourspace(src_frame, sws_ctx);
+  if (normalize_colourspace(src_frame, sws_ctx)) {
+    fprintf(stderr, "Colourspace normalisation returned an error...\n");
+  }
 
-  sws_scale_frame(sws_ctx, smallframe, src_frame);
+  int scaling_ret = sws_scale_frame(sws_ctx, out_frame, src_frame);
+  if (scaling_ret <= 0) {
+    fprintf(stderr, "Scaling FAILED: `%s`", av_err2str(scaling_ret));
+    exit(-1);
+  }
+
+  sws_free_context(&sws_ctx);
+  return 0;
+}
+
+uint64_t average_hash (AVFrame* src_frame) {
+  uint64_t hash = 0;
+  int width = 8;
+  int height = 8;
+
+  /* Create small frame to hold shrunken src frame */
+  AVFrame* smallframe = av_frame_alloc();
+  smallframe->format = AV_PIX_FMT_GRAY8;
+  smallframe->width = width;
+  smallframe->height = height;
+
+  if (av_frame_get_buffer(smallframe, 0) != 0) {
+    fprintf(stderr, "Could not initialise frame.\n");
+    av_frame_free(&smallframe);
+  }
+
+  if (scale_frame(src_frame, smallframe, width, height)) {
+    fprintf(stderr, "Failed to scale frame!");
+    exit(0);
+  }
 
   uint8_t* pixels = smallframe->data[0]; /* Buffer for the 8x8 image */
   int linesize = smallframe->linesize[0];
@@ -210,7 +226,6 @@ uint64_t average_hash (AVFrame* src_frame) {
 #endif
 
   /* Cleanup */
-  sws_freeContext(sws_ctx);
   av_frame_free(&smallframe);
 
   return hash;
