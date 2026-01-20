@@ -34,6 +34,11 @@ typedef struct VideoReader {
   AVFrame* frame;
 } VideoReader;
 
+typedef enum anuHashType {
+  ANUHASH_AVG = 0,
+  ANUHASH_DCT = 1,
+} anuHashType;
+
 static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
                              int ysize,  // NOLINT(*swappable-parameters)
                              char* prefix, long frame_num) {
@@ -231,15 +236,43 @@ uint64_t average_hash (AVFrame* src_frame) {
   return hash;
 }
 
+uint64_t dct_hash (AVFrame* frame) {
+  uint64_t final_hash = 0;
+
+  return final_hash;
+}
+
 /* This is the function called ONLY when a valid frame is fully decoded */
-static void hash_decoded_frame (VideoReader* vreader, uint64_t* hash_out) {
+static void hash_decoded_frame (VideoReader* vreader, anuHashType hash_algo,
+                                uint64_t* hash_out) {
 
   printf("Frame `%ld`, Res: `%dx%d`, PTS: `%ld`\n",
          vreader->codec_ctx->frame_num, vreader->frame->width,
          vreader->frame->height, vreader->frame->pts);
 
-  *hash_out = average_hash(vreader->frame);
+  uint64_t hash = 0;
+  switch (hash_algo) {
+    case ANUHASH_AVG:
+      {
+        hash = average_hash(vreader->frame);
+        break;
+      }
+    case ANUHASH_DCT:
+      {
+        hash = dct_hash(vreader->frame);
+        break;
+      }
+    default:
+      {
+        fprintf(stderr, "Hashing algorithm not specified.");
+        exit(1);
+      }
+  }
 
+  if (hash == 0) {
+    fprintf(stderr, "Received a 0 value for hash.");
+  }
+  *hash_out = hash;
   printf("Hash: %016" PRIx64 "\n", *hash_out);
 }
 
@@ -454,7 +487,8 @@ int seek_to_timestamp (VideoReader* vreader, int64_t target_ts) {
   return 0;
 }
 
-int hash_video (char* filename, uint64_t* hashes, int segments) {
+int hash_video (char* filename, uint64_t* hashes_out, int segments,
+                anuHashType hash_algo) {
 
   VideoReader vreader;
 
@@ -515,7 +549,7 @@ int hash_video (char* filename, uint64_t* hashes, int segments) {
           continue; /* Loop again to get next frame */
         }
 
-        hash_decoded_frame(&vreader, &hashes[frames_decoded]);
+        hash_decoded_frame(&vreader, hash_algo, &hashes_out[frames_decoded]);
         frame_found_for_segment = true;
         frames_decoded++;
         av_packet_unref(vreader.packet);
@@ -549,9 +583,10 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   uint64_t hashes_vidA[SEGMENTS];
   uint64_t hashes_vidB[SEGMENTS];
 
-  hash_video(filename, &hashes_vidA[0], SEGMENTS);
-  hash_video(filename2, &hashes_vidB[0], SEGMENTS);
+  hash_video(filename, &hashes_vidA[0], SEGMENTS, ANUHASH_AVG);
+  hash_video(filename2, &hashes_vidB[0], SEGMENTS, ANUHASH_AVG);
 
+  are_videos_duplicate(hashes_vidA, hashes_vidB, SEGMENTS);
 
   return 0;
 }
