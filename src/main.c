@@ -16,7 +16,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define FILENAME "tulsi.mov"
 #define SAVE_HASH_PGM 0
 
 typedef struct VideoReader {
@@ -24,14 +23,14 @@ typedef struct VideoReader {
    * AVFormatContext holds the header information stored in file (container) */
   AVFormatContext* fmt_ctx;
   /* Video encoding context.
-Codec is used to decode the video stream */
+     Codec is used to decode the video stream */
   AVCodecContext* codec_ctx;
   /* Index of video stream inside container */
   int video_stream_idx;
-  /* Frame */
-  AVFrame* frame;
   /* Packet (compressed frame of audio/video) */
   AVPacket* packet;
+  /* Decoded packet */
+  AVFrame* frame;
 } VideoReader;
 
 static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
@@ -173,8 +172,7 @@ uint64_t average_hash (AVFrame* src_frame) {
   long sum = 0;
 
 #if SAVE_HASH_PGM
-  save_gray_frame(pixels, linesize, width, height, FILENAME "-Gray",
-                  src_frame->pts);
+  save_gray_frame(pixels, linesize, width, height, "-Gray", src_frame->pts);
 #endif
 
   for (int y = 0; y < height; y++) {
@@ -208,8 +206,7 @@ uint64_t average_hash (AVFrame* src_frame) {
   }
 
 #if SAVE_HASH_PGM
-  save_gray_frame(binary_viz, 8, width, height, FILENAME "-binary",
-                  src_frame->pts);
+  save_gray_frame(binary_viz, 8, width, height, "-binary", src_frame->pts);
 #endif
 
   /* Cleanup */
@@ -346,7 +343,7 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   vreader->packet = av_packet_alloc();
 
   if (vreader->frame == NULL || vreader->packet == NULL) {
-    fprintf(stderr,"Failed to allocate memory for packet/frame.\n");
+    fprintf(stderr, "Failed to allocate memory for packet/frame.\n");
     exit(1);
   }
 
@@ -382,7 +379,7 @@ void close_video_reader (VideoReader* vreader) {
 long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
 
   long duration = vid_stream->duration;
-  assert (duration > 0);
+  assert(duration > 0);
 
   if (duration == AV_NOPTS_VALUE) {
     fprintf(stderr,
@@ -395,7 +392,6 @@ long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
 
   return duration;
 }
-
 
 /**
  * @brief Number of frames divided by segments.
@@ -443,12 +439,11 @@ int seek_to_timestamp (VideoReader* vreader, int64_t target_ts) {
   return 0;
 }
 
-int main (int argc, char* argv[]) {  // NOLINT (unused-*)
-  char* filename = (argc > 1) ? argv[1] : "./" FILENAME;
+int hash_video (char* filename, uint64_t* hashes, size_t segments) {
 
   VideoReader vreader;
 
-  // 1. Setup
+  /* Setup video reader */
   if (open_video_reader(filename, &vreader) < 0) {
     close_video_reader(&vreader);  // cleanup partial opens
     return -1;
@@ -460,22 +455,20 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   AVFormatContext* format_context_ptr = vreader.fmt_ctx;
   long video_duration = get_video_duration(format_context_ptr, vid_stream_ptr);
 
-  // 2. Loop through file packets
+  /* Loop through file packets */
 
   /* We want to split the video into this many segments */
-  int total_video_segments = 4;
+  size_t total_video_segments = segments;
   long frame_step = calculate_frame_steps(video_duration, total_video_segments);
   /* Counter for # of frames successfully */
   int frames_decoded = 0;
   /* Target timestamp */
   long target_timestamp = 0;
 
-  uint64_t hashes_vidA[4];
-
   for (int i = 0; i < total_video_segments; i++) {
     target_timestamp = ((long)i * frame_step);
 
-    printf("\n--- Segment %d/%d : Seeking to TS %" PRId64 " ---\n", i + 1,
+    printf("\n--- Segment %d/%zu : Seeking to TS %" PRId64 " ---\n", i + 1,
            total_video_segments, target_timestamp);
 
     /* Seek to timestamp */
@@ -501,13 +494,13 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
 
         long current_pts = vreader.frame->pts;
         if (current_pts < target_timestamp) {
-          printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
-                 target_timestamp);
+          /* printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
+           * target_timestamp); */
           av_packet_unref(vreader.packet);
           continue; /* Loop again to get next frame */
         }
 
-        hash_decoded_frame(&vreader, &hashes_vidA[frames_decoded]);
+        hash_decoded_frame(&vreader, &hashes[frames_decoded]);
         frame_found_for_segment = true;
         frames_decoded++;
         av_packet_unref(vreader.packet);
@@ -526,9 +519,24 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
     }
   }
 
-  // 3. Cleanup
+  /* Cleanup */
   close_video_reader(&vreader);
 
   printf("Done. Processed %d frames.\n", frames_decoded);
+  return 0;
+}
+int main (int argc, char* argv[]) {  // NOLINT (unused-*)
+  char* filename = (argc > 1) ? argv[1] : "./tulsi.mov";
+  char* filename2 = "tulsi2.mov";
+
+  const int SEGMENTS = 4;
+
+  uint64_t hashes_vidA[SEGMENTS];
+  uint64_t hashes_vidB[SEGMENTS];
+
+  hash_video(filename, &hashes_vidA[0], SEGMENTS);
+  hash_video(filename2, &hashes_vidB[0], SEGMENTS);
+
+
   return 0;
 }
