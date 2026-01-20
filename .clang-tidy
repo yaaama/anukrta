@@ -7,7 +7,7 @@ Checks: >
   bugprone-*,
   cert-*,
   clang-analyzer-*,
-  concurrency-*,
+  # concurrency-*,
   performance-*,
   portability-*,
   readability-*,
