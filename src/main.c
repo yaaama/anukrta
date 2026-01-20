@@ -7,19 +7,24 @@
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/frame.h>
+#include <libavutil/pixfmt.h>
+#include <libswscale/swscale.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
-typedef struct {
+#define FILENAME "tulsi.mov"
+#define SAVE_HASH_PGM 0
+
+typedef struct VideoReader {
   /* File (container/AV file) context
    * AVFormatContext holds the header information stored in file (container) */
   AVFormatContext* fmt_ctx;
   /* Video encoding context.
 Codec is used to decode the video stream */
   AVCodecContext* codec_ctx;
-
   /* Index of video stream inside container */
   int video_stream_idx;
   /* Frame */
@@ -30,11 +35,11 @@ Codec is used to decode the video stream */
 
 static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
                              int ysize,  // NOLINT(*swappable-parameters)
-                             long frame_num) {
+                             char* prefix, long frame_num) {
   FILE* fptr;
 
   char filename[1024];
-  snprintf(filename, sizeof(filename), "frame-%ld.pgm", frame_num);
+  snprintf(filename, sizeof(filename), "%s_frame-%ld.pgm", prefix, frame_num);
   fptr = fopen(filename, "w");
 
   if (!fptr) {
@@ -56,29 +61,176 @@ static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
   fclose(fptr);
 }
 
-/* This is the function called ONLY when a valid frame is fully decoded */
-static void process_valid_frame (VideoReader* vreader) {
+int hamming_distance (uint64_t hash1, uint64_t hash2) {
+  uint64_t x =
+      hash1 ^
+      hash2; /* XOR finds the differences (returns 1 where bits differ) */
+  int dist = 0;
 
-  printf("Frame `%ld` decoded! Res: `%dx%d`, PTS: `%ld`\n",
+  /* Count the number of 1s (Kernighan's algorithm) */
+  while (x) {
+    dist++;
+    x &= x - 1;
+  }
+  return dist;
+}
+
+int normalize_colourspace (AVFrame* frame, SwsContext* context) {
+
+  int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+
+  /* We want our output hash to use the full 0-255 range for max precision */
+  int dst_range = 1;
+
+  /* Dummy variables to retrieve default coefficients */
+  int* inv_table;
+  int* table;
+  int dummy_src;
+  int dummy_dst;
+  int dummy_bright;
+  int dummy_cont;
+  int dummy_sat;
+
+  // Get default values
+  if (0 > sws_getColorspaceDetails(context, (&inv_table), &dummy_src, (&table),
+                                   &dummy_dst, &dummy_bright, &dummy_cont,
+                                   &dummy_sat)) {
+    fprintf(stderr, "Failed to get colorspace details.\n");
+    return -1;
+  }
+
+  /* Apply explicit ranges.
+   * 1 << 16 is the fixed-point representation for "1.0" (default
+   * contrast/saturation) */
+  if (0 > sws_setColorspaceDetails(context, inv_table, src_range, table,
+                                   dst_range, 0, 1 << 16, 1 << 16)) {
+    fprintf(stderr, "Failed to set colourspace.\n");
+    return -1;
+  }
+  return 0;
+}
+
+uint64_t average_hash (AVFrame* src_frame) {
+  uint64_t hash = 0;
+  int width = 8;
+  int height = 8;
+
+  /* Create small frame to hold shrunken src frame */
+  AVFrame* smallframe = av_frame_alloc();
+  smallframe->format = AV_PIX_FMT_GRAY8;
+  smallframe->width = width;
+  smallframe->height = height;
+
+  if (av_frame_get_buffer(smallframe, 0) != 0) {
+    fprintf(stderr, "Could not initialise frame.\n");
+    av_frame_free(&smallframe);
+  }
+
+  enum AVPixelFormat input_fmt = src_frame->format;
+
+  /* Map deprecated formats to standard formats
+   * This stops sws_getContext from complaining */
+  switch (input_fmt) {
+    case AV_PIX_FMT_YUVJ420P:
+      {
+        input_fmt = AV_PIX_FMT_YUV420P;
+        break;
+      }
+    case AV_PIX_FMT_YUVJ422P:
+      {
+        input_fmt = AV_PIX_FMT_YUV422P;
+        break;
+      }
+    case AV_PIX_FMT_YUVJ444P:
+      {
+        input_fmt = AV_PIX_FMT_YUV444P;
+        break;
+      }
+    default:
+      break;
+  }
+
+  /* Initialize the Scaler (SwsContext) */
+  /* Convert from Source Format -> Gray8 @ 8x8 */
+  struct SwsContext* sws_ctx =
+      sws_getContext(src_frame->width, src_frame->height, input_fmt, width,
+                     height, AV_PIX_FMT_GRAY8, SWS_BILINEAR, NULL, NULL, NULL);
+
+  if (!sws_ctx) {
+    fprintf(stderr, "Failed to create SwsContext.\n");
+    av_frame_free(&smallframe);
+    return 0;
+  }
+
+  /* Normalise colourspaces */
+  normalize_colourspace(src_frame, sws_ctx);
+
+  sws_scale_frame(sws_ctx, smallframe, src_frame);
+
+  uint8_t* pixels = smallframe->data[0]; /* Buffer for the 8x8 image */
+  int linesize = smallframe->linesize[0];
+  long sum = 0;
+
+#if SAVE_HASH_PGM
+  save_gray_frame(pixels, linesize, width, height, FILENAME "-Gray",
+                  src_frame->pts);
+#endif
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      sum += pixels[(y * linesize) + x];
+    }
+  }
+  uint8_t avg = sum / 64;
+  printf("Average sum of pixels: `%d`\n", avg);
+
+#if SAVE_HASH_PGM
+  /* Binary buffer for visualisation */
+  uint8_t binary_viz[64];
+#endif
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      uint8_t val = pixels[(y * linesize) + x];
+
+      /* If > avg, set to White (255), else Black (0) */
+
+#if SAVE_HASH_PGM
+      binary_viz[(y * 8) + x] = (val > avg) ? 255 : 0;
+#endif
+
+      /* Calculate position in the 64-bit integer */
+      if (val > avg) {
+        hash |= ((uint64_t)1 << (y * width + x));
+      }
+    }
+  }
+
+#if SAVE_HASH_PGM
+  save_gray_frame(binary_viz, 8, width, height, FILENAME "-binary",
+                  src_frame->pts);
+#endif
+
+  /* Cleanup */
+  sws_freeContext(sws_ctx);
+  av_frame_free(&smallframe);
+
+  return hash;
+}
+
+/* This is the function called ONLY when a valid frame is fully decoded */
+static void hash_decoded_frame (VideoReader* vreader, uint64_t* hash_out) {
+
+  printf("Frame `%ld`, Res: `%dx%d`, PTS: `%ld`\n",
          vreader->codec_ctx->frame_num, vreader->frame->width,
          vreader->frame->height, vreader->frame->pts);
 
-  // Warning validation
-  if (vreader->frame->format != AV_PIX_FMT_YUV420P &&
-      vreader->frame->format != AV_PIX_FMT_GRAY8) {
-    fprintf(stderr, "Warning: Format is not YUV420P or Grayscale.\n");
-  }
+  *hash_out = average_hash(vreader->frame);
 
-  // Save to disk (Your business logic)
-  save_gray_frame(vreader->frame->data[0], vreader->frame->linesize[0],
-                  vreader->frame->width, vreader->frame->height,
-                  vreader->codec_ctx->frame_num);
+  printf("Hash: %016" PRIx64 "\n", *hash_out);
 }
 
-/* Returns: 0 on success (even if no frame produced yet), negative on critical
- */
-/* error */
-int decode_packet (VideoReader* vreader, int* frames_processed) {
+int decode_packet (VideoReader* vreader) {
   // 1. Send packet to decoder
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
   if (ret < 0) {
@@ -86,32 +238,32 @@ int decode_packet (VideoReader* vreader, int* frames_processed) {
     return ret;
   }
 
-  /* 2. Loop to pull frames (A single packet might contain multiple frames, or
-   * 0) */
+  /* 2. Loop to pull frames (A single packet might contain multiple frames OR 0)
+   */
   while (ret >= 0) {
     ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
 
+    if (ret >= 0) {
+      /* We have a frame. */
+      return 1;
+    }
+
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       /* Not an error. Just means we need more packets or stream is done. */
-      break;
+      return 0;
     }
+
     if (ret < 0) {
       fprintf(stderr, "Error receiving frame: %s\n", av_err2str(ret));
       return ret;
     }
-
-    /* We have a frame!  */
-    process_valid_frame(vreader);
-    ++(*frames_processed);
   }
   return 0;
 }
 
 int open_video_reader (char* filename, VideoReader* vreader) {
 
-  /* 0.
-   * Initialise VideoReader
-   */
+  /* Initialise VideoReader */
   vreader->fmt_ctx = NULL;
   vreader->codec_ctx = NULL;
   vreader->frame = NULL;
@@ -120,8 +272,7 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   printf("Opening file `%s`", filename);
 
-  /* 1. Open input file and read header data.
-   */
+  /* Open input file and read header data. */
   bool got_info = true;
 
   /* Opens input file and guesses format of file */
@@ -145,8 +296,7 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   printf("\nSearching container for video stream...\n");
 
-  /* 3.
-   * Find Video Stream & Codec */
+  /* Find Video Stream & Codec */
 
   const AVCodec* codec = NULL;
   AVCodecParameters* codec_params = NULL;
@@ -172,7 +322,7 @@ int open_video_reader (char* filename, VideoReader* vreader) {
     return -1;
   }
 
-  // 4. Init Codec Context
+  /* Init Codec Context */
   vreader->codec_ctx = avcodec_alloc_context3(codec);
 
   if (!vreader->codec_ctx) {
@@ -190,7 +340,7 @@ int open_video_reader (char* filename, VideoReader* vreader) {
     return -1;
   }
 
-  // 5. Alloc Buffers
+  /* Alloc Buffers */
   vreader->frame = av_frame_alloc();
   vreader->packet = av_packet_alloc();
 
@@ -212,6 +362,17 @@ void close_video_reader (VideoReader* vreader) {
   }
 }
 
+/**
+ * @brief Get duration of video.
+ *
+ * Retrieves duration of video either using container duration (if found) or by
+ * using the video stream specified.
+ *
+ * @param fmt_ctx Format (container) context.
+ * @param vid_stream Video stream.
+ * @return Duration of video.
+ *
+ */
 long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
 
   long duration = vid_stream->duration;
@@ -228,11 +389,28 @@ long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
   return duration;
 }
 
+
+/**
+ * @brief Number of frames divided by segments.
+ *
+ * Returns the number of frames to seek ahead to for the next segment of video.
+ **/
 long calculate_frame_steps (long duration, int segments) {
   long frame_steps = duration / segments;
   return frame_steps;
 }
 
+/**
+ * @brief Seek to timestamp.
+ *
+ * Seeks to a specified timestamp.
+ *
+ * @param vreader VideoReader instance.
+ * @param target_ts Target time stamp.
+ * @return 0 on success, anything else on failure.
+ *
+ * @note When `av_seek_frame` fails, this function will its value.
+ */
 int seek_to_timestamp (VideoReader* vreader, int64_t target_ts) {
   /* 1. Flush the decoder buffers.
    *   If we don't do this, the decoder might return cached frames from the
@@ -258,7 +436,7 @@ int seek_to_timestamp (VideoReader* vreader, int64_t target_ts) {
 }
 
 int main (int argc, char* argv[]) {  // NOLINT (unused-*)
-  char* filename = (argc > 1) ? argv[1] : "./tulsi.mov";
+  char* filename = (argc > 1) ? argv[1] : "./" FILENAME;
 
   VideoReader vreader;
 
@@ -268,60 +446,75 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
     return -1;
   }
 
+  printf("Opened `%s`\n", filename);
+
   AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
   AVFormatContext* format_context_ptr = vreader.fmt_ctx;
   long video_duration = get_video_duration(format_context_ptr, vid_stream_ptr);
-  long frame_step = calculate_frame_steps(video_duration, 4);
 
   // 2. Loop through file packets
 
   /* We want to split the video into this many segments */
   int total_video_segments = 4;
+  long frame_step = calculate_frame_steps(video_duration, total_video_segments);
   /* Counter for # of frames successfully */
   int frames_decoded = 0;
   /* Target timestamp */
   long target_timestamp = 0;
+
+  uint64_t hashes_vidA[4];
+
   for (int i = 0; i < total_video_segments; i++) {
     target_timestamp = ((long)i * frame_step);
 
     printf("\n--- Segment %d/%d : Seeking to TS %" PRId64 " ---\n", i + 1,
            total_video_segments, target_timestamp);
 
-    // A. SEEK
+    /* Seek to timestamp */
     if (seek_to_timestamp(&vreader, target_timestamp) < 0) {
       fprintf(stderr, "Could not seek to segment %d\n", i);
       continue;  // Try next segment
     }
 
-    // B. DECODE (Read packets until we get ONE valid frame)
-    int frame_for_this_segment_found = 0;
+    bool frame_found_for_segment = false;
 
+    // Decode packets til we get a frame
     while (av_read_frame(vreader.fmt_ctx, vreader.packet) >= 0) {
 
-      // Only process video packets
-      if (vreader.packet->stream_index == vreader.video_stream_idx) {
+      /* Only process video packets */
+      if (vreader.packet->stream_index != vreader.video_stream_idx) {
+        av_packet_unref(vreader.packet);
+        continue;
+      }
 
-        // We pass 'valid_frames_found' just for counting purposes
-        // Note: decode_packet returns 0 on success, even if no frame ready yet
-        int prev_frame_count = frames_decoded;
+      int decoding_success = decode_packet(&vreader);
 
-        if (decode_packet(&vreader, &frames_decoded) < 0) {
-          break;  // Error
-        }
+      if (decoding_success == 1) {
 
-        // Did valid_frames_found increment?
-        // If yes, we got our frame for this segment!
-        if (frames_decoded > prev_frame_count) {
-          frame_for_this_segment_found = 1;
+        long current_pts = vreader.frame->pts;
+        if (current_pts < target_timestamp) {
+          printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
+                 target_timestamp);
           av_packet_unref(vreader.packet);
-          break;  // BREAK the inner read loop, move to next segment
+          continue; /* Loop again to get next frame */
         }
-      }
 
-      av_packet_unref(vreader.packet);
-      if (!frame_for_this_segment_found) {
-        /* printf("Warning: Could not extract frame for segment %d\n", i); */
+        hash_decoded_frame(&vreader, &hashes_vidA[frames_decoded]);
+        frame_found_for_segment = true;
+        frames_decoded++;
+        av_packet_unref(vreader.packet);
+        break; /* Stop reading packets for this segment */
       }
+      if (decoding_success < 0) {
+        fprintf(stderr, "Decoding failed.\n");
+        av_packet_unref(vreader.packet);
+        break; /* Error */
+      }
+      av_packet_unref(vreader.packet);
+    }
+
+    if (!frame_found_for_segment) {
+      printf("Warning: No frame decoded for segment %d\n", i);
     }
   }
 
