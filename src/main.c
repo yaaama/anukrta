@@ -9,7 +9,9 @@
 #include <libavutil/avutil.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
+#include <libavutil/mathematics.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/timestamp.h>
 #include <libswscale/swscale.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -413,6 +415,14 @@ void close_video_reader (VideoReader* vreader) {
   }
 }
 
+long frame_pts_to_microsecond (long pts, AVRational timebase) {
+  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+}
+
+double frame_pts_to_seconds (long pts, AVRational timebase) {
+  return ((double)av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
+}
+
 /**
  * @brief Get duration of video.
  *
@@ -421,24 +431,32 @@ void close_video_reader (VideoReader* vreader) {
  *
  * @param fmt_ctx Format (container) context.
  * @param vid_stream Video stream.
- * @return Duration of video.
+ * @return Duration of video in microseconds.
  *
  */
 long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
 
-  long duration = vid_stream->duration;
-  assert(duration > 0);
+  /* duration in stream-base */
+  long duration_in_sb = vid_stream->duration;
+  AVRational stream_timebase = vid_stream->time_base;
+  printf(" Time base for stream: `%d/%d`\n", stream_timebase.num,
+         stream_timebase.den);
 
-  if (duration == AV_NOPTS_VALUE) {
+  if (duration_in_sb == AV_NOPTS_VALUE) {
     fprintf(stderr,
             "Video stream is omitting duration. Falling back to container "
-            "duration.");
+            "duration (`%ld`)\n",
+            fmt_ctx->duration);
 
-    duration =
-        av_rescale_q(fmt_ctx->duration, AV_TIME_BASE_Q, vid_stream->time_base);
+    return fmt_ctx->duration;
   }
 
-  return duration;
+  long duration_us =
+      av_rescale_q(duration_in_sb, stream_timebase, AV_TIME_BASE_Q);
+  printf(" Duration of video: `%ld` microseconds\n", duration_us);
+  printf(" Duration of video: `%f` seconds\n",
+         frame_pts_to_seconds(duration_in_sb, stream_timebase));
+  return duration_us;
 }
 
 /**
