@@ -34,6 +34,7 @@ typedef struct VideoReader {
   AVPacket* packet;
   /* Decoded packet */
   AVFrame* frame;
+
 } VideoReader;
 
 typedef enum anuHashType {
@@ -248,9 +249,8 @@ uint64_t dct_hash (AVFrame* frame) {
 static void hash_decoded_frame (VideoReader* vreader, anuHashType hash_algo,
                                 uint64_t* hash_out) {
 
-  printf("Frame `%ld`, Res: `%dx%d`, PTS: `%ld`\n",
-         vreader->codec_ctx->frame_num, vreader->frame->width,
-         vreader->frame->height, vreader->frame->pts);
+  printf("Hashing Frame `%ld`, PTS: `%ld`\n", vreader->codec_ctx->frame_num,
+         vreader->frame->best_effort_timestamp);
 
   uint64_t hash = 0;
   switch (hash_algo) {
@@ -281,6 +281,7 @@ static void hash_decoded_frame (VideoReader* vreader, anuHashType hash_algo,
 int decode_packet (VideoReader* vreader) {
   // 1. Send packet to decoder
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
+
   if (ret < 0) {
     fprintf(stderr, "Error sending packet: `%s`\n", av_err2str(ret));
     return ret;
@@ -291,19 +292,23 @@ int decode_packet (VideoReader* vreader) {
   while (ret >= 0) {
     ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
 
-    if (ret >= 0) {
-      /* We have a frame. */
-      return 1;
-    }
-
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       /* Not an error. Just means we need more packets or stream is done. */
+      return 0;
+    }
+    if (ret == AVERROR_INVALIDDATA) {
       return 0;
     }
 
     if (ret < 0) {
       fprintf(stderr, "Error receiving frame: %s\n", av_err2str(ret));
       return ret;
+    }
+
+    if (ret == 0) {
+      /* We have a frame. */
+      /* printf("Frame number: %ld\n", vreader->codec_ctx->frame_num); */
+      return 1;
     }
   }
   return 0;
@@ -318,23 +323,29 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   vreader->packet = NULL;
   vreader->video_stream_idx = -1;
 
-  printf("Opening file `%s`", filename);
+  printf("\n=== Opening File `%s` ===\n", filename);
 
   /* Open input file and read header data. */
   bool got_info = true;
 
   /* Opens input file and guesses format of file */
-  if (avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL) != 0) {
-    fprintf(stderr, "Could not open file (%s)\n", filename);
+  int errcode = 0;
+  errcode = avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL);
+  if (errcode < 0) {
+    fprintf(stderr, "Could not open file (`%s`): `%s`\n", filename,
+            av_err2str(errcode));
     fprintf(stderr, "Will try to read stream information next...\n");
+    errcode = 0;
   }
 
   /* Will read bytes from file/decode a few frames to fill out context that the
      method above missed (`avformat_open_input` will only read header of file)
    */
-  if (avformat_find_stream_info(vreader->fmt_ctx, NULL) < 0) {
-    fprintf(stderr, "Could not find stream info!\n");
+  errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
+  if (errcode < 0) {
+    fprintf(stderr, "Could not find stream info: `%s`\n", av_err2str(errcode));
     got_info = false;
+    errcode = 0;
   }
 
   if (got_info == false) {
@@ -353,8 +364,12 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   vreader->video_stream_idx = av_find_best_stream(
       vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
-  if (vreader->video_stream_idx == -1) {
+  if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
     fprintf(stderr, "No video stream found.\n");
+    return -1;
+  }
+  if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
+    fprintf(stderr, "No decoder found for stream.\n");
     return -1;
   }
 
@@ -404,10 +419,13 @@ void close_video_reader (VideoReader* vreader) {
   if (vreader->packet) {
     av_packet_free(&vreader->packet);
   }
+
   if (vreader->frame) {
     av_frame_free(&vreader->frame);
   }
   if (vreader->codec_ctx) {
+    /* Drain decoder */
+    avcodec_send_packet(vreader->codec_ctx, NULL);
     avcodec_free_context(&vreader->codec_ctx);
   }
   if (vreader->fmt_ctx) {
@@ -476,28 +494,31 @@ long calculate_frame_steps (long duration, int segments) {
  * Seeks to a specified timestamp.
  *
  * @param vreader VideoReader instance.
- * @param target_ts Target time stamp.
+ * @param target_ts Target time stamp (in streams own time base).
  * @return 0 on success, anything else on failure.
  *
- * @note When `av_seek_frame` fails, this function will its value.
+ * @note When `av_seek_frame` fails, this function returns its value.
  */
-int seek_to_timestamp (VideoReader* vreader, int64_t target_ts) {
-  /* 1. Flush the decoder buffers.
+int seek_to_timestamp (VideoReader* vreader, int64_t target_pts) {
+
+  int ret = 0;
+
+  /* Flush the decoder buffers.
    *   If we don't do this, the decoder might return cached frames from the
    *   old position before decoding frames from the new position. */
   avcodec_flush_buffers(vreader->codec_ctx);
 
-  /* 2. Perform the seek
+  /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
    jump to the nearest keyframe BEFORE this timestamp.
    *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
    * frame number (rarely works well), so we stick to TimeStamp seeking
    (default). */
-  int ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx,
-                          target_ts, AVSEEK_FLAG_BACKWARD);
+  ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts,
+                      AVSEEK_FLAG_BACKWARD);
 
   if (ret < 0) {
-    fprintf(stderr, "Error seeking to timestamp %" PRId64 ": %s\n", target_ts,
+    fprintf(stderr, "Error seeking to timestamp %" PRId64 ": %s\n", target_pts,
             av_err2str(ret));
     return ret;
   }
@@ -516,36 +537,40 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
     return -1;
   }
 
-  printf("Opened `%s`\n", filename);
-
   AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
   AVFormatContext* format_context_ptr = vreader.fmt_ctx;
-  long video_duration = get_video_duration(format_context_ptr, vid_stream_ptr);
 
   /* Loop through file packets */
 
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
-  long frame_step = calculate_frame_steps(video_duration, total_video_segments);
+  long video_duration_us =
+      get_video_duration(format_context_ptr, vid_stream_ptr);
+  long frame_step_us =
+      calculate_frame_steps(video_duration_us, total_video_segments);
   /* Counter for # of frames successfully */
   int frames_decoded = 0;
   /* Target timestamp */
-  long target_timestamp = 0;
+  long seek_target_us = 0;
+  long seek_target_sb = 0;
 
   for (int i = 0; i < total_video_segments; i++) {
-    target_timestamp = ((long)i * frame_step);
+    seek_target_us = ((long)i * frame_step_us);
+    seek_target_sb =
+        av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    printf("\n--- Segment %d/%d : Seeking to TS %" PRId64 " ---\n", i + 1,
-           total_video_segments, target_timestamp);
+    printf("\n--- Segment %d/%d : Seeking to PTS %" PRId64 " (%.3f sec) ---\n",
+           i + 1, total_video_segments, seek_target_sb,
+           (double)seek_target_us / 1000000.0);
 
     /* Seek to timestamp */
-    if (seek_to_timestamp(&vreader, target_timestamp) < 0) {
+    if (seek_to_timestamp(&vreader, seek_target_sb) < 0) {
       fprintf(stderr, "Could not seek to segment %d\n", i);
       continue;  // Try next segment
     }
 
     bool frame_found_for_segment = false;
-
+    int decoding_success = 0;
     // Decode packets til we get a frame
     while (av_read_frame(vreader.fmt_ctx, vreader.packet) >= 0) {
 
@@ -555,12 +580,12 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
         continue;
       }
 
-      int decoding_success = decode_packet(&vreader);
+      decoding_success = decode_packet(&vreader);
 
       if (decoding_success == 1) {
 
         long current_pts = vreader.frame->pts;
-        if (current_pts < target_timestamp) {
+        if (current_pts < seek_target_sb) {
           /* printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
            * target_timestamp); */
           av_packet_unref(vreader.packet);
@@ -572,6 +597,10 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
         frames_decoded++;
         av_packet_unref(vreader.packet);
         break; /* Stop reading packets for this segment */
+      }
+      if (decoding_success == 0) {
+        av_packet_unref(vreader.packet);
+        continue;
       }
       if (decoding_success < 0) {
         fprintf(stderr, "Decoding failed.\n");
