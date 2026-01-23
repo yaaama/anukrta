@@ -20,6 +20,8 @@
 #include <stdio.h>
 
 #define SAVE_HASH_PGM 0
+#define MATRIX_BUF_SIZE 32
+#define MAX_SEGMENTS 20
 
 typedef struct VideoReader {
   /* File (container/AV file) context
@@ -170,24 +172,43 @@ int scale_frame (AVFrame* src_frame, AVFrame* out_frame, size_t width,
   return 0;
 }
 
+/**
+ * @brief Initialise a grayscale frame of specified width and height.
+ **/
+int init_gray_frame (AVFrame* output, int width, int height) {
+  output->height = height;
+  output->width = width;
+  output->format = AV_PIX_FMT_GRAY8;
+
+  if (av_frame_get_buffer(output, 0) != 0) {
+    av_frame_free(&output);
+    fprintf(stderr, "Could not initialise grayscale frame buffer.\n");
+    return 1;
+  }
+
+  return 0;
+}
+
 uint64_t average_hash (AVFrame* src_frame) {
   uint64_t hash = 0;
   int width = 8;
   int height = 8;
 
   /* Create small frame to hold shrunken src frame */
-  AVFrame* smallframe = av_frame_alloc();
-  smallframe->format = AV_PIX_FMT_GRAY8;
-  smallframe->width = width;
-  smallframe->height = height;
+  AVFrame* smallframe;
+  smallframe = av_frame_alloc();
+  if (smallframe == NULL) {
+    fprintf(stderr, "Could not allocate memory.\n");
+    return 1;
+  }
 
-  if (av_frame_get_buffer(smallframe, 0) != 0) {
-    fprintf(stderr, "Could not initialise frame.\n");
-    av_frame_free(&smallframe);
+  if (init_gray_frame(smallframe, width, height)) {
+    abort();
   }
 
   if (scale_frame(src_frame, smallframe, width, height)) {
     fprintf(stderr, "Failed to scale frame!");
+    av_frame_free(&smallframe);
     exit(0);
   }
 
@@ -625,10 +646,11 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   char* filename = (argc > 1) ? argv[1] : "./tulsi.mov";
   char* filename2 = "tulsi2.mov";
 
-  const int SEGMENTS = 4;
+  const int SEGMENTS = 10;
 
-  uint64_t hashes_vidA[SEGMENTS];
-  uint64_t hashes_vidB[SEGMENTS];
+  uint64_t hashes_vidA[MAX_SEGMENTS];
+  uint64_t hashes_vidAvg[MAX_SEGMENTS];
+  uint64_t hashes_vidB[MAX_SEGMENTS];
 
   hash_video(filename, &hashes_vidA[0], SEGMENTS, ANUHASH_AVG);
   hash_video(filename2, &hashes_vidB[0], SEGMENTS, ANUHASH_AVG);
