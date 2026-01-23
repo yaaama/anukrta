@@ -18,6 +18,8 @@ Checks: >
   -readability-identifier-length,
   -readability-magic-numbers,
   -Wunused-function,
+  -*unused-*,
+  -*swappable-parameters,
 
 
 WarningsAsErrors: ""

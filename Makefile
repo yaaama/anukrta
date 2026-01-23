@@ -8,18 +8,28 @@ BIN_DIR := build
 INC_DIR := include
 
 # Compiler settings
-CC := gcc
+CC := clang
 
 ASAN := 1
-DEV_FLAGS := -ggdb -O0 -g -Wstrict-prototypes -Wold-style-definition -Wshadow	\
--Wvla -pedantic -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
-# Standard warnings + optimizations + debug info
+DEBUG := 1
 
+# FLAGS FOR DEVELOPMENT
+DEV_FLAGS := -ggdb -O0 -g -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function \
+-fextend-variable-liveness -ftrapv
+
+# FLAGS FOR RELEASE BUILD
 RELEASE_FLAGS := -O2
-CFLAGS := -std=c11 -Wall -Wextra
+
+# DEFAULT FLAGS
+CFLAGS := -std=c11 \
+-Wall -Wextra -Wstrict-prototypes \
+-Wold-style-definition -Wshadow \
+-Wvla -pedantic
 
 ifeq (${DEBUG}, 1)
 	CFLAGS += $(DEV_FLAGS)
+else
+	CFLAGS += $(RELEASE_FLAGS)
 endif
 
 # ==========================================
