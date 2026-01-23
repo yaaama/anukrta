@@ -745,7 +745,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
       /* Successfully decoded a frame */
       if (decoding_success == 1) {
 
-        long current_pts = vreader.frame->pts;
+        long current_pts = vreader.frame->best_effort_timestamp;
         if (current_pts < seek_target_sb) {
           /* printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
            * target_timestamp); */
