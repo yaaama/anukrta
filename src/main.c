@@ -25,7 +25,6 @@
 
 void debug_print_matrix(double* matrix, int rows, int cols);
 
-
 /* Helper to visualise matrix */
 void debug_print_matrix (double* matrix, int rows, int cols) {
   printf("--- %dx%d Visual Dump ---\n", cols, rows);
@@ -86,8 +85,7 @@ static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
   }
 
   /* p5 image headers must end with 255
-  https://en.wikipedia.org/wiki/Netpbm_format#PGM_example
-  */
+   * https://en.wikipedia.org/wiki/Netpbm_format#PGM_example */
   const int header_end_marker = 255;
   fprintf(fptr, "P5\n%d %d\n%d\n", xsize, ysize, header_end_marker);
 
@@ -283,7 +281,6 @@ uint64_t average_hash (AVFrame* src_frame) {
 
   /* Cleanup */
   av_frame_free(&smallframe);
-
   return hash;
 }
 
@@ -435,7 +432,7 @@ static void hash_decoded_frame (VideoReader* vreader, anuHashType hash_algo,
 }
 
 int decode_packet (VideoReader* vreader) {
-  // 1. Send packet to decoder
+  /* Send packet to decoder */
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
 
   if (ret < 0) {
@@ -443,8 +440,8 @@ int decode_packet (VideoReader* vreader) {
     return ret;
   }
 
-  /* 2. Loop to pull frames (A single packet might contain multiple frames OR 0)
-   */
+  /* Loop to pull frames
+   * NOTE: A single may contain 0 frames, or MANY frames. */
   while (ret >= 0) {
     ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
 
@@ -613,23 +610,23 @@ long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
   /* duration in stream-base */
   long duration_in_sb = vid_stream->duration;
   AVRational stream_timebase = vid_stream->time_base;
-  printf(" Time base for stream: `%d/%d`\n", stream_timebase.num,
+  printf("Time base for stream: `%d/%d`\n", stream_timebase.num,
          stream_timebase.den);
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
-    fprintf(stderr,
-            "Video stream is omitting duration. Falling back to container "
-            "duration (`%ld`)\n",
-            fmt_ctx->duration);
+    fprintf(
+        stderr,
+        "Warning: Video stream is omitting duration. Falling back to container "
+        "duration (`%ld`)\n",
+        fmt_ctx->duration);
 
     return fmt_ctx->duration;
   }
 
   long duration_us =
       av_rescale_q(duration_in_sb, stream_timebase, AV_TIME_BASE_Q);
-  printf(" Duration of video: `%ld` microseconds\n", duration_us);
-  printf(" Duration of video: `%f` seconds\n",
-         frame_pts_to_seconds(duration_in_sb, stream_timebase));
+  printf("Duration of video: `%f` seconds (`%ld` micro/s)\n",
+         frame_pts_to_seconds(duration_in_sb, stream_timebase), duration_us);
   return duration_us;
 }
 
@@ -693,8 +690,10 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
     return -1;
   }
 
-  AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
+  /* Container */
   AVFormatContext* format_context_ptr = vreader.fmt_ctx;
+  /* Video stream */
+  AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
 
   /* Loop through file packets */
 
@@ -702,20 +701,27 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
   int total_video_segments = segments;
   long video_duration_us =
       get_video_duration(format_context_ptr, vid_stream_ptr);
-  long frame_step_us =
-      calculate_frame_steps(video_duration_us, total_video_segments);
-  /* Counter for # of frames successfully */
+  long frame_step_us = video_duration_us / total_video_segments;
+  /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
-  /* Target timestamp */
+  /* Target timestamp in microseconds */
   long seek_target_us = 0;
+  /* Target timestamp in streams timebase (tick) */
   long seek_target_sb = 0;
 
+  /* Return value of `decode_packet` */
+  int decoding_success = 0;
+  /* Loop will turn this true when we have decoded a frame for the segment */
+  bool frame_found_for_segment = false;
   for (int i = 0; i < total_video_segments; i++) {
+    decoding_success = 0;
+    frame_found_for_segment = false;
+
     seek_target_us = ((long)i * frame_step_us);
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    printf("\n--- Segment %d/%d : Seeking to PTS %" PRId64 " (%.3f sec) ---\n",
+    printf("--- Segment %d/%d : Seeking to PTS %" PRId64 " (%.3f sec) ---\n",
            i + 1, total_video_segments, seek_target_sb,
            (double)seek_target_us / 1000000.0);
 
@@ -725,9 +731,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
       continue;  // Try next segment
     }
 
-    bool frame_found_for_segment = false;
-    int decoding_success = 0;
-    // Decode packets til we get a frame
+    /* Decode packets til we get a frame */
     while (av_read_frame(vreader.fmt_ctx, vreader.packet) >= 0) {
 
       /* Only process video packets */
@@ -738,6 +742,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
 
       decoding_success = decode_packet(&vreader);
 
+      /* Successfully decoded a frame */
       if (decoding_success == 1) {
 
         long current_pts = vreader.frame->pts;
@@ -752,16 +757,21 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
         frame_found_for_segment = true;
         frames_decoded++;
         av_packet_unref(vreader.packet);
-        break; /* Stop reading packets for this segment */
+        /* Stop reading packets for this segment */
+        break;
       }
+
+      /* We need more data... */
       if (decoding_success == 0) {
         av_packet_unref(vreader.packet);
         continue;
       }
+
+      /* Decoding error encountered */
       if (decoding_success < 0) {
         fprintf(stderr, "Decoding failed.\n");
         av_packet_unref(vreader.packet);
-        break; /* Error */
+        break;
       }
       av_packet_unref(vreader.packet);
     }
