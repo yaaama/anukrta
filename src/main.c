@@ -788,9 +788,51 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
   printf("Done. Processed %d frames.\n", frames_decoded);
   return 0;
 }
+
+int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB, int segments) {
+  int total_distance = 0;
+  int total_bits = segments * 64; /* 64 bits per hash */
+
+  printf("\nCOMPARISON REPORT\n");
+  printf("%-10s | %-16s | %-16s | %s\n", "Segment", "Hash A", "Hash B",
+         "Distance");
+  printf("-----------|------------------|------------------|---------\n");
+
+  for (int i = 0; i < segments; i++) {
+    int dist = hamming_distance(hashesA[i], hashesB[i]);
+    total_distance += dist;
+    printf("%-10d | %016" PRIx64 " | %016" PRIx64 " | %d\n", i, hashesA[i],
+           hashesB[i], dist);
+  }
+
+  /* Calculate similarity percentage */
+  /* 1.0 means identical, 0.0 means completely opposite */
+
+  double similarity = 1.0 - ((double)total_distance / (double)total_bits);
+
+  printf("\nTotal Hamming Distance: %d / %d bits\n", total_distance,
+         total_bits);
+  printf("Similarity Score:\t\t%.2f%%\n", similarity * 100);
+
+  /* DECISION THRESHOLD */
+  /* For pHash (8x8), a distance of <= 10 on a single image is usually a match.
+   For 4 segments (256 bits total), a safe threshold is usually around 10-15%
+   difference. */
+
+  const int THRESHOLD = 20;
+
+  if (total_distance <= THRESHOLD) {
+    printf("VERDICT: DUPLICATES (High confidence)\n");
+    return 1;
+  }
+  printf("VERDICT: DIFFERENT VIDEOS\n");
+  return 0;
+}
+
 int main (int argc, char* argv[]) {  // NOLINT (unused-*)
-  char* filename = (argc > 1) ? argv[1] : "./tulsi.mov";
-  char* filename2 = "tulsi2.mov";
+  char* filename = (argc > 1) ? argv[1] : "./etc/tulsi.mov";
+  /* char* filename2 = "./etc/tulsi_shortened.mkv"; */
+  char* filename2 = "./etc/tulsi_bad.mov";
 
   const int SEGMENTS = 10;
 
