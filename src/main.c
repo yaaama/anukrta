@@ -449,8 +449,9 @@ int decode_packet (VideoReader* vreader) {
       /* Not an error. Just means we need more packets or stream is done. */
       return 0;
     }
+
     if (ret == AVERROR_INVALIDDATA) {
-      return 0;
+      return -1;
     }
 
     if (ret < 0) {
