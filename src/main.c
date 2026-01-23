@@ -23,6 +23,33 @@
 #define MATRIX_BUF_SIZE 32
 #define MAX_SEGMENTS 20
 
+void debug_print_matrix(double* matrix, int rows, int cols);
+
+
+/* Helper to visualise matrix */
+void debug_print_matrix (double* matrix, int rows, int cols) {
+  printf("--- %dx%d Visual Dump ---\n", cols, rows);
+  for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
+    for (int x = 0; x < cols; x++) {
+      double val = matrix[(y * cols) + x];
+      /* Simple ASCII mapping */
+      char c = ' ';
+      if (val > 200) {
+        c = '#';
+      } else if (150 < val) {
+        c = '+';
+      } else if (100 < val) {
+        c = ':';
+      } else if (50 < val) {
+        c = '.';
+      }
+      printf("%c", c);
+    }
+    printf("\n");
+  }
+  printf("-------------------------\n");
+}
+
 typedef struct VideoReader {
   /* File (container/AV file) context
    * AVFormatContext holds the header information stored in file (container) */
@@ -334,6 +361,7 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
     }
   }
 
+  debug_print_matrix(&dct_result[0][0], 32, 32);
   return final_hash;
 }
 
