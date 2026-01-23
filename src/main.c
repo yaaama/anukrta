@@ -260,8 +260,115 @@ uint64_t average_hash (AVFrame* src_frame) {
   return hash;
 }
 
-uint64_t dct_hash (AVFrame* frame) {
+/* Helper for the coefficient scaling factor in DCT-II
+ *   C(u) = 1/sqrt(2) if u=0, else 1 */
+static double dct_c (int u) {
+  if (u == 0) {
+    return 1.0 / sqrt(2.0);
+  }
+  return 1.0;
+}
+
+uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
+  /* Intermediate storage */
+  double row_result[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE];
+  /* Final result */
+  double dct_result[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE];
+
+  double N = rows;
+  double scale_factor = sqrt(2.0 / N);
+
+  /* Pass 1: 1D DCT on Rows */
+  for (int y = 0; y < N; y++) {
+    for (int u = 0; u < N; u++) {
+      double sum = 0.0;
+      for (int x = 0; x < N; x++) {
+        /* Formula: sum += pixel[x] * cos(...) */
+        sum += input_matrix_flat[(y * cols) + x] *
+               cos(((2 * x + 1) * u * M_PI) / (2 * N));
+      }
+      row_result[y][u] = scale_factor * dct_c(u) * sum;
+    }
+  }
+
+  /* Pass 2: 1D DCT on Columns (applied to row_result) */
+  for (int x = 0; x < N; x++) {
+    for (int v = 0; v < N; v++) {
+      double sum = 0.0;
+      for (int y = 0; y < N; y++) {
+        sum += row_result[y][x] * cos(((2 * y + 1) * v * M_PI) / (2 * N));
+      }
+      dct_result[v][x] = scale_factor * dct_c(v) * sum;
+    }
+  }
+
+  double sum_pixels = 0.0;
+  for (int y = 0; y < 8; y++) {
+    for (int x = 0; x < 8; x++) {
+      if (x == 0 && y == 0) {
+        continue;  // Skip DC
+      }
+      sum_pixels += dct_result[y][x];
+    }
+  }
+
+  /* Average of 63 coefficients (8*8 - 1) */
+  double average = sum_pixels / 63.0;
+
+  /* Build the 64-bit hash */
   uint64_t final_hash = 0;
+  for (int y = 0; y < 8; y++) {
+    for (int x = 0; x < 8; x++) {
+
+      final_hash <<= 1;
+      /* Shift hash to make room for new bit
+       * (Order of iteration determines bit position, row-major is standard)
+       * Note: Standard pHash usually sets bit based on >= average */
+      if (y == 0 && x == 0) {
+        continue;
+      }
+
+      if (dct_result[y][x] >= average) {
+        final_hash |= 1;
+      }
+    }
+  }
+
+  return final_hash;
+}
+
+uint64_t dct_hash (AVFrame* src_frame) {
+  uint64_t final_hash = 0;
+  int width = MATRIX_BUF_SIZE;
+  int height = MATRIX_BUF_SIZE;
+
+  AVFrame* gray = av_frame_alloc();
+  if (gray == NULL) {
+    fprintf(stderr, "Failed to initialise gray frame.\n");
+    abort();
+  }
+  if (init_gray_frame(gray, width, height)) {
+    abort();
+  }
+
+  if (scale_frame(src_frame, gray, width, height)) {
+    fprintf(stderr, "Failed to scale frame!");
+    /* Clean up before aborting */
+    av_frame_free(&gray);
+    abort();
+  }
+
+  double matrix[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE] = {0};
+
+  for (int y = 0; y < height; y++) {
+    uint8_t* row_ptr = gray->data[0] + ((ptrdiff_t)y * gray->linesize[0]);
+    for (int x = 0; x < width; x++) {
+      matrix[y][x] = (double)row_ptr[x];
+    }
+  }
+
+  final_hash = calculate_dct_phash(&matrix[0][0], 32, 32);
+  av_frame_free(&gray);
 
   return final_hash;
 }
