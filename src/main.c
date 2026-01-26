@@ -755,6 +755,8 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
   int decoding_success = 0;
   /* Loop will turn this true when we have decoded a frame for the segment */
   bool frame_found_for_segment = false;
+  long current_pts = 0;
+
   for (int i = 0; i < total_video_segments; i++) {
     decoding_success = 0;
     frame_found_for_segment = false;
@@ -787,7 +789,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
       /* Successfully decoded a frame */
       if (decoding_success == 1) {
 
-        long current_pts = vreader.frame->best_effort_timestamp;
+        current_pts = vreader.frame->best_effort_timestamp;
         if (current_pts < seek_target_sb) {
           /* printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
            * target_timestamp); */
