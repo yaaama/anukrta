@@ -832,19 +832,20 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
   return 0;
 }
 
-int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB, int segments) {
-  int total_distance = 0;
-  int total_bits = segments * 64; /* 64 bits per hash */
+int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
+                          uint64_t segments) {
+  uint64_t total_distance = 0;
+  uint64_t total_bits = (uint64_t)(segments * 64); /* 64 bits per hash */
 
   printf("\nCOMPARISON REPORT\n");
   printf("%-10s | %-16s | %-16s | %s\n", "Segment", "Hash A", "Hash B",
          "Distance");
   printf("-----------|------------------|------------------|---------\n");
-
-  for (int i = 0; i < segments; i++) {
-    int dist = hamming_distance(hashesA[i], hashesB[i]);
+  uint64_t dist = 0;
+  for (uint64_t i = 0; i < segments; i++) {
+    dist = hamming_distance(hashesA[i], hashesB[i]);
     total_distance += dist;
-    printf("%-10d | %016" PRIx64 " | %016" PRIx64 " | %d\n", i, hashesA[i],
+    printf("%-10lu | %016" PRIx64 " | %016" PRIx64 " | %lu\n", i, hashesA[i],
            hashesB[i], dist);
   }
 
@@ -853,7 +854,7 @@ int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB, int segments) {
 
   double similarity = 1.0 - ((double)total_distance / (double)total_bits);
 
-  printf("\nTotal Hamming Distance: %d / %d bits\n", total_distance,
+  printf("\nTotal Hamming Distance: %lu / %lu bits\n", total_distance,
          total_bits);
   printf("Similarity Score:\t\t%.2f%%\n", similarity * 100);
 
