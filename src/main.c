@@ -13,6 +13,7 @@
 #include <libavutil/pixfmt.h>
 #include <libavutil/timestamp.h>
 #include <libswscale/swscale.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -29,11 +30,11 @@
 void debug_print_matrix(double* matrix, int rows, int cols);
 
 /* Helper to visualise matrix */
-void debug_print_matrix (double* matrix, int rows, int cols) {
+void debug_print_matrix (const float* matrix, int rows, int cols) {
   printf("--- %dx%d Visual Dump ---\n", cols, rows);
   for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
     for (int x = 0; x < cols; x++) {
-      double val = matrix[(y * cols) + x];
+      float val = matrix[(y * cols) + x];
       /* Simple ASCII mapping */
       char c = ' ';
       if (val > 200) {
@@ -287,9 +288,9 @@ uint64_t average_hash (AVFrame* src_frame) {
   return hash;
 }
 
-int compare_doubles (const void* a, const void* b) {
-  double arg1 = *(const double*)a;
-  double arg2 = *(const double*)b;
+int compare_floats (const void* a, const void* b) {
+  double arg1 = *(const float*)a;
+  double arg2 = *(const float*)b;
 
   if (arg1 < arg2) {
     return -1;
@@ -302,34 +303,35 @@ int compare_doubles (const void* a, const void* b) {
 
 /* Helper for the coefficient scaling factor in DCT-II
  *   C(u) = 1/sqrt(2) if u=0, else 1 */
-static double dct_c (int u) {
+static float dct_c (int u) {
   if (u == 0) {
-    return 1.0 / sqrt(2.0);
+    return 1.0F / sqrtf(2.0F);
   }
-  return 1.0;
+  return 1.0F;
 }
 
-uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
+uint64_t calculate_dct_phash (const float* input_matrix_flat, int rows, int cols) {
 
   /* Intermediate storage */
-  double row_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
+  float row_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
   /* Final result */
-  double dct_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
+  float dct_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
 
   const int hash_size = ANU_DCT_HASH_SIZE;
 
-  double N = rows;
-  double scale_factor = sqrt(2.0 / N);
+  int N = rows;
+  float scale_factor = sqrtf(2.0F / (float)N);
 
-  double sum = 0.0;
+  float sum = 0.0F;
   /* Pass 1: 1D DCT on Rows */
   for (int y = 0; y < rows; y++) {
     for (int u = 0; u < hash_size; u++) {
-      sum = 0.0;
+      sum = 0;
       for (int x = 0; x < cols; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
         sum += input_matrix_flat[(y * cols) + x] *
-               cos(((2 * x + 1) * u * M_PI) / (2 * N));
+               cosf(((2.0F * (float)x + 1.0F) * (float)u * M_PIf) /
+                    (2.0F * (float)N));
       }
       row_result[y][u] = scale_factor * dct_c(u) * sum;
     }
@@ -337,15 +339,17 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
   /* Pass 2: 1D DCT on Columns (applied to row_result) */
   for (int x = 0; x < hash_size; x++) {
     for (int v = 0; v < hash_size; v++) {
-      sum = 0.0;
+      sum = 0.0F;
       for (int y = 0; y < rows; y++) {
-        sum += row_result[y][x] * cos(((2 * y + 1) * v * M_PI) / (2 * N));
+        sum += row_result[y][x] *
+               cosf(((2.0F * (float)y + 1.0F) * (float)v * M_PIf) /
+                    (2.0F * (float)N));
       }
       dct_result[v][x] = scale_factor * dct_c(v) * sum;
     }
   }
 
-  double sum_pixels = 0.0;
+  float sum_pixels = 0;
   for (int y = 0; y < hash_size; y++) {
     for (int x = 0; x < hash_size; x++) {
       if (x == 0 && y == 0) {
@@ -356,9 +360,9 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
   }
 
   /* Average of 63 coefficients (8*8 - 1) */
-  double average = sum_pixels / (double)((hash_size * hash_size) - 1);
+  float average = sum_pixels / (float)((hash_size * hash_size) - 1);
 
-  double ac_values[ANU_DCT_HASH_SIZE * ANU_DCT_HASH_SIZE];
+  float ac_values[ANU_DCT_HASH_SIZE * ANU_DCT_HASH_SIZE];
   int idx = 0;
 
   /* Collect all coefficients except [0][0] */
@@ -372,15 +376,15 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
   }
 
   /* Sort to find the median */
-  qsort(ac_values, 63, sizeof(double), compare_doubles);
+  qsort(ac_values, 63, sizeof(float), compare_floats);
 
   /*
    * The median is the middle element.
    * For 63 elements, index 31 is the exact middle.
    */
-  double median = ac_values[31];
+  float median = ac_values[31];
 
-  double cmp_val = median;
+  float cmp_val = median;
   /* double cmp_val = average; */
 
   /* Build the 64-bit hash */
@@ -421,12 +425,12 @@ uint64_t dct_hash (AVFrame* src_frame) {
     abort();
   }
 
-  double matrix[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE] = {0};
+  float matrix[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE] = {0};
 
   for (int y = 0; y < height; y++) {
     uint8_t* row_ptr = gray->data[0] + ((ptrdiff_t)y * gray->linesize[0]);
     for (int x = 0; x < width; x++) {
-      matrix[y][x] = (double)row_ptr[x];
+      matrix[y][x] = (float)row_ptr[x];
     }
   }
 
@@ -852,7 +856,7 @@ int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
   /* Calculate similarity percentage */
   /* 1.0 means identical, 0.0 means completely opposite */
 
-  double similarity = 1.0 - ((double)total_distance / (double)total_bits);
+  float similarity = 1 - ((float)total_distance / (float)total_bits);
 
   printf("\nTotal Hamming Distance: %lu / %lu bits\n", total_distance,
          total_bits);
