@@ -23,6 +23,9 @@
 #define MATRIX_BUF_SIZE 32
 #define MAX_SEGMENTS 20
 
+/* Size of row/col len of DCT hash */
+#define ANU_DCT_HASH_SIZE 8
+
 void debug_print_matrix(double* matrix, int rows, int cols);
 
 /* Helper to visualise matrix */
@@ -97,11 +100,11 @@ static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
   fclose(fptr);
 }
 
-int hamming_distance (uint64_t hash1, uint64_t hash2) {
+uint64_t hamming_distance (uint64_t hash1, uint64_t hash2) {
   uint64_t x =
       hash1 ^
       hash2; /* XOR finds the differences (returns 1 where bits differ) */
-  int dist = 0;
+  uint64_t dist = 0;
 
   /* Count the number of 1s (Kernighan's algorithm) */
   while (x) {
@@ -284,6 +287,19 @@ uint64_t average_hash (AVFrame* src_frame) {
   return hash;
 }
 
+int compare_doubles (const void* a, const void* b) {
+  double arg1 = *(const double*)a;
+  double arg2 = *(const double*)b;
+
+  if (arg1 < arg2) {
+    return -1;
+  }
+  if (arg1 > arg2) {
+    return 1;
+  }
+  return 0;
+}
+
 /* Helper for the coefficient scaling factor in DCT-II
  *   C(u) = 1/sqrt(2) if u=0, else 1 */
 static double dct_c (int u) {
@@ -294,19 +310,23 @@ static double dct_c (int u) {
 }
 
 uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
+
   /* Intermediate storage */
-  double row_result[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE];
+  double row_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
   /* Final result */
-  double dct_result[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE];
+  double dct_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
+
+  const int hash_size = ANU_DCT_HASH_SIZE;
 
   double N = rows;
   double scale_factor = sqrt(2.0 / N);
 
+  double sum = 0.0;
   /* Pass 1: 1D DCT on Rows */
-  for (int y = 0; y < N; y++) {
-    for (int u = 0; u < N; u++) {
-      double sum = 0.0;
-      for (int x = 0; x < N; x++) {
+  for (int y = 0; y < rows; y++) {
+    for (int u = 0; u < hash_size; u++) {
+      sum = 0.0;
+      for (int x = 0; x < cols; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
         sum += input_matrix_flat[(y * cols) + x] *
                cos(((2 * x + 1) * u * M_PI) / (2 * N));
@@ -314,12 +334,11 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
       row_result[y][u] = scale_factor * dct_c(u) * sum;
     }
   }
-
   /* Pass 2: 1D DCT on Columns (applied to row_result) */
-  for (int x = 0; x < N; x++) {
-    for (int v = 0; v < N; v++) {
-      double sum = 0.0;
-      for (int y = 0; y < N; y++) {
+  for (int x = 0; x < hash_size; x++) {
+    for (int v = 0; v < hash_size; v++) {
+      sum = 0.0;
+      for (int y = 0; y < rows; y++) {
         sum += row_result[y][x] * cos(((2 * y + 1) * v * M_PI) / (2 * N));
       }
       dct_result[v][x] = scale_factor * dct_c(v) * sum;
@@ -327,8 +346,8 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
   }
 
   double sum_pixels = 0.0;
-  for (int y = 0; y < 8; y++) {
-    for (int x = 0; x < 8; x++) {
+  for (int y = 0; y < hash_size; y++) {
+    for (int x = 0; x < hash_size; x++) {
       if (x == 0 && y == 0) {
         continue;  // Skip DC
       }
@@ -337,28 +356,47 @@ uint64_t calculate_dct_phash (double* input_matrix_flat, int rows, int cols) {
   }
 
   /* Average of 63 coefficients (8*8 - 1) */
-  double average = sum_pixels / 63.0;
+  double average = sum_pixels / (double)((hash_size * hash_size) - 1);
+
+  double ac_values[ANU_DCT_HASH_SIZE * ANU_DCT_HASH_SIZE];
+  int idx = 0;
+
+  /* Collect all coefficients except [0][0] */
+  for (int y = 0; y < hash_size; y++) {
+    for (int x = 0; x < hash_size; x++) {
+      if (x == 0 && y == 0) {
+        continue;  // Skip DC
+      }
+      ac_values[idx++] = dct_result[y][x];
+    }
+  }
+
+  /* Sort to find the median */
+  qsort(ac_values, 63, sizeof(double), compare_doubles);
+
+  /*
+   * The median is the middle element.
+   * For 63 elements, index 31 is the exact middle.
+   */
+  double median = ac_values[31];
+
+  double cmp_val = median;
+  /* double cmp_val = average; */
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
-  for (int y = 0; y < 8; y++) {
-    for (int x = 0; x < 8; x++) {
+  for (int y = 0; y < hash_size; y++) {
+    for (int x = 0; x < hash_size; x++) {
 
       final_hash <<= 1;
-      /* Shift hash to make room for new bit
-       * (Order of iteration determines bit position, row-major is standard)
-       * Note: Standard pHash usually sets bit based on >= average */
-      if (y == 0 && x == 0) {
-        continue;
-      }
 
-      if (dct_result[y][x] >= average) {
+      if (dct_result[y][x] >= cmp_val) {
         final_hash |= 1;
       }
     }
   }
 
-  debug_print_matrix(&dct_result[0][0], 32, 32);
+  debug_print_matrix(&dct_result[0][0], hash_size, hash_size);
   return final_hash;
 }
 
@@ -399,8 +437,8 @@ uint64_t dct_hash (AVFrame* src_frame) {
 }
 
 /* This is the function called ONLY when a valid frame is fully decoded */
-static void hash_decoded_frame (VideoReader* vreader, anuHashType hash_algo,
-                                uint64_t* hash_out) {
+static uint64_t hash_decoded_frame (VideoReader* vreader,
+                                    anuHashType hash_algo) {
 
   printf("Hashing Frame `%ld`, PTS: `%ld`\n", vreader->codec_ctx->frame_num,
          vreader->frame->best_effort_timestamp);
@@ -427,8 +465,9 @@ static void hash_decoded_frame (VideoReader* vreader, anuHashType hash_algo,
   if (hash == 0) {
     fprintf(stderr, "Received a 0 value for hash.");
   }
-  *hash_out = hash;
-  printf("Hash: %016" PRIx64 "\n", *hash_out);
+
+  printf("Hash: %016" PRIx64 "\n", hash);
+  return hash;
 }
 
 int decode_packet (VideoReader* vreader) {
@@ -465,7 +504,7 @@ int decode_packet (VideoReader* vreader) {
       return 1;
     }
   }
-  return 0;
+  return ret;
 }
 
 int open_video_reader (char* filename, VideoReader* vreader) {
@@ -585,6 +624,8 @@ void close_video_reader (VideoReader* vreader) {
   if (vreader->fmt_ctx) {
     avformat_close_input(&vreader->fmt_ctx);
   }
+
+  vreader = NULL;
 }
 
 long frame_pts_to_microsecond (long pts, AVRational timebase) {
@@ -754,7 +795,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
           continue; /* Loop again to get next frame */
         }
 
-        hash_decoded_frame(&vreader, hash_algo, &hashes_out[frames_decoded]);
+        hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
         frame_found_for_segment = true;
         frames_decoded++;
         av_packet_unref(vreader.packet);
@@ -834,15 +875,13 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   /* char* filename2 = "./etc/tulsi_shortened.mkv"; */
   char* filename2 = "./etc/tulsi_bad.mov";
 
-  const int SEGMENTS = 10;
+  const int SEGMENTS = 3;
 
   uint64_t hashes_vidA[MAX_SEGMENTS];
-  uint64_t hashes_vidAvg[MAX_SEGMENTS];
   uint64_t hashes_vidB[MAX_SEGMENTS];
 
-  hash_video(filename, &hashes_vidA[0], SEGMENTS, ANUHASH_AVG);
-  hash_video(filename2, &hashes_vidB[0], SEGMENTS, ANUHASH_AVG);
-
+  hash_video(filename, &hashes_vidA[0], SEGMENTS, ANUHASH_DCT);
+  hash_video(filename2, &hashes_vidB[0], SEGMENTS, ANUHASH_DCT);
   are_videos_duplicate(hashes_vidA, hashes_vidB, SEGMENTS);
 
   return 0;
