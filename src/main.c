@@ -22,7 +22,6 @@
 #include "util.h"
 #include "video.h"
 
-
 /* This is the function called ONLY when a valid frame is fully decoded */
 static uint64_t hash_decoded_frame (VideoReader* vreader,
                                     anuHashType hash_algo) {
@@ -30,16 +29,41 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   printf("Hashing Frame `%ld`, PTS: `%ld`\n", vreader->codec_ctx->frame_num,
          vreader->frame->best_effort_timestamp);
 
+  int width = ANU_DCT_MATRIX_BUF_SIZE;
+  int height = ANU_DCT_MATRIX_BUF_SIZE;
+
+  AVFrame* gray = av_frame_alloc();
+  if (gray == NULL) {
+    fprintf(stderr, "Failed to allocate memory for frame.\n");
+    abort();
+  }
+  if (init_gray_frame(width, height, gray)) {
+    fprintf(stderr, "Failed to initialise frame.\n");
+    abort();
+  }
+
+  if (scale_frame(vreader->frame, width, height, gray)) {
+    fprintf(stderr, "Failed to scale frame!");
+    /* Clean up before aborting */
+    av_frame_free(&gray);
+    abort();
+  }
+
+  /* Generate a 2D matrix of the grayscale values */
+  float matrix[ANU_DCT_MATRIX_BUF_SIZE][ANU_DCT_MATRIX_BUF_SIZE] = {0};
+
+  for (int y = 0; y < height; y++) {
+    uint8_t* row_ptr = gray->data[0] + ((ptrdiff_t)y * gray->linesize[0]);
+    for (int x = 0; x < width; x++) {
+      matrix[y][x] = row_ptr[x];
+    }
+  }
+
   uint64_t hash = 0;
   switch (hash_algo) {
-    case ANUHASH_AVG:
-      {
-        hash = average_hash(vreader->frame);
-        break;
-      }
     case ANUHASH_DCT:
       {
-        hash = dct_hash(vreader->frame);
+        hash = dct_hash(&matrix[0][0]);
         break;
       }
     default:
@@ -54,9 +78,10 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   }
 
   printf("Hash: %016" PRIx64 "\n", hash);
+
+  av_frame_free(&gray);
   return hash;
 }
-
 
 int hash_video (char* filename, anuHashType hash_algo, int segments,
                 uint64_t* hashes_out) {
@@ -222,13 +247,13 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   /* char* filename2 = "./etc/tulsi_shortened.mkv"; */
   char* filename2 = "./etc/cow.mov";
 
-  const int SEGMENTS = 0;
+  const int SEGMENTS = 1;
 
   uint64_t hashes_vidA[ANU_MAX_VIDEO_SEGMENTS];
   uint64_t hashes_vidB[ANU_MAX_VIDEO_SEGMENTS];
 
-  hash_video(filename, SEGMENTS, ANUHASH_DCT, &hashes_vidA[0]);
-  hash_video(filename2, SEGMENTS, ANUHASH_DCT, &hashes_vidB[0]);
+  hash_video(filename, ANUHASH_DCT, SEGMENTS, &hashes_vidA[0]);
+  hash_video(filename2, ANUHASH_DCT, SEGMENTS, &hashes_vidB[0]);
   are_videos_duplicate(hashes_vidA, hashes_vidB, SEGMENTS);
 
   return 0;
