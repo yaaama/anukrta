@@ -22,6 +22,7 @@
 #include <stdio.h>
 
 #include "explore.h"
+#include "stack.h"
 
 #define SAVE_HASH_PGM 0
 /* Size of DCT matrix */
@@ -30,7 +31,6 @@
 #define ANU_DCT_HASH_SIZE 8
 /* Maximum number of video segments to process */
 #define ANU_MAX_VIDEO_SEGMENTS 20
-
 
 /* Helper to visualise matrix */
 void debug_print_matrix (const float* matrix, int rows, int cols) {
@@ -729,8 +729,8 @@ int seek_to_timestamp (VideoReader* vreader, int64_t target_pts) {
   return 0;
 }
 
-int hash_video (char* filename, uint64_t* hashes_out, int segments,
-                anuHashType hash_algo) {
+int hash_video (char* filename, anuHashType hash_algo, int segments,
+                uint64_t* hashes_out) {
 
   if (segments <= 0) {
     printf("Skipping hash for `%s`\n", filename);
@@ -784,7 +784,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
     /* Seek to timestamp */
     if (seek_to_timestamp(&vreader, seek_target_sb) < 0) {
       fprintf(stderr, "Could not seek to segment %d\n", i);
-      continue;  /* Try next segment */
+      continue; /* Try next segment */
     }
 
     /* Decode packets til we get a frame */
@@ -899,8 +899,8 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   uint64_t hashes_vidA[ANU_MAX_VIDEO_SEGMENTS];
   uint64_t hashes_vidB[ANU_MAX_VIDEO_SEGMENTS];
 
-  hash_video(filename, &hashes_vidA[0], SEGMENTS, ANUHASH_DCT);
-  hash_video(filename2, &hashes_vidB[0], SEGMENTS, ANUHASH_DCT);
+  hash_video(filename, SEGMENTS, ANUHASH_DCT, &hashes_vidA[0]);
+  hash_video(filename2, SEGMENTS, ANUHASH_DCT, &hashes_vidB[0]);
   are_videos_duplicate(hashes_vidA, hashes_vidB, SEGMENTS);
 
   return 0;
