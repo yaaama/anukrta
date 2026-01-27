@@ -15,11 +15,12 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include "stack.h"
+
 typedef struct {
   char path[512];
 } anuDirJob;
 
-int anu_open_dir(char* dir_path, DIR** out);
 int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
 
 /* Video extensions */
