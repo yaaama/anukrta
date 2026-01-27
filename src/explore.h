@@ -5,8 +5,13 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <time.h>
+
+#include "stack.h"
 
 typedef char* u8;
+
+#define ANU_MAX_PATH_LEN 512
 
 typedef struct media_info {
   bool fill_later;
@@ -16,16 +21,15 @@ typedef struct media_flags {
   bool fill_later;
 } media_flags;
 
-typedef struct file_entry {
-  u8 path;
-  u8 folder;
-  media_info info;
-  media_flags flags;
+typedef struct anuFile {
+  /* Path */
+  char path[ANU_MAX_PATH_LEN];
+  /* Size in bytes */
   size_t size;
+  long ctime;
+  char name[256];
+} anuFile;
 
-} file_entry;
-
-
-int anu_open_dir (char* dir_path, DIR** out);
-int anu_recursive_filewalk (char* searchp);
+int anu_open_dir(char* dir_path, DIR** out);
+int anu_recursive_filewalk(char* searchp, anuStack* files_out);
 #endif  // EXPLORE_H_

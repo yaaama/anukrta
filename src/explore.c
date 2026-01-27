@@ -13,58 +13,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-
-#define ANU_MAX_PATH_LEN 512
+#include <time.h>
 
 typedef struct {
   char path[512];
 } anuDirJob;
-
-typedef struct {
-  void* items;
-  size_t count;
-  size_t capacity;
-  size_t elem_size;
-} anuStack;
-
-void anu_stack_init (anuStack* s, size_t capacity, size_t elem_size) {
-  s->items = malloc(capacity * elem_size);
-  s->capacity = capacity;
-  s->count = 0;
-  s->elem_size = elem_size;
-}
-
-void anu_stack_push (anuStack* s, void* item_ptr) {
-
-  if (s->count == s->capacity) {
-    s->capacity = (s->capacity * 2);
-    void** copied = (void**)realloc(s->items, (s->capacity * s->elem_size));
-    if (copied == NULL) {
-      perror("Reallocation failed.");
-      exit(0);
-    }
-    s->items = (void*)copied;
-  }
-  void* target_address = (char*)s->items + (s->count * s->elem_size);
-  memcpy(target_address, item_ptr, s->elem_size);
-  ++s->count;
-}
-
-int anu_stack_pop (anuStack* s, void* dest) {
-  if (s->count == 0) {
-    return 0;
-  }
-  --s->count;
-  void* source = (char*)s->items + (s->count * s->elem_size);
-  memcpy(dest, source, s->elem_size);
-
-  return 1;
-}
-
-void anu_stack_destroy (anuStack* s) {
-  free(s->items);
-  s = NULL;
-}
 
 int anu_open_dir(char* dir_path, DIR** out);
 int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
@@ -122,7 +75,7 @@ int extension_is_supported (const char* filename) {
 /* TODO Resolve tilde into absolute path */
 int anu_resolve_tilde (char* path) { return 0; }
 
-int anu_recursive_filewalk (char* searchp) {
+int anu_recursive_filewalk (char* searchp, anuStack* files_out) {
 
   /* Initialise first directory we will explore */
   anuDirJob dirjob;
@@ -144,7 +97,7 @@ int anu_recursive_filewalk (char* searchp) {
   /* Return value of calling stat on file */
   int stat_return = 0;
   /* Path of current file */
-  char fullpath[ANU_MAX_PATH_LEN];
+  char fullpath[ANU_MAX_PATH_LEN] = {0};
   /* Files found counter */
   size_t files_found = 0;
 
@@ -152,7 +105,7 @@ int anu_recursive_filewalk (char* searchp) {
 
     /* Open directory for reading */
     if (anu_open_dir(currjob.path, &dir)) {
-      printf("Could not open directory: %s\n", currjob.path);
+      fprintf(stderr, "Could not open directory: %s\n", currjob.path);
       continue;
     };
 
@@ -163,14 +116,15 @@ int anu_recursive_filewalk (char* searchp) {
         continue;
       }
 
-      if (snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s", currjob.path,
-                   dp->d_name) >= ANU_MAX_PATH_LEN) {
+      if ((snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s", (currjob.path),
+                    dp->d_name)) >= ANU_MAX_PATH_LEN) {
         continue;
       }
       stat_return = stat(fullpath, &statb);
       /* Handle stat errors here... */
       if (stat_return) {
-        printf("We've encountered an error with this file: %s", fullpath);
+        fprintf(stderr, "Stat failed for `%s`: ", fullpath);
+        perror("");
         continue;
       }
 
@@ -185,7 +139,16 @@ int anu_recursive_filewalk (char* searchp) {
       else if (S_ISREG(statb.st_mode)) {
         if (extension_is_supported(fullpath)) {
           /* printf("%s :: %zu\n", fullpath, files_found); */
-          printf("%s\n", fullpath);
+          /* printf("%s\n", fullpath); */
+
+          anuFile file_new = {
+              .size = statb.st_size,
+              .ctime = statb.st_ctime,
+          };
+          memcpy(file_new.name, dp->d_name, 256);
+          memcpy(file_new.path, fullpath, ANU_MAX_PATH_LEN);
+          anu_stack_push(files_out, &file_new);
+
           ++files_found;
         }
       }
