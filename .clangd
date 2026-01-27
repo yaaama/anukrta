@@ -6,16 +6,16 @@ CompileFlags:                     # Tweak the parse settings
   Compiler: clang               # Change argv[0] of compile flags to `clang`
 
 Diagnostics:
-  Suppress: [unused-function, ]
+  Suppress: [unused-function, unused-variable,
+             readability-avoid-unconditional-preprocessor-if, unused-parameter, readability-redundant-declaration ]
   ClangTidy:
   # Add: [bugprone-*, performance-*, readability-*, misc-*, clang-analyzer-*]
-
     FastCheckFilter: Loose
   Includes:
   # IgnoreHeader: ["criterion*"]
     AnalyzeAngledIncludes: false
 
-# MissingIncludes: Strict
+MissingIncludes: Strict
 Completion:
   AllScopes: true
 
