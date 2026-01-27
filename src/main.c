@@ -1,4 +1,5 @@
 /* Video similarity tool */
+
 #include <assert.h>
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
@@ -20,14 +21,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define SAVE_HASH_PGM 0
-#define MATRIX_BUF_SIZE 32
-#define MAX_SEGMENTS 20
+#include "explore.h"
 
+#define SAVE_HASH_PGM 0
+/* Size of DCT matrix */
+#define ANU_DCT_MATRIX_BUF_SIZE 32
 /* Size of row/col len of DCT hash */
 #define ANU_DCT_HASH_SIZE 8
+/* Maximum number of video segments to process */
+#define ANU_MAX_VIDEO_SEGMENTS 20
 
-void debug_print_matrix(double* matrix, int rows, int cols);
 
 /* Helper to visualise matrix */
 void debug_print_matrix (const float* matrix, int rows, int cols) {
@@ -310,12 +313,13 @@ static float dct_c (int u) {
   return 1.0F;
 }
 
-uint64_t calculate_dct_phash (const float* input_matrix_flat, int rows, int cols) {
+uint64_t calculate_dct_phash (const float* input_matrix_flat, int rows,
+                              int cols) {
 
   /* Intermediate storage */
-  float row_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
+  float row_result[ANU_DCT_MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
   /* Final result */
-  float dct_result[MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
+  float dct_result[ANU_DCT_MATRIX_BUF_SIZE][ANU_DCT_HASH_SIZE];
 
   const int hash_size = ANU_DCT_HASH_SIZE;
 
@@ -406,8 +410,8 @@ uint64_t calculate_dct_phash (const float* input_matrix_flat, int rows, int cols
 
 uint64_t dct_hash (AVFrame* src_frame) {
   uint64_t final_hash = 0;
-  int width = MATRIX_BUF_SIZE;
-  int height = MATRIX_BUF_SIZE;
+  int width = ANU_DCT_MATRIX_BUF_SIZE;
+  int height = ANU_DCT_MATRIX_BUF_SIZE;
 
   AVFrame* gray = av_frame_alloc();
   if (gray == NULL) {
@@ -425,7 +429,7 @@ uint64_t dct_hash (AVFrame* src_frame) {
     abort();
   }
 
-  float matrix[MATRIX_BUF_SIZE][MATRIX_BUF_SIZE] = {0};
+  float matrix[ANU_DCT_MATRIX_BUF_SIZE][ANU_DCT_MATRIX_BUF_SIZE] = {0};
 
   for (int y = 0; y < height; y++) {
     uint8_t* row_ptr = gray->data[0] + ((ptrdiff_t)y * gray->linesize[0]);
@@ -728,6 +732,10 @@ int seek_to_timestamp (VideoReader* vreader, int64_t target_pts) {
 int hash_video (char* filename, uint64_t* hashes_out, int segments,
                 anuHashType hash_algo) {
 
+  if (segments <= 0) {
+    printf("Skipping hash for `%s`\n", filename);
+    return 0;
+  }
   VideoReader vreader;
 
   /* Setup video reader */
@@ -776,7 +784,7 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
     /* Seek to timestamp */
     if (seek_to_timestamp(&vreader, seek_target_sb) < 0) {
       fprintf(stderr, "Could not seek to segment %d\n", i);
-      continue;  // Try next segment
+      continue;  /* Try next segment */
     }
 
     /* Decode packets til we get a frame */
@@ -838,6 +846,9 @@ int hash_video (char* filename, uint64_t* hashes_out, int segments,
 
 int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
                           uint64_t segments) {
+  if (segments <= 0) {
+    return 0;
+  }
   uint64_t total_distance = 0;
   uint64_t total_bits = (uint64_t)(segments * 64); /* 64 bits per hash */
 
@@ -878,14 +889,15 @@ int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
 }
 
 int main (int argc, char* argv[]) {  // NOLINT (unused-*)
-  char* filename = (argc > 1) ? argv[1] : "./etc/tulsi.mov";
+  char* filename = "./etc/tulsi.mov";
+  /* char* filename2 = "./etc/tulsi_bad.mov"; */
   /* char* filename2 = "./etc/tulsi_shortened.mkv"; */
-  char* filename2 = "./etc/tulsi_bad.mov";
+  char* filename2 = "./etc/cow.mov";
 
-  const int SEGMENTS = 3;
+  const int SEGMENTS = 0;
 
-  uint64_t hashes_vidA[MAX_SEGMENTS];
-  uint64_t hashes_vidB[MAX_SEGMENTS];
+  uint64_t hashes_vidA[ANU_MAX_VIDEO_SEGMENTS];
+  uint64_t hashes_vidB[ANU_MAX_VIDEO_SEGMENTS];
 
   hash_video(filename, &hashes_vidA[0], SEGMENTS, ANUHASH_DCT);
   hash_video(filename2, &hashes_vidB[0], SEGMENTS, ANUHASH_DCT);
