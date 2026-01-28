@@ -224,7 +224,8 @@ int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
 
   printf("\nTotal Hamming Distance: %lu / %lu bits\n", total_distance,
          total_bits);
-  printf("Similarity Score:\t\t%.2f%%\n", similarity * 100.0F);
+
+  printf("Similarity Score:\t\t%.2f%%\n", (double)(similarity * 100.0F));
 
   /* DECISION THRESHOLD */
   /* For pHash (8x8), a distance of <= 10 on a single image is usually a match.
