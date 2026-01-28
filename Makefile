@@ -15,7 +15,7 @@ DEBUG := 1
 
 # FLAGS FOR DEVELOPMENT
 DEV_FLAGS := -ggdb -O0 -g -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function \
--fextend-variable-liveness -ftrapv
+-fextend-variable-liveness -ftrapv -Wdouble-promotion
 
 # FLAGS FOR RELEASE BUILD
 RELEASE_FLAGS := -O2
