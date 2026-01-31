@@ -19,6 +19,9 @@ MissingIncludes: Strict
 Completion:
   AllScopes: true
 
+Hover:
+  ShowAKA: true
+  MacroContentsLimit: 2048
 Documentation:
   CommentFormat: Doxygen
 
