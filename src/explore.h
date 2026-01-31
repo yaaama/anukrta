@@ -11,15 +11,18 @@ typedef char* u8;
 
 #define ANU_MAX_PATH_LEN 512
 
+#if 0
+
 typedef struct media_info {
   bool fill_later;
 } media_info;
 
-typedef struct media_flags {
+typedef struct {
   bool fill_later;
 } media_flags;
 
-typedef struct anuFile {
+#endif
+
 typedef struct {
   /* Path */
   char path[ANU_MAX_PATH_LEN];

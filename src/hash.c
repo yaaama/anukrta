@@ -129,6 +129,6 @@ uint64_t dct_hash (float* gray_2d_matrix) {
     }
   }
 
-  debug_print_matrix(&dct_result[0], hash_size, hash_size);
+  /* debug_print_matrix(&dct_result[0], hash_size, hash_size); */
   return final_hash;
 }

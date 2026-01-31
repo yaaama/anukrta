@@ -77,7 +77,9 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
     fprintf(stderr, "Received a 0 value for hash.");
   }
 
-  printf("Hash: %016" PRIx64 "\n", hash);
+  printf("\t%5s", "-----> ");
+  printf("Hash: [0x%016" PRIx64, hash);
+  printf("]\n");
 
   av_frame_free(&gray);
   return hash;
@@ -242,34 +244,45 @@ int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
 }
 
 int main (int argc, char* argv[]) {  // NOLINT (unused-*)
-  char* filename = "./etc/tulsi.mov";
-  /* char* filename2 = "./etc/tulsi_bad.mov"; */
-  /* char* filename2 = "./etc/tulsi_shortened.mkv"; */
-  char* filename2 = "./etc/cow.mov";
-
-  const int SEGMENTS = 1;
-
-  uint64_t hashes_vidA[ANU_MAX_VIDEO_SEGMENTS];
-  uint64_t hashes_vidB[ANU_MAX_VIDEO_SEGMENTS];
-
-  hash_video(filename, ANUHASH_DCT, SEGMENTS, &hashes_vidA[0]);
-  hash_video(filename2, ANUHASH_DCT, SEGMENTS, &hashes_vidB[0]);
-  are_videos_duplicate(hashes_vidA, hashes_vidB, SEGMENTS);
-
+  const int SEGMENTS = 3;
   anuFileQ files;
   anu_fileq_init(&files, 50);
 
-  anu_recursive_filewalk("./etc", &files);
-  anuFile* file = malloc(sizeof(anuFile));
-  char buffer[1024];
-  while (anu_fileq_dequeue(&files, file)) {
-    snprintf(buffer, sizeof(buffer), "%50s", file->path );
-    printf("Name: %20s | Path: %20s | Size: %10zu\n", file->name, buffer,
-           file->size);
+  char* path = "./etc";
+  size_t file_count = anu_recursive_filewalk(path, &files);
+
+  if (file_count < 1) {
+    fprintf(stderr, "Detected no video files.\n");
+    return -1;
+  }
+
+  uint64_t* hashes = calloc((file_count * SEGMENTS), sizeof(uint64_t));
+
+  anuFile* file;
+
+  for (size_t i = 0; i < file_count; i++) {
+    file = &files.items[i];
+    uint64_t* current_file_hashes = &hashes[i * SEGMENTS];
+    hash_video(file->path, ANUHASH_DCT, SEGMENTS, current_file_hashes);
+  }
+
+  printf("\n\n========================================\n");
+  printf("%-10sFINAL HASH REPORT\n", " ");
+  printf("%-10sPath: `%s`\n", " ", path);
+  printf("========================================\n");
+
+  for (size_t i = 0; i < file_count; i++) {
+    file = &files.items[i];
+    printf("[%zu] | %-20s\n", (i + 1), file->name);
+    for (int frame = 0; frame < SEGMENTS; frame++) {
+      size_t index = (i * SEGMENTS) + frame;
+      printf("\tSegment %d: 0x%016" PRIx64 "\n", frame + 1, hashes[index]);
+    }
+    printf("----------------------------------------\n");
   }
 
   anu_fileq_destroy(&files);
-  free(file);
+  free(hashes);
 
   return 0;
 }
