@@ -155,7 +155,7 @@ int anu_open_dir (char* dir_path, DIR** out) {
   return 0;
 }
 
-int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
+size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
 
   /* Initialise first directory we will explore */
   anuDirJob dirjob;
@@ -245,5 +245,5 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
   printf("Files found: %zu\n", files_found);
 
   anu_stack_destroy(&dirstack);
-  return 0;
+  return files_found;
 }

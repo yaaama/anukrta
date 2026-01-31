@@ -256,5 +256,20 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   hash_video(filename2, ANUHASH_DCT, SEGMENTS, &hashes_vidB[0]);
   are_videos_duplicate(hashes_vidA, hashes_vidB, SEGMENTS);
 
+  anuFileQ files;
+  anu_fileq_init(&files, 50);
+
+  anu_recursive_filewalk("./etc", &files);
+  anuFile* file = malloc(sizeof(anuFile));
+  char buffer[1024];
+  while (anu_fileq_dequeue(&files, file)) {
+    snprintf(buffer, sizeof(buffer), "%50s", file->path );
+    printf("Name: %20s | Path: %20s | Size: %10zu\n", file->name, buffer,
+           file->size);
+  }
+
+  anu_fileq_destroy(&files);
+  free(file);
+
   return 0;
 }
