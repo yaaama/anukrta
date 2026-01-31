@@ -53,3 +53,7 @@ int compare_floats (const void* a, const void* b) {
   }
   return 0;
 }
+
+int anu_util_tolower (int c) {
+  return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
+}

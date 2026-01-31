@@ -30,20 +30,11 @@ const char* VIDEO_EXTENSIONS[] = {
     "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
     "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv", NULL};
 
-int anu_open_dir (char* dir_path, DIR** out) {
-
-  *out = opendir(dir_path);
-
-  if (*out == NULL) {
-    perror("Could not open directory.");
-    return 1;
-  }
-  /* printf("Opened directory: `%s`!\n", dir_path); */
-  return 0;
-}
+const size_t VIDEO_EXTENSIONS_COUNT =
+    (sizeof(VIDEO_EXTENSIONS) / sizeof(VIDEO_EXTENSIONS[0]));
 
 /* Check extension of filename */
-int extension_is_supported (const char* filename) {
+int anu_file_ext_supported (const char* filename) {
   assert(filename);
   const char* dot = strrchr(filename, '.');
 
@@ -54,14 +45,21 @@ int extension_is_supported (const char* filename) {
   char file_ext_lower[8];
 
   /* Skip over the dot... */
-  ++dot;
+  const char* extension = ++dot;
+
+  size_t ext_len = strlen(extension);
+
+  /* Check if extension length is between 4 chars and 3 */
+  if (ext_len < 2 || ext_len > 4) {
+    return 0;
+  }
 
   strncpy(file_ext_lower, dot, 7);
   file_ext_lower[7] = '\0';
 
   /* Lowercase all the characters */
   for (int i = 0; file_ext_lower[i]; i++) {
-    file_ext_lower[i] = (char)tolower(file_ext_lower[i]);
+    file_ext_lower[i] = (char)anu_util_tolower(file_ext_lower[i]);
   }
 
   /* Search if extension is within array */
@@ -74,13 +72,33 @@ int extension_is_supported (const char* filename) {
 }
 
 /* TODO Resolve tilde into absolute path */
-int anu_resolve_tilde (char* path) { return 0; }
+int anu_resolve_tilde (char* path) {
 
-int anu_recursive_filewalk (char* searchp, anuStack* files_out) {
+  if (!path) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int anu_open_dir (char* dir_path, DIR** out) {
+
+  *out = opendir(dir_path);
+
+  if (*out == NULL) {
+    perror("Could not open directory.");
+    return 1;
+  }
+  /* printf("Opened directory: `%s`!\n", dir_path); */
+  return 0;
+}
+
+int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
 
   /* Initialise first directory we will explore */
   anuDirJob dirjob;
   strncpy(dirjob.path, searchp, ANU_MAX_PATH_LEN);
+  dirjob.path[ANU_MAX_PATH_LEN - 1] = '\0';
 
   /* Stack containing directories to visit */
   anuStack dirstack;
@@ -101,7 +119,7 @@ int anu_recursive_filewalk (char* searchp, anuStack* files_out) {
   char fullpath[ANU_MAX_PATH_LEN] = {0};
   /* Files found counter */
   size_t files_found = 0;
-
+  anuFile newfile = {0};
   while (anu_stack_pop(&dirstack, &currjob)) {
 
     /* Open directory for reading */
@@ -134,32 +152,37 @@ int anu_recursive_filewalk (char* searchp, anuStack* files_out) {
         /* printf("Directory found: %s\n", fullpath); */
         strncpy(dirjob.path, fullpath, ANU_MAX_PATH_LEN);
         anu_stack_push(&dirstack, &dirjob);
+        continue;
       }
 
       /* Else if its a regular file */
-      else if (S_ISREG(statb.st_mode)) {
-        if (extension_is_supported(fullpath)) {
-          /* printf("%s :: %zu\n", fullpath, files_found); */
-          /* printf("%s\n", fullpath); */
+      if (S_ISREG(statb.st_mode)) {
 
-          anuFile file_new = {
-              .size = statb.st_size,
-              .ctime = statb.st_ctime,
-          };
-          memcpy(file_new.name, dp->d_name, 256);
-          memcpy(file_new.path, fullpath, ANU_MAX_PATH_LEN);
-          anu_stack_push(files_out, &file_new);
-
-          ++files_found;
+        if (!anu_file_ext_supported(fullpath)) {
+          continue;
         }
-      }
-    }
+        /* printf("%s :: %zu\n", fullpath, files_found); */
+        /* printf("%s\n", fullpath); */
 
-    closedir(dir);
+        /* Prepare newfile for data */
+        memset(&newfile, 0, sizeof(anuFile));
+
+        newfile.size = statb.st_size;
+        newfile.ctime = statb.st_ctime;
+        memcpy(newfile.name, dp->d_name, 256);
+        memcpy(newfile.path, fullpath, ANU_MAX_PATH_LEN);
+        anu_fileq_enqueue(files_out, &newfile);
+
+        ++files_found;
+      }
+
   }
 
-  printf("Files found: %zu\n", files_found);
+  closedir(dir);
+}
 
-  anu_stack_destroy(&dirstack);
-  return 0;
+printf("Files found: %zu\n", files_found);
+
+anu_stack_destroy(&dirstack);
+return 0;
 }

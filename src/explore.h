@@ -7,8 +7,6 @@
 #include <stddef.h>
 #include <time.h>
 
-#include "stack.h"
-
 typedef char* u8;
 
 #define ANU_MAX_PATH_LEN 512
@@ -22,6 +20,7 @@ typedef struct media_flags {
 } media_flags;
 
 typedef struct anuFile {
+typedef struct {
   /* Path */
   char path[ANU_MAX_PATH_LEN];
   /* Size in bytes */
@@ -30,6 +29,18 @@ typedef struct anuFile {
   char name[256];
 } anuFile;
 
+typedef struct {
+  anuFile** items; /* Items */
+  size_t count;    /* Items in storage */
+  size_t capacity; /* Max capacity */
+  size_t head;     /* Head index */
+  size_t tail;     /* Tail index (next open slot) */
+} anuFileQ;
+
+
+void anu_fileq_init (anuFileQ* q, size_t init_capacity);
+int anu_fileq_enqueue (anuFileQ* q, anuFile* file_in);
+int anu_fileq_dequeue (anuFileQ* q, anuFile** file_out);
 int anu_open_dir(char* dir_path, DIR** out);
-int anu_recursive_filewalk(char* searchp, anuStack* files_out);
+int anu_recursive_filewalk(char* searchp, anuFileQ* files_out);
 #endif  // EXPLORE_H_
