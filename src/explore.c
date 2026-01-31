@@ -6,7 +6,6 @@
 #include "explore.h"
 
 #include <assert.h>
-#include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
 #include <stdio.h>
@@ -16,12 +15,75 @@
 #include <time.h>
 
 #include "stack.h"
+#include "util.h"
+
+void anu_fileq_init (anuFileQ* q, size_t init_capacity) {
+  assert(init_capacity);
+  if (!q) {
+    return;
+  }
+  q->capacity = init_capacity;
+  q->count = 0;
+  q->items = (anuFile*)calloc(q->capacity, sizeof(anuFile));
+  q->head = 0;
+  q->tail = 0;
+}
+
+int anu_fileq_enqueue (anuFileQ* q, anuFile* file_in) {
+
+  /* should return an error */
+  if ((!file_in) || (!q)) {
+    return -1;
+  }
+
+  if (q->capacity <= q->count) {
+    q->capacity *= 2;
+    anuFile* temp =
+        (anuFile*)realloc(q->items, (sizeof(anuFileQ) * q->capacity));
+    if (!temp) {
+      /* probs out of mem */
+      abort();
+    }
+    free((void*)q->items);
+    q->items = temp;
+    q->head = 0;
+    q->tail = q->count;
+  }
+
+  q->items[q->count] = *file_in;
+  q->tail = (q->tail + 1) % q->capacity;
+  ++q->count;
+
+  return 0;
+}
+
+int anu_fileq_dequeue (anuFileQ* q, anuFile* file_out) {
+
+  if (!q || q->count == 0 || !file_out) {
+    return 0;
+  }
+
+  *file_out = q->items[q->head];
+  q->head = (q->head + 1) % q->capacity;
+  q->count--;
+  return 1;
+}
+
+void anu_fileq_destroy (anuFileQ* q) {
+
+  if (!q || !q->items) {
+    return;
+  }
+
+  free(q->items);
+  q = NULL;
+}
+
+int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
 
 typedef struct {
   char path[512];
 } anuDirJob;
-
-int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
 
 /* Video extensions */
 const char* VIDEO_EXTENSIONS[] = {
@@ -175,14 +237,13 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
 
         ++files_found;
       }
+    }
 
+    closedir(dir);
   }
 
-  closedir(dir);
-}
+  printf("Files found: %zu\n", files_found);
 
-printf("Files found: %zu\n", files_found);
-
-anu_stack_destroy(&dirstack);
-return 0;
+  anu_stack_destroy(&dirstack);
+  return 0;
 }
