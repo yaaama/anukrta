@@ -98,8 +98,8 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
     return -1;
   }
 
-  /* Container */
-  AVFormatContext* format_context_ptr = vreader.fmt_ctx;
+  /* Container: vreader.fmt_ctx; */
+
   /* Video stream */
   AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
 
@@ -107,8 +107,7 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
 
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
-  long video_duration_us =
-      get_video_duration(format_context_ptr, vid_stream_ptr);
+  long video_duration_us = get_video_duration(vreader.fmt_ctx, vid_stream_ptr);
   long frame_step_us = video_duration_us / total_video_segments;
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
