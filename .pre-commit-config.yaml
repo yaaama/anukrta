@@ -5,3 +5,12 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+  - repo: https://github.com/cpp-linter/cpp-linter-hooks
+    rev: v1.1.12
+    hooks:
+      - id: clang-format
+        args: [--style=file]  # Loads style from .clang-format file
+        files: ^(src|include)/.*\.(h|c)$ # Limits to specific dirs and file types
+      - id: clang-tidy
+        args: [--checks=.clang-tidy] # Loads checks from .clang-tidy file
+        files: ^(src|include)/.*\.(h|c)$ # Limits to specific dirs and file types
