@@ -38,7 +38,4 @@ int anu_stack_pop (anuStack* s, void* dest) {
   return 1;
 }
 
-void anu_stack_destroy (anuStack* s) {
-  free(s->items);
-  s = NULL;
-}
+void anu_stack_destroy (anuStack* s) { free(s->items); }

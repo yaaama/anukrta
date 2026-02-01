@@ -202,7 +202,7 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
 
 int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
                           uint64_t segments) {
-  if (segments <= 0) {
+  if (segments < 1) {
     return 0;
   }
   uint64_t total_distance = 0;
@@ -212,9 +212,8 @@ int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
   printf("%-10s | %-16s | %-16s | %s\n", "Segment", "Hash A", "Hash B",
          "Distance");
   printf("-----------|------------------|------------------|---------\n");
-  uint64_t dist = 0;
   for (uint64_t i = 0; i < segments; i++) {
-    dist = hamming_distance(hashesA[i], hashesB[i]);
+    uint64_t dist = hamming_distance(hashesA[i], hashesB[i]);
     total_distance += dist;
     printf("%-10lu | %016" PRIx64 " | %016" PRIx64 " | %lu\n", i, hashesA[i],
            hashesB[i], dist);
@@ -259,9 +258,11 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   }
 
   uint64_t* hashes = calloc((file_count * SEGMENTS), sizeof(uint64_t));
+  if (!hashes) {
+    abort();
+  }
 
   anuFile* file;
-  int hash_success = 0;
 
   for (size_t i = 0; i < file_count; i++) {
     file = &files.items[i];

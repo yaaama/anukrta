@@ -74,7 +74,6 @@ void anu_fileq_destroy (anuFileQ* q) {
   }
 
   free(q->items);
-  q = NULL;
 }
 
 int anu_files_in_path(DIR** dir, struct dirent** filelist_out);

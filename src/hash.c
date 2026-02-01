@@ -89,17 +89,12 @@ uint64_t dct_hash (float* input_pixels) {
   /* Final result */
   float dct_result[DCT_DIGEST_LEN];
 
-  const int hash_size = ANU_PHASH_DCT_SIZE;
-
   float sum = 0.0F;
-  float* row_ptr;
   /* Pass 1: 1D DCT on Rows */
   for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
+    float* row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
 
     for (int u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-      sum = 0;
-
       for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
         sum += row_ptr[x] * (dct_weights[u][x]);
@@ -138,6 +133,7 @@ uint64_t dct_hash (float* input_pixels) {
     }
   }
 
-  /* debug_print_matrix(&dct_result[0], hash_size, hash_size); */
+  /* debug_print_matrix(&dct_result[0], ANU_PHASH_DCT_SIZE, ANU_PHASH_DCT_SIZE);
+   */
   return final_hash;
 }
