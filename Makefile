@@ -117,11 +117,10 @@ clean:
 
 compile_commands.json: clean
 	@echo "Generating compile_commands.json..."
-	bear -- $(MAKE) all
+	bear -- $(MAKE) -B
 
 # Alias for convenience
 bear: compile_commands.json
-
 
 test: $(BIN_DIR)/$(TARGET_NAME)
 	@echo "=================================================="
