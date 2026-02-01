@@ -12,16 +12,19 @@ Checks: >
   portability-*,
   readability-*,
   misc-*,
+
+  clang-analyzer-*,
+  -*clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+
   -*cert-err33-c,
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
   -readability-identifier-length,
   -readability-magic-numbers,
-  -Wunused-function,
+  -readability-avoid-unconditional-preprocessor-if,
+  -readability-non-const-parameter,
   -*unused-*,
   -*swappable-parameters,
-  clang-analyzer-*,
-  -*clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
 
 
 WarningsAsErrors: ""
@@ -30,6 +33,7 @@ HeaderFileExtensions:
 ImplementationFileExtensions:
   - c
 SystemHeaders: false
+HeaderFilterRegex: .*
 FormatStyle: file
 CheckOptions:
   - key: readability-implicit-bool-conversion.AllowIntegerConditions
