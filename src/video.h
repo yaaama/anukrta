@@ -30,7 +30,7 @@ int open_video_reader(char* filename, VideoReader* vreader);
 void close_video_reader(VideoReader* vreader);
 long get_video_duration(AVFormatContext* fmt_ctx, AVStream* vid_stream);
 int seek_to_timestamp(VideoReader* vreader, int64_t target_pts);
-int init_gray_frame(int width, int height, AVFrame* out_frame);
+int init_grey_frame(int width, int height, AVFrame* out_frame);
 int scale_frame(AVFrame* src_frame, size_t width, size_t height,
                 AVFrame* out_frame);
 int decode_packet(VideoReader* vreader);

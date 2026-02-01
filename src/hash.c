@@ -1,21 +1,29 @@
 #include "hash.h"
 
 #include <assert.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-
-#include "util.h"
 
 /* Size of row/col len of DCT hash */
-#define ANU_DCT_HASH_SIZE 8
-#define ANU_DCT_HORIZONTAL_LEN 256
-#define ANU_DCT_FINAL_LEN 64
+#define ANU_PHASH_DCT_SIZE 8
 
+/* Intermediate buffer length for DCT calculation */
+#define DCT_INTERMEDIATE_BUF_LEN \
+  (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE) /* 256 */
+
+/* Final DCT digest */
+#define DCT_DIGEST_LEN (ANU_PHASH_DCT_SIZE * ANU_PHASH_DCT_SIZE) /* 64 */
+
+/* PI in floating point format */
 #define ANU_PI_F 3.14159265358979323846f
 
+#if ANU_PHASH_DCT_SIZE != 8
+#warn "dct weights will not work if dct size is not 8."
+#endif
+
+/* Pre-computed DCT weights for 32->8 reduction */
+/* NOTE: If `ANU_PHASH_DCT_SIZE` changes, these will be invalid */
 static const float dct_weights[8][32] = {
     {0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F,
      0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F,
@@ -74,54 +82,55 @@ static const float dct_weights[8][32] = {
      0.060745072F,  0.200801909F,  0.249698862F,  0.185237750F,  0.036682554F,
      -0.128525749F, -0.235386044F}};
 
-uint64_t dct_hash (float* gray_2d_matrix) {
+uint64_t dct_hash (float* input_pixels) {
 
   /* Intermediate storage */
-  float row_result[ANU_DCT_HORIZONTAL_LEN];
+  float row_result[DCT_INTERMEDIATE_BUF_LEN];
   /* Final result */
-  float dct_result[ANU_DCT_FINAL_LEN];
+  float dct_result[DCT_DIGEST_LEN];
 
-  const int hash_size = ANU_DCT_HASH_SIZE;
+  const int hash_size = ANU_PHASH_DCT_SIZE;
 
   float sum = 0.0F;
   float* row_ptr;
   /* Pass 1: 1D DCT on Rows */
-  for (int y = 0; y < ANU_DCT_MATRIX_BUF_SIZE; y++) {
-    row_ptr = &gray_2d_matrix[((ptrdiff_t)y * ANU_DCT_MATRIX_BUF_SIZE)];
+  for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+    row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
 
-    for (int u = 0; u < ANU_DCT_HASH_SIZE; u++) {
+    for (int u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
       sum = 0;
 
-      for (int x = 0; x < ANU_DCT_MATRIX_BUF_SIZE; x++) {
+      for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
         sum += row_ptr[x] * (dct_weights[u][x]);
       }
-      row_result[(y * ANU_DCT_HASH_SIZE) + u] = sum;
+      row_result[(y * ANU_PHASH_DCT_SIZE) + u] = sum;
     }
   }
   /* Pass 2: 1D DCT on Columns (applied to row_result) */
-  for (int x = 0; x < ANU_DCT_HASH_SIZE; x++) {
-    for (int v = 0; v < ANU_DCT_HASH_SIZE; v++) {
+  for (int x = 0; x < ANU_PHASH_DCT_SIZE; x++) {
+    for (int v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
       sum = 0.0F;
-      for (int y = 0; y < ANU_DCT_MATRIX_BUF_SIZE; y++) {
-        sum += row_result[(ptrdiff_t)((y * ANU_DCT_HASH_SIZE) + x)] *
+      for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+        sum += row_result[(ptrdiff_t)((y * ANU_PHASH_DCT_SIZE) + x)] *
                (dct_weights[v][y]);
       }
-      dct_result[(v * ANU_DCT_HASH_SIZE) + x] = sum;
+      dct_result[(v * ANU_PHASH_DCT_SIZE) + x] = sum;
     }
   }
 
   /* Sum up the pixels to calculate the average */
   float sum_pixels = 0;
-  for (int i = 1; i < ANU_DCT_FINAL_LEN; i++) {
+  /* Skip first pixel as it is the brightness value */
+  for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     sum_pixels += dct_result[i];
   }
 
-  float average = sum_pixels / (ANU_DCT_FINAL_LEN - 1);
+  float average = sum_pixels / (DCT_DIGEST_LEN - 1);
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
-  for (int i = 0; i < ANU_DCT_FINAL_LEN; i++) {
+  for (int i = 0; i < DCT_DIGEST_LEN; i++) {
     final_hash <<= 1;
 
     if (dct_result[i] > average) {

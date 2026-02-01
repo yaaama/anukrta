@@ -18,7 +18,6 @@
 
 #include "explore.h"
 #include "hash.h"
-#include "stack.h"
 #include "util.h"
 #include "video.h"
 
@@ -26,42 +25,42 @@
 static uint64_t hash_decoded_frame (VideoReader* vreader,
                                     anuHashType hash_algo) {
 
-  printf("Hashing Frame `%ld`, PTS: `%ld`\n", vreader->codec_ctx->frame_num,
-         vreader->frame->best_effort_timestamp);
-
-  int width = ANU_DCT_MATRIX_BUF_SIZE;
-  int height = ANU_DCT_MATRIX_BUF_SIZE;
-
-  AVFrame* gray = av_frame_alloc();
-  if (gray == NULL) {
+  AVFrame* grey_frame = av_frame_alloc();
+  if (grey_frame == NULL) {
     fprintf(stderr, "Failed to allocate memory for frame.\n");
     abort();
   }
-  if (init_gray_frame(width, height, gray)) {
+
+  /* Create an emtpty grey frame */
+  if (init_grey_frame(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE, grey_frame)) {
     fprintf(stderr, "Failed to initialise frame.\n");
     abort();
   }
 
-  if (scale_frame(vreader->frame, width, height, gray)) {
+  /* Scale frame down to 32x32 and store in empty grey frame */
+  if (scale_frame(vreader->frame, ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
+                  grey_frame)) {
     fprintf(stderr, "Failed to scale frame!");
     /* Clean up before aborting */
-    av_frame_free(&gray);
+    av_frame_free(&grey_frame);
     abort();
   }
 
-  /* Generate a 2D matrix of the grayscale values */
-  float matrix[ANU_DCT_MATRIX_BUF_SIZE][ANU_DCT_MATRIX_BUF_SIZE] = {0};
+  /* Generate a 2D matrix of the greyscale values */
+  float matrix[ANU_PHASH_INPUT_SIZE][ANU_PHASH_INPUT_SIZE] = {0};
 
-  for (int y = 0; y < height; y++) {
-    uint8_t* row_ptr = gray->data[0] + ((ptrdiff_t)y * gray->linesize[0]);
-    for (int x = 0; x < width; x++) {
+  /* Populate matrix with frame data */
+  for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+    uint8_t* row_ptr =
+        grey_frame->data[0] + ((ptrdiff_t)y * grey_frame->linesize[0]);
+    for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
       matrix[y][x] = row_ptr[x];
     }
   }
 
   uint64_t hash = 0;
   switch (hash_algo) {
-    case ANUHASH_DCT:
+    case ANU_HASH_ALGO_DCT:
       {
         hash = dct_hash(&matrix[0][0]);
         break;
@@ -69,7 +68,6 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
     default:
       {
         fprintf(stderr, "Hashing algorithm not specified.");
-        exit(1);
       }
   }
 
@@ -77,11 +75,7 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
     fprintf(stderr, "Received a 0 value for hash.");
   }
 
-  printf("\t%5s", "-----> ");
-  printf("Hash: [0x%016" PRIx64, hash);
-  printf("]\n");
-
-  av_frame_free(&gray);
+  av_frame_free(&grey_frame);
   return hash;
 }
 
@@ -163,7 +157,15 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
           continue; /* Loop again to get next frame */
         }
 
+        printf("\tHashing Frame `%ld`, PTS: `%ld`",
+               vreader.codec_ctx->frame_num,
+               vreader.frame->best_effort_timestamp);
         hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
+
+        printf("\t%5s", "-----> ");
+        printf("Hash: [0x%016" PRIx64, hashes_out[frames_decoded]);
+        printf("]\n");
+
         frame_found_for_segment = true;
         frames_decoded++;
         av_packet_unref(vreader.packet);
@@ -259,11 +261,12 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
   uint64_t* hashes = calloc((file_count * SEGMENTS), sizeof(uint64_t));
 
   anuFile* file;
+  int hash_success = 0;
 
   for (size_t i = 0; i < file_count; i++) {
     file = &files.items[i];
     uint64_t* current_file_hashes = &hashes[i * SEGMENTS];
-    hash_video(file->path, ANUHASH_DCT, SEGMENTS, current_file_hashes);
+    hash_video(file->path, ANU_HASH_ALGO_DCT, SEGMENTS, current_file_hashes);
   }
 
   printf("\n\n========================================\n");

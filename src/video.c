@@ -137,7 +137,7 @@ int scale_frame (AVFrame* src_frame, size_t width, size_t height,
 /**
  * @brief Initialise a grayscale frame of specified width and height.
  **/
-int init_gray_frame (int width, int height, AVFrame* out_frame) {
+int init_grey_frame (int width, int height, AVFrame* out_frame) {
   out_frame->height = height;
   out_frame->width = width;
   out_frame->format = AV_PIX_FMT_GRAY8;

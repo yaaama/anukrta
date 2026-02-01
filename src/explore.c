@@ -38,13 +38,11 @@ int anu_fileq_enqueue (anuFileQ* q, anuFile* file_in) {
 
   if (q->capacity <= q->count) {
     q->capacity *= 2;
-    anuFile* temp =
-        (anuFile*)realloc(q->items, (sizeof(anuFileQ) * q->capacity));
+    anuFile* temp = realloc(q->items, (sizeof(anuFile) * q->capacity));
     if (!temp) {
       /* probs out of mem */
       abort();
     }
-    free((void*)q->items);
     q->items = temp;
     q->head = 0;
     q->tail = q->count;
@@ -185,7 +183,7 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
   while (anu_stack_pop(&dirstack, &currjob)) {
 
     /* Open directory for reading */
-    if (anu_open_dir(currjob.path, &dir)) {
+    if (anu_open_dir(currjob.path, &dir) != 0) {
       fprintf(stderr, "Could not open directory: %s\n", currjob.path);
       continue;
     };
