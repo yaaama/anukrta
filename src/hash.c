@@ -95,6 +95,8 @@ uint64_t dct_hash (float* input_pixels) {
     float* row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
 
     for (int u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
+      sum = 0;
+
       for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
         sum += row_ptr[x] * (dct_weights[u][x]);
