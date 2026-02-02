@@ -14,8 +14,17 @@ ASAN := 1
 DEBUG := 1
 
 # FLAGS FOR DEVELOPMENT
-DEV_FLAGS := -ggdb -O0 -g3 -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function \
--fextend-variable-liveness -ftrapv -Wdouble-promotion -Wconversion -Wno-sign-conversion -fno-omit-frame-pointer
+DEV_FLAGS := -ggdb -O0 -g3 \
+-fextend-variable-liveness \
+-ftrapv \
+-Wdouble-promotion \
+-Wconversion \
+-Wno-sign-conversion \
+-fno-omit-frame-pointer \
+-Wno-unused-parameter \
+-Wno-unused-variable \
+-Wno-unused-function \
+-Wno-incompatible-pointer-types-discards-qualifiers
 
 # FLAGS FOR RELEASE BUILD
 RELEASE_FLAGS := -O2
@@ -58,10 +67,9 @@ ALL_CFLAGS := $(CFLAGS) -I$(INC_DIR) $(FFMPEG_INC) -MMD -MP
 ALL_LDFLAGS := $(FFMPEG_LIBDIR) $(FFMPEG_RPATH)
 ALL_LDLIBS := $(FFMPEG_LIBS) -lm -lpthread -lz
 
-
 ifeq (${ASAN}, 1)
 # ASAN Flags
-	ASAN_FLAGS := -fsanitize=undefined -fsanitize=address
+	ASAN_FLAGS := -fsanitize=undefined,address
 	ALL_CFLAGS += $(ASAN_FLAGS) -fsanitize-trap
 	ALL_LDFLAGS += $(ASAN_FLAGS)
 
@@ -113,7 +121,7 @@ clean:
 	@rm -f etc/asan.log.*
 
 # 6. Include Dependencies
-# -include $(DEPS)
+-include $(DEPS)
 
 compile_commands.json: clean
 	@echo "Generating compile_commands.json..."
