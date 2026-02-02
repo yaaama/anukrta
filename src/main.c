@@ -31,7 +31,7 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
     abort();
   }
 
-  /* Create an emtpty grey frame */
+  /* Create an empty grey frame */
   if (init_grey_frame(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE, grey_frame)) {
     fprintf(stderr, "Failed to initialise frame.\n");
     abort();
@@ -157,9 +157,7 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
           continue; /* Loop again to get next frame */
         }
 
-        printf("\tHashing Frame `%ld`, PTS: `%ld`",
-               vreader.codec_ctx->frame_num,
-               vreader.frame->best_effort_timestamp);
+        printf("\tHashing Frame `%ld`\n", vreader.codec_ctx->frame_num);
         hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
 
         printf("\t%5s", "-----> ");
@@ -261,10 +259,10 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
         if (!header_printed) {
           groups_found++;
           header_printed = true;
+          printf("Group #%zu: %s\n", groups_found, file_a->path + file_a->name);
         }
 
         /* Print the match */
-
         printf("%s\n", file_a->path + file_a->name);
         printf("|--- [Dist: %lu] %s\n", total_dist,
                file_b->path + file_b->name);
@@ -314,13 +312,15 @@ int anukrta_entry (anukrtaConfig config, char* path) {
 
   /* Array of hashes */
   uint64_t* hashes = calloc((file_count * SEGMENTS), sizeof(uint64_t));
+
   if (!hashes) {
     abort();
   }
+
   anuFile* file;
+
   for (size_t i = 0; i < file_count; i++) {
     file = &files.items[i];
-    /* Assuming hash_video is available in your scope */
     hash_video(file->path, ANU_HASH_ALGO_DCT, SEGMENTS, &hashes[i * SEGMENTS]);
   }
 
