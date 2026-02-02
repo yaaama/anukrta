@@ -200,93 +200,143 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
   return 0;
 }
 
-int are_videos_duplicate (uint64_t* hashesA, uint64_t* hashesB,
-                          uint64_t segments) {
-  if (segments < 1) {
+size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
+                              int segments, int threshold) {
+
+  if (files->count == 0) {
     return 0;
   }
-  uint64_t total_distance = 0;
-  uint64_t total_bits = (uint64_t)(segments * 64); /* 64 bits per hash */
 
-  printf("\nCOMPARISON REPORT\n");
-  printf("%-10s | %-16s | %-16s | %s\n", "Segment", "Hash A", "Hash B",
-         "Distance");
-  printf("-----------|------------------|------------------|---------\n");
-  for (uint64_t i = 0; i < segments; i++) {
-    uint64_t dist = hamming_distance(hashesA[i], hashesB[i]);
-    total_distance += dist;
-    printf("%-10lu | %016" PRIx64 " | %016" PRIx64 " | %lu\n", i, hashesA[i],
-           hashesB[i], dist);
+  /* array to mark files we've already grouped so we don't process them twice */
+  bool* reported = calloc(files->count, sizeof(bool));
+
+  if (!reported) {
+    fprintf(stderr, "Memory allocation failed.\n");
+    return 0;
   }
 
-  /* Calculate similarity percentage */
-  /* 1.0 means identical, 0.0 means completely opposite */
+  printf("\n\n========================================\n");
+  printf("SIMILARITY REPORT (Threshold: <= %d)\n", threshold);
+  printf("========================================\n");
 
-  float similarity = 1 - ((float)total_distance / (float)total_bits);
+  size_t groups_found = 0;
+  anuFile* file_a;
+  anuFile* file_b;
+  uint64_t* hash_a;
+  uint64_t* hash_b;
+  uint64_t total_dist = 0;
+  for (size_t i = 0; i < files->count; i++) {
 
-  printf("\nTotal Hamming Distance: %lu / %lu bits\n", total_distance,
-         total_bits);
+    if (reported[i]) {
+      continue;
+    }
 
-  printf("Similarity Score:\t\t%.2f%%\n", (double)(similarity * 100.0F));
+    file_a = &files->items[i];
+    hash_a = &hashes[i * segments];
 
-  /* DECISION THRESHOLD */
-  /* For pHash (8x8), a distance of <= 10 on a single image is usually a match.
-   For 4 segments (256 bits total), a safe threshold is usually around 10-15%
-   difference. */
+    bool header_printed = false;
 
-  const int THRESHOLD = 20;
+    /* Inner loop: Compare against all subsequent files */
+    for (size_t j = i + 1; j < files->count; j++) {
+      if (reported[j]) {
+        continue;
+      }
 
-  if (total_distance <= THRESHOLD) {
-    printf("VERDICT: DUPLICATES (High confidence)\n");
-    return 1;
+      file_b = &files->items[j];
+      hash_b = &hashes[j * segments];
+
+      /* Calculate total distance across all segments */
+      total_dist = 0;
+
+      for (int seg = 0; seg < segments; seg++) {
+        total_dist += hamming_distance((hash_a[seg]), (hash_b[seg]));
+      }
+      /* printf("Total Distance between %s and %s: %lu\n", file_a->path,
+       * file_b->path, total_dist); */
+
+      /* Check against threshold */
+      if (total_dist <= (uint64_t)threshold) {
+
+        /* Print Group Header (only once per group) */
+        if (!header_printed) {
+          groups_found++;
+          header_printed = true;
+        }
+
+        /* Print the match */
+
+        printf("%s\n", file_a->path + file_a->name);
+        printf("|--- [Dist: %lu] %s\n", total_dist,
+               file_b->path + file_b->name);
+
+        /* Mark B as handled so it doesn't start its own group later */
+        reported[j] = true;
+      }
+    }
+
+    if (header_printed) {
+      printf("----------------------------------------\n");
+    }
   }
-  printf("VERDICT: DIFFERENT VIDEOS\n");
-  return 0;
+
+  if (groups_found == 0) {
+    printf("No similar files found.\n");
+  } else {
+    printf("Total Groups Found: %zu\n", groups_found);
+  }
+
+  free(reported);
+  return groups_found;
 }
 
-int main (int argc, char* argv[]) {  // NOLINT (unused-*)
-  const int SEGMENTS = 3;
+typedef struct anukrtaConfig {
+  int segments;
+  int threshold;
+} anukrtaConfig;
+
+int anukrta_entry (anukrtaConfig config, char* path) {
+  const int SEGMENTS = config.segments;
+  const int THRESHOLD = config.threshold; /* 0=Exact, 20=Similar */
   anuFileQ files;
   anu_fileq_init(&files, 50);
 
-  char* path = "./etc";
-  size_t file_count = anu_recursive_filewalk(path, &files);
+  if (anu_recursive_filewalk(path, &files)) {
+    fprintf(stderr, "Encountered an error searching for files.");
+    return -1;
+  }
+  size_t file_count = files.count;
 
   if (file_count < 1) {
     fprintf(stderr, "Detected no video files.\n");
     return -1;
   }
+  printf("\nFILE COUNT: `%zu`\n", file_count);
 
+  /* Array of hashes */
   uint64_t* hashes = calloc((file_count * SEGMENTS), sizeof(uint64_t));
   if (!hashes) {
     abort();
   }
-
   anuFile* file;
-
   for (size_t i = 0; i < file_count; i++) {
     file = &files.items[i];
-    uint64_t* current_file_hashes = &hashes[i * SEGMENTS];
-    hash_video(file->path, ANU_HASH_ALGO_DCT, SEGMENTS, current_file_hashes);
+    /* Assuming hash_video is available in your scope */
+    hash_video(file->path, ANU_HASH_ALGO_DCT, SEGMENTS, &hashes[i * SEGMENTS]);
   }
 
-  printf("\n\n========================================\n");
-  printf("%-10sFINAL HASH REPORT\n", " ");
-  printf("%-10sPath: `%s`\n", " ", path);
-  printf("========================================\n");
-
-  for (size_t i = 0; i < file_count; i++) {
-    file = &files.items[i];
-    printf("[%zu] | %-20s\n", (i + 1), (file->path + file->name));
-    for (int frame = 0; frame < SEGMENTS; frame++) {
-      size_t index = (i * SEGMENTS) + frame;
-      printf("\tSegment %d: 0x%016" PRIx64 "\n", frame + 1, hashes[index]);
-    }
-    printf("----------------------------------------\n");
-  }
+  anu_report_duplicates(&files, hashes, SEGMENTS, THRESHOLD);
 
   anu_fileq_destroy(&files);
   free(hashes);
+
+  return 0;
+}
+
+int main (int argc, char* argv[]) {  // NOLINT (unused-*)
+
+  char* PATH = "./etc/";
+  anukrtaConfig config = {.segments = 2, .threshold = 20};
+  anukrta_entry(config, PATH);
 
   return 0;
 }

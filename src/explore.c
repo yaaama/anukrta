@@ -152,27 +152,28 @@ int anu_open_dir (char* dir_path, DIR** out) {
   return 0;
 }
 
-size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
+int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
 
   /* Initialise first directory we will explore */
   anuDirJob dirjob;
+
+  /* Temp var to hold the directory we are currently in */
+  anuDirJob currjob;
   strncpy(dirjob.path, searchp, ANU_MAX_PATH_LEN);
   dirjob.path[ANU_MAX_PATH_LEN - 1] = '\0';
 
   /* Stack containing directories to visit */
   anuStack dirstack;
-  anu_stack_init(&dirstack, 50, sizeof(anuDirJob));
+  anu_stack_init(&dirstack, 20, sizeof(anuDirJob));
   anu_stack_push(&dirstack, &dirjob);
 
-  /* Temp var to hold the directory we are currently in */
-  anuDirJob currjob;
   /* Directory stream */
   DIR* dir;
   /* Dir entry */
   struct dirent* dp;
   /* Stat buffer */
   struct stat statb;
-  /* Return value of calling stat on file */
+  /* Return value of calling stat on a file */
   int stat_return = 0;
   /* Path of current file */
   char fullpath[ANU_MAX_PATH_LEN] = {0};
@@ -201,6 +202,7 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
       if (path_length > ANU_MAX_PATH_LEN) {
         continue;
       }
+
       stat_return = stat(fullpath, &statb);
       /* Handle stat errors here... */
       if (stat_return) {
@@ -247,7 +249,6 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
         }
 
         anu_fileq_enqueue(files_out, &newfile);
-
         ++files_found;
       }
     }
@@ -258,5 +259,5 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
   printf("Files found: %zu\n", files_found);
 
   anu_stack_destroy(&dirstack);
-  return files_found;
+  return 0;
 }
