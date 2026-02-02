@@ -178,7 +178,8 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
   char fullpath[ANU_MAX_PATH_LEN] = {0};
   /* Files found counter */
   size_t files_found = 0;
-  anuFile newfile = {0};
+  anuFile newfile;
+
   while (anu_stack_pop(&dirstack, &currjob)) {
 
     /* Open directory for reading */
@@ -194,8 +195,10 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
         continue;
       }
 
-      if ((snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s", (currjob.path),
-                    dp->d_name)) >= ANU_MAX_PATH_LEN) {
+      int path_length = snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s",
+                                 (currjob.path), dp->d_name);
+
+      if (path_length > ANU_MAX_PATH_LEN) {
         continue;
       }
       stat_return = stat(fullpath, &statb);
@@ -224,12 +227,25 @@ size_t anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
         /* printf("%s\n", fullpath); */
 
         /* Prepare newfile for data */
-        memset(&newfile, 0, sizeof(anuFile));
-
         newfile.size = statb.st_size;
         newfile.ctime = statb.st_ctime;
-        memcpy(newfile.name, dp->d_name, 256);
-        memcpy(newfile.path, fullpath, ANU_MAX_PATH_LEN);
+        /* Copy over path */
+        memcpy(newfile.path, fullpath, path_length);
+        newfile.path[path_length] = '\0';
+
+        /* Find the last slash so we can extract the name */
+        char* last_slash = strrchr(newfile.path, '/');
+
+        if (last_slash) {
+          /* last_slash points to '/'. */
+          /* We want the character AFTER the slash. */
+          /* Subtract pointers: (End Address) - (Start Address) = Index */
+          newfile.name = (int)((last_slash + 1) - newfile.path);
+        } else {
+          /* No slash, default to index 0. */
+          newfile.name = 0;
+        }
+
         anu_fileq_enqueue(files_out, &newfile);
 
         ++files_found;

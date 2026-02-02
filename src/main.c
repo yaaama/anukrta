@@ -277,7 +277,7 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
 
   for (size_t i = 0; i < file_count; i++) {
     file = &files.items[i];
-    printf("[%zu] | %-20s\n", (i + 1), file->name);
+    printf("[%zu] | %-20s\n", (i + 1), (file->path + file->name));
     for (int frame = 0; frame < SEGMENTS; frame++) {
       size_t index = (i * SEGMENTS) + frame;
       printf("\tSegment %d: 0x%016" PRIx64 "\n", frame + 1, hashes[index]);

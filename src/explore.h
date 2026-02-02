@@ -26,10 +26,12 @@ typedef struct {
 typedef struct {
   /* Path */
   char path[ANU_MAX_PATH_LEN];
+  /* Index for when name starts in path */
+  int name;
   /* Size in bytes */
   size_t size;
   long ctime;
-  char name[256];
+  long duration_ms;
 } anuFile;
 
 typedef struct {
