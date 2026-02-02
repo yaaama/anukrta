@@ -47,7 +47,7 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   }
 
   /* Generate a 2D matrix of the greyscale values */
-  float matrix[ANU_PHASH_INPUT_SIZE][ANU_PHASH_INPUT_SIZE] = {0};
+  uint8_t matrix[ANU_PHASH_INPUT_SIZE][ANU_PHASH_INPUT_SIZE] = {0};
 
   /* Populate matrix with frame data */
   for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
@@ -72,7 +72,7 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   }
 
   if (hash == 0) {
-    fprintf(stderr, "Received a 0 value for hash.");
+    fprintf(stderr, "Received a 0 value for hash.\n");
   }
 
   av_frame_free(&grey_frame);

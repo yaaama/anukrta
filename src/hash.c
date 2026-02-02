@@ -82,7 +82,7 @@ static const float dct_weights[8][32] = {
      0.060745072F,  0.200801909F,  0.249698862F,  0.185237750F,  0.036682554F,
      -0.128525749F, -0.235386044F}};
 
-uint64_t dct_hash (float* input_pixels) {
+uint64_t dct_hash (uint8_t* input_pixels) {
 
   /* Intermediate storage */
   float row_result[DCT_INTERMEDIATE_BUF_LEN];
@@ -92,14 +92,14 @@ uint64_t dct_hash (float* input_pixels) {
   float sum = 0.0F;
   /* Pass 1: 1D DCT on Rows */
   for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    float* row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
+    uint8_t* row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
 
     for (int u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
       sum = 0;
 
       for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
-        sum += row_ptr[x] * (dct_weights[u][x]);
+        sum += (float)row_ptr[x] * (dct_weights[u][x]);
       }
       row_result[(y * ANU_PHASH_DCT_SIZE) + u] = sum;
     }

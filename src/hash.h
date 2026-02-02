@@ -11,5 +11,5 @@ typedef enum anuHashType {
   ANU_HASH_ALGO_DCT = 1,
 } anuHashType;
 
-uint64_t dct_hash(float* input_pixels);
+uint64_t dct_hash(uint8_t* input_pixels);
 #endif  // HASH_H_
