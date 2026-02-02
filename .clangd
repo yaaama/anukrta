@@ -1,18 +1,25 @@
 # #-*- mode: yaml -*-
 
-CompileFlags:                     # Tweak the parse settings
+CompileFlags: # Tweak the parse settings
   Add: [-xc, -Wall, -Wextra, -std=c11]
-# Remove: -W*                     # strip all other warning-related flags
-  Compiler: clang               # Change argv[0] of compile flags to `clang`
+  # Remove: -W*                     # strip all other warning-related flags
+  Compiler: clang # Change argv[0] of compile flags to `clang`
 
 Diagnostics:
-  Suppress: [unused-function, unused-variable,
-             readability-avoid-unconditional-preprocessor-if, unused-parameter, readability-redundant-declaration ]
+  Suppress:
+    [
+      unused-function,
+      unused-variable,
+      unused-parameter,
+      readability-avoid-unconditional-preprocessor-if,
+      readability-redundant-declaration,
+      incompatible-pointer-types-discards-qualifiers,
+    ]
   ClangTidy:
-  # Add: [bugprone-*, performance-*, readability-*, misc-*, clang-analyzer-*]
+    # Add: [bugprone-*, performance-*, readability-*, misc-*, clang-analyzer-*]
     FastCheckFilter: Loose
   Includes:
-  # IgnoreHeader: ["criterion*"]
+    # IgnoreHeader: ["criterion*"]
     AnalyzeAngledIncludes: false
 
 MissingIncludes: Strict
