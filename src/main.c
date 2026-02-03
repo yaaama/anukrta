@@ -21,6 +21,11 @@
 #include "util.h"
 #include "video.h"
 
+typedef struct anukrtaConfig {
+  int segments;
+  int threshold;
+} anukrtaConfig;
+
 /* This is the function called ONLY when a valid frame is fully decoded */
 static uint64_t hash_decoded_frame (VideoReader* vreader,
                                     anuHashType hash_algo) {
@@ -287,11 +292,6 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
   return groups_found;
 }
 
-typedef struct anukrtaConfig {
-  int segments;
-  int threshold;
-} anukrtaConfig;
-
 int anukrta_entry (anukrtaConfig config, char* path) {
   const int SEGMENTS = config.segments;
   const int THRESHOLD = config.threshold; /* 0=Exact, 20=Similar */
@@ -325,7 +325,6 @@ int anukrta_entry (anukrtaConfig config, char* path) {
   }
 
   anu_report_duplicates(&files, hashes, SEGMENTS, THRESHOLD);
-
   anu_fileq_destroy(&files);
   free(hashes);
 
