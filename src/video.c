@@ -196,6 +196,7 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   vreader->frame = NULL;
   vreader->packet = NULL;
   vreader->video_stream_idx = -1;
+  vreader->video_duration = 0;
 
   printf("\n=== Opening File `%s` ===\n", filename);
 
@@ -236,15 +237,15 @@ int open_video_reader (char* filename, VideoReader* vreader) {
   vreader->video_stream_idx = av_find_best_stream(
       vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
-  if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
-    fprintf(stderr, "No video stream found.\n");
-    return -1;
-  }
   if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
     fprintf(stderr, "No decoder found for stream.\n");
     return -1;
   }
 
+  if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
+    fprintf(stderr, "No video stream found.\n");
+    return -1;
+  }
   printf("Found video stream at index `%d`\n", vreader->video_stream_idx);
 
   /* Get codec parameters */

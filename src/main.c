@@ -204,11 +204,13 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
 }
 
 size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
-                              int segments, int threshold) {
+                              anukrtaConfig* config) {
 
   if (files->count == 0) {
     return 0;
   }
+  int segments = config->segments;
+  int threshold = config->threshold;
 
   /* array to mark files we've already grouped so we don't process them twice */
   bool* reported = calloc(files->count, sizeof(bool));
@@ -292,9 +294,9 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
   return groups_found;
 }
 
-int anukrta_entry (anukrtaConfig config, char* path) {
-  const int SEGMENTS = config.segments;
-  const int THRESHOLD = config.threshold; /* 0=Exact, 20=Similar */
+int anukrta_driver (anukrtaConfig config, char* path) {
+  /* const int SEGMENTS = config.segments; */
+  /* const int THRESHOLD = config.threshold; /\* 0=Exact, 20=Similar *\/ */
   anuFileQ files;
   anu_fileq_init(&files, 50);
 
@@ -311,7 +313,7 @@ int anukrta_entry (anukrtaConfig config, char* path) {
   printf("\nFILE COUNT: `%zu`\n", file_count);
 
   /* Array of hashes */
-  uint64_t* hashes = calloc((file_count * SEGMENTS), sizeof(uint64_t));
+  uint64_t* hashes = calloc((file_count * config.segments), sizeof(uint64_t));
 
   if (!hashes) {
     abort();
@@ -321,10 +323,11 @@ int anukrta_entry (anukrtaConfig config, char* path) {
 
   for (size_t i = 0; i < file_count; i++) {
     file = &files.items[i];
-    hash_video(file->path, ANU_HASH_ALGO_DCT, SEGMENTS, &hashes[i * SEGMENTS]);
+    hash_video(file->path, ANU_HASH_ALGO_DCT, config.segments,
+               &hashes[i * config.segments]);
   }
 
-  anu_report_duplicates(&files, hashes, SEGMENTS, THRESHOLD);
+  anu_report_duplicates(&files, hashes, &config);
   anu_fileq_destroy(&files);
   free(hashes);
 
@@ -335,7 +338,7 @@ int main (int argc, char* argv[]) {  // NOLINT (unused-*)
 
   char* PATH = "./etc/";
   anukrtaConfig config = {.segments = 2, .threshold = 20};
-  anukrta_entry(config, PATH);
+  anukrta_driver(config, PATH);
 
   return 0;
 }

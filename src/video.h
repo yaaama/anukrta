@@ -17,8 +17,12 @@ typedef struct VideoReader {
   /* Video encoding context.
      Codec is used to decode the video stream */
   AVCodecContext* codec_ctx;
+  /* Video stream pointer, equivalent to:
+   AVFormatContext->streams[video stream index] */
+  AVStream* video_stream;
   /* Index of video stream inside container */
   int video_stream_idx;
+  long video_duration;
   /* Packet (compressed frame of audio/video) */
   AVPacket* packet;
   /* Decoded packet */
