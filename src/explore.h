@@ -31,7 +31,7 @@ typedef struct {
   /* Size in bytes */
   size_t size;
   long ctime;
-  long duration_ms;
+  long duration_us;
 } anuFile;
 
 typedef struct {

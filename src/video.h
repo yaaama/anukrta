@@ -22,6 +22,7 @@ typedef struct VideoReader {
   AVStream* video_stream;
   /* Index of video stream inside container */
   int video_stream_idx;
+  /* Video duration in microseconds */
   long video_duration;
   /* Packet (compressed frame of audio/video) */
   AVPacket* packet;

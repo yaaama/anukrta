@@ -38,6 +38,7 @@ uint64_t hamming_distance (uint64_t hash1, uint64_t hash2) {
     dist++;
     x &= x - 1;
   }
+
   return dist;
 }
 

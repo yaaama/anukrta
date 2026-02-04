@@ -84,17 +84,17 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   return hash;
 }
 
-int hash_video (char* filename, anuHashType hash_algo, int segments,
+int hash_video (anuFile* file, anuHashType hash_algo, int segments,
                 uint64_t* hashes_out) {
 
   if (segments <= 0) {
-    printf("Skipping hash for `%s`\n", filename);
+    printf("Skipping hash for `%s`\n", file->path);
     return 0;
   }
   VideoReader vreader;
 
   /* Setup video reader */
-  if (open_video_reader(filename, &vreader) < 0) {
+  if (open_video_reader(file->path, &vreader) < 0) {
     close_video_reader(&vreader);  // cleanup partial opens
     return -1;
   }
@@ -104,11 +104,17 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
   /* Video stream */
   AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
 
-  /* Loop through file packets */
-
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
+
   long video_duration_us = get_video_duration(vreader.fmt_ctx, vid_stream_ptr);
+
+  vreader.video_duration = video_duration_us;
+
+  if (!file->duration_us) {
+    file->duration_us = video_duration_us;
+  }
+
   long frame_step_us = video_duration_us / total_video_segments;
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
@@ -130,9 +136,9 @@ int hash_video (char* filename, anuHashType hash_algo, int segments,
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    printf("--- Segment %d/%d : Seeking to PTS %" PRId64 " (%.3f sec) ---\n",
+    printf("--- Segment %d/%d : Seeking to PTS %" PRId64 " (%.2f sec) ---\n",
            i + 1, total_video_segments, seek_target_sb,
-           (double)seek_target_us / 1000000.0);
+           (double)seek_target_us / ANU_TIME_ONE_SEC_IN_US);
 
     /* Seek to timestamp */
     if (seek_to_timestamp(&vreader, seek_target_sb) < 0) {
