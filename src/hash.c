@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* Size of row/col len of DCT hash */
 #define ANU_PHASH_DCT_SIZE 8
@@ -123,7 +124,11 @@ uint64_t dct_hash (uint8_t* input_pixels) {
     sum_pixels += dct_result[i];
   }
 
+  printf("\tValue of [0][0] %f\n", dct_result[0]);
+  printf("\tSummed value of DCT (skipping first elem): %f\n", sum_pixels);
+
   float average = sum_pixels / (DCT_DIGEST_LEN - 1);
+  printf("\tAverage value of pixels: %f\n", (double)average);
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
