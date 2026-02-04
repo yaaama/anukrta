@@ -114,14 +114,15 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 $(BIN_DIR) $(OBJ_DIR):
 	@mkdir -p $@
 
+# 6. Include Dependencies
+-include $(DEPS)
+
 # 5. Clean
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(OBJ_DIR) $(BIN_DIR)
 	@rm -f etc/asan.log.*
 
-# 6. Include Dependencies
--include $(DEPS)
 
 compile_commands.json: clean
 	@echo "Generating compile_commands.json..."
