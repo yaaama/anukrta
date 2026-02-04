@@ -115,6 +115,14 @@ int hash_video (anuFile* file, anuHashType hash_algo, int segments,
     file->duration_us = video_duration_us;
   }
 
+#if 0
+  if (file->duration_us < (4L * ANU_TIME_ONE_SEC_IN_US)) {
+    printf("Skipping file because duration is less than 4 seconds (%.2f)\n",
+           ANU_US_TO_SECONDS((double)file->duration_us));
+    goto cleanup;
+  }
+#endif
+
   long frame_step_us = video_duration_us / total_video_segments;
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
