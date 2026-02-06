@@ -44,8 +44,6 @@ endif
 # ==========================================
 #   FFmpeg Configuration (No pkg-config)
 # ==========================================
-# Set the root directory where FFmpeg is installed.
-# Common paths: /usr, /usr/local, /opt/ffmpeg
 FFMPEG_ROOT := /usr
 
 # Include Flags (Headers)
@@ -57,28 +55,40 @@ FFMPEG_LIBDIR := -L$(FFMPEG_ROOT)/lib
 FFMPEG_RPATH := -Wl,-rpath,$(FFMPEG_ROOT)/lib
 
 # Specific FFmpeg Libraries to link (Add/Remove as needed)
-FFMPEG_LIBS := -lavformat -lavcodec -lavutil -lswscale -lswresample
+FFMPEG_LIBS := -lavformat \
+-lavcodec \
+-lavutil \
+-lswscale \
+-lswresample \
+-lavfilter \
+-lavdevice
+
+# Combine flags
+ALL_CFLAGS := $(CFLAGS) -I$(INC_DIR) $(FFMPEG_INC) -MMD -MP
+ALL_LDFLAGS := $(FFMPEG_LIBDIR) $(FFMPEG_RPATH)
+ALL_LDLIBS := -lm -lpthread -lz $(FFMPEG_LIBS)
 
 # ==========================================
 #  Address Sanitiser
 # ==========================================
-# Combine flags
-ALL_CFLAGS := $(CFLAGS) -I$(INC_DIR) $(FFMPEG_INC) -MMD -MP
-ALL_LDFLAGS := $(FFMPEG_LIBDIR) $(FFMPEG_RPATH)
-ALL_LDLIBS := $(FFMPEG_LIBS) -lm -lpthread -lz
-
 ifeq (${ASAN}, 1)
 # ASAN Flags
-	ASAN_FLAGS := -fsanitize=undefined,address
-	ALL_CFLAGS += $(ASAN_FLAGS) -fsanitize-trap
-	ALL_LDFLAGS += $(ASAN_FLAGS)
+ASAN_FLAGS := -fsanitize=undefined,address
+
+ALL_CFLAGS += $(ASAN_FLAGS) \
+-fsanitize-trap \
+-fno-optimize-sibling-calls
+-fsanitize-address-use-after-return=always \
+-fsanitize-address-use-after-scope
+
+ALL_LDFLAGS += $(ASAN_FLAGS)
 
 # Name of ASAN logfile
-	ASAN_LOG_FILE := etc/asan.log
+ASAN_LOG_FILE := etc/asan.log
 
 # Default options
-	DEFAULT_ASAN_OPTIONS = abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE)
-	DEFAULT_UBSAN_OPTIONS = abort_on_error=1:halt_on_error=1:print_stacktrace=1
+DEFAULT_ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+DEFAULT_UBSAN_OPTIONS := abort_on_error=1:halt_on_error=1:print_stacktrace=1
 endif
 
 # ==========================================
@@ -122,7 +132,6 @@ clean:
 	@echo "Cleaning up..."
 	@rm -rf $(OBJ_DIR) $(BIN_DIR)
 	@rm -f etc/asan.log.*
-
 
 compile_commands.json: clean
 	@echo "Generating compile_commands.json..."
