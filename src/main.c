@@ -336,8 +336,8 @@ int anukrta_driver (anukrtaConfig config, char* path) {
   anuFile* file;
 
   for (size_t i = 0; i < file_count; i++) {
-    file = &files.items[i];
-    hash_video(file->path, ANU_HASH_ALGO_DCT, config.segments,
+    file = (files.items + i);
+    hash_video(file, ANU_HASH_ALGO_DCT, config.segments,
                &hashes[i * config.segments]);
   }
 

@@ -13,6 +13,7 @@ void debug_print_matrix(const float* matrix, int rows, int cols);
 uint64_t hamming_distance(uint64_t hash1, uint64_t hash2);
 int compare_floats(const void* a, const void* b);
 
-int anu_util_tolower(int c);
+int anuUtil_tolower(int c);
+void anuUtil_print_indent(int depth);
 
 #endif  // UTIL_H_

@@ -48,4 +48,6 @@ int anu_fileq_enqueue(anuFileQ* q, anuFile* file_in);
 int anu_fileq_dequeue(anuFileQ* q, anuFile* file_out);
 int anu_open_dir(char* dir_path, DIR** out);
 int anu_recursive_filewalk(char* searchp, anuFileQ* files_out);
+
+char* anuFile_get_filename(anuFile* f);
 #endif  // EXPLORE_H_

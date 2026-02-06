@@ -78,6 +78,8 @@ void anu_fileq_destroy (anuFileQ* q) {
 
 int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
 
+char* anuFile_get_filename (anuFile* f) { return f->path + f->name; }
+
 typedef struct {
   char path[512];
 } anuDirJob;
@@ -101,7 +103,7 @@ int anu_file_ext_supported (const char* filename) {
     return 0;
   }
 
-  char file_ext_lower[8];
+  char file_ext_lower[8] = {0};
 
   /* Skip over the dot... */
   const char* extension = ++dot;
@@ -118,7 +120,7 @@ int anu_file_ext_supported (const char* filename) {
 
   /* Lowercase all the characters */
   for (int i = 0; file_ext_lower[i]; i++) {
-    file_ext_lower[i] = (char)anu_util_tolower(file_ext_lower[i]);
+    file_ext_lower[i] = (char)anuUtil_tolower(file_ext_lower[i]);
   }
 
   /* Search if extension is within array */

@@ -55,6 +55,13 @@ int compare_floats (const void* a, const void* b) {
   return 0;
 }
 
-int anu_util_tolower (int c) {
+int anuUtil_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
+}
+
+void anuUtil_print_indent (int depth) {
+  for (int i = 0; i < depth; i++) {
+    /* 4 spaces per level */
+    printf("    ");
+  }
 }
