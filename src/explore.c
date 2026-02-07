@@ -115,12 +115,13 @@ int anu_file_ext_supported (const char* filename) {
     return 0;
   }
 
-  strncpy(file_ext_lower, dot, 7);
-  file_ext_lower[7] = '\0';
+  memcpy(file_ext_lower, extension, ext_len);
+  file_ext_lower[ext_len] = '\0';
 
-  /* Lowercase all the characters */
-  for (int i = 0; file_ext_lower[i]; i++) {
-    file_ext_lower[i] = (char)anuUtil_tolower(file_ext_lower[i]);
+  int u = 0;
+  while (file_ext_lower[u] != '\0') {
+    file_ext_lower[u] = (char)anuUtil_tolower(file_ext_lower[u]);
+    ++u;
   }
 
   /* Search if extension is within array */
