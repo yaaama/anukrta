@@ -280,13 +280,14 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
         if (!header_printed) {
           groups_found++;
           header_printed = true;
-          printf("Group #%zu: %s\n", groups_found, file_a->path + file_a->name);
+          printf("Group #%zu: %s\n", groups_found,
+                 anuFile_get_filename(file_a));
         }
 
         /* Print the match */
-        printf("%s\n", file_a->path + file_a->name);
+        printf("%s\n", anuFile_get_filename(file_a));
         printf("|--- [Dist: %lu] %s\n", total_dist,
-               file_b->path + file_b->name);
+               anuFile_get_filename(file_b));
 
         /* Mark B as handled so it doesn't start its own group later */
         reported[j] = true;
