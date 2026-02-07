@@ -80,9 +80,9 @@ int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
 
 char* anuFile_get_filename (anuFile* f) { return f->path + f->name; }
 
-typedef struct {
+struct anuDirJob {
   char path[512];
-} anuDirJob;
+};
 
 /* Video extensions */
 const char* VIDEO_EXTENSIONS[] = {
@@ -158,16 +158,16 @@ int anu_open_dir (char* dir_path, DIR** out) {
 int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
 
   /* Initialise first directory we will explore */
-  anuDirJob dirjob;
+  struct anuDirJob dirjob;
 
   /* Temp var to hold the directory we are currently in */
-  anuDirJob currjob;
+  struct anuDirJob currjob;
   strncpy(dirjob.path, searchp, ANU_MAX_PATH_LEN);
   dirjob.path[ANU_MAX_PATH_LEN - 1] = '\0';
 
   /* Stack containing directories to visit */
   anuStack dirstack;
-  anu_stack_init(&dirstack, 20, sizeof(anuDirJob));
+  anu_stack_init(&dirstack, 20, sizeof(struct anuDirJob));
   anu_stack_push(&dirstack, &dirjob);
 
   /* Directory stream */
