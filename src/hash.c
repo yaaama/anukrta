@@ -124,8 +124,9 @@ uint64_t dct_hash (uint8_t* input_pixels) {
     sum_pixels += dct_result[i];
   }
 
-  printf("\tValue of [0][0] %f\n", dct_result[0]);
-  printf("\tSummed value of DCT (skipping first elem): %f\n", sum_pixels);
+  printf("\tValue of [0][0] %f\n", (double)dct_result[0]);
+  printf("\tSummed value of DCT (skipping first elem): %f\n",
+         (double)sum_pixels);
 
   float average = sum_pixels / (DCT_DIGEST_LEN - 1);
   printf("\tAverage value of pixels: %f\n", (double)average);
@@ -140,7 +141,5 @@ uint64_t dct_hash (uint8_t* input_pixels) {
     }
   }
 
-  /* debug_print_matrix(&dct_result[0], ANU_PHASH_DCT_SIZE, ANU_PHASH_DCT_SIZE);
-   */
   return final_hash;
 }

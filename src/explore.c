@@ -162,8 +162,10 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
 
   /* Temp var to hold the directory we are currently in */
   struct anuDirJob currjob;
-  strncpy(dirjob.path, searchp, ANU_MAX_PATH_LEN);
-  dirjob.path[ANU_MAX_PATH_LEN - 1] = '\0';
+
+  size_t file_len = strlen(searchp);
+  memcpy(dirjob.path, searchp, file_len);
+  dirjob.path[file_len] = '\0';
 
   /* Stack containing directories to visit */
   anuStack dirstack;
@@ -234,7 +236,7 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
         /* Prepare newfile for data */
         newfile.size = statb.st_size;
         newfile.ctime = statb.st_ctime;
-        /* Copy over path */
+        /* Copy path */
         memcpy(newfile.path, fullpath, path_length);
         newfile.path[path_length] = '\0';
 
@@ -250,7 +252,6 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
           /* No slash, default to index 0. */
           newfile.name = 0;
         }
-
         anu_fileq_enqueue(files_out, &newfile);
         ++files_found;
       }

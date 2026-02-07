@@ -55,9 +55,8 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   uint8_t matrix[ANU_PHASH_INPUT_SIZE][ANU_PHASH_INPUT_SIZE] = {0};
 
   /* Populate matrix with frame data */
-  for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    uint8_t* row_ptr =
-        grey_frame->data[0] + ((ptrdiff_t)y * grey_frame->linesize[0]);
+  for (long y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+    uint8_t* row_ptr = grey_frame->data[0] + (y * grey_frame->linesize[0]);
     for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
       matrix[y][x] = row_ptr[x];
     }
@@ -95,7 +94,8 @@ int hash_video (anuFile* file, anuHashType hash_algo, int segments,
 
   /* Setup video reader */
   if (open_video_reader(file->path, &vreader) < 0) {
-    close_video_reader(&vreader);  // cleanup partial opens
+    /* Cleanup partial opens */
+    close_video_reader(&vreader);
     return -1;
   }
 
@@ -108,6 +108,7 @@ int hash_video (anuFile* file, anuHashType hash_algo, int segments,
   int total_video_segments = segments;
 
   long video_duration_us = get_video_duration(vreader.fmt_ctx, vid_stream_ptr);
+  assert(video_duration_us > 0);
 
   vreader.video_duration = video_duration_us;
 
@@ -313,7 +314,7 @@ int anukrta_driver (anukrtaConfig config, char* path) {
   /* const int SEGMENTS = config.segments; */
   /* const int THRESHOLD = config.threshold; /\* 0=Exact, 20=Similar *\/ */
   anuFileQ files;
-  anu_fileq_init(&files, 50);
+  anu_fileq_init(&files, 20);
 
   if (anu_recursive_filewalk(path, &files)) {
     fprintf(stderr, "Encountered an error searching for files.");
