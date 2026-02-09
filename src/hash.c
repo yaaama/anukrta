@@ -117,8 +117,11 @@ uint64_t dct_hash (uint8_t* input_pixels) {
     }
   }
 
+  /* We treat values smaller than this precision to be NOISE. */
+  float epsilon = 0.001F;
   /* Sum up the pixels to calculate the average */
-  float sum_pixels = 0;
+
+  float sum_pixels = 0.0F;
   /* Skip first pixel as it is the brightness value */
   for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     sum_pixels += dct_result[i];
@@ -133,10 +136,11 @@ uint64_t dct_hash (uint8_t* input_pixels) {
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
-  for (int i = 0; i < DCT_DIGEST_LEN; i++) {
+
+  for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     final_hash <<= 1;
 
-    if (dct_result[i] > average) {
+    if (dct_result[i] > (average + epsilon)) {
       final_hash |= 1;
     }
   }
