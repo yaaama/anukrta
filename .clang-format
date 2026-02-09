@@ -15,4 +15,5 @@ SpaceBeforeParens: Custom
 SpaceBeforeParensOptions:
   AfterControlStatements: true
   AfterFunctionDefinitionName: true
+PointerAlignment: Right
 ...
