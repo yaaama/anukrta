@@ -27,10 +27,10 @@ typedef struct anukrtaConfig {
 } anukrtaConfig;
 
 /* This is the function called ONLY when a valid frame is fully decoded */
-static uint64_t hash_decoded_frame (VideoReader* vreader,
+static uint64_t hash_decoded_frame (VideoReader *vreader,
                                     anuHashType hash_algo) {
 
-  AVFrame* grey_frame = av_frame_alloc();
+  AVFrame *grey_frame = av_frame_alloc();
   if (grey_frame == NULL) {
     fprintf(stderr, "Failed to allocate memory for frame.\n");
     abort();
@@ -52,21 +52,20 @@ static uint64_t hash_decoded_frame (VideoReader* vreader,
   }
 
   /* Generate a 2D matrix of the greyscale values */
-  uint8_t matrix[ANU_PHASH_INPUT_SIZE][ANU_PHASH_INPUT_SIZE] = {0};
+  uint8_t matrix[ANU_PHASH_INPUT_SIZE * ANU_PHASH_INPUT_SIZE];
 
   /* Populate matrix with frame data */
   for (long y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    uint8_t* row_ptr = grey_frame->data[0] + (y * grey_frame->linesize[0]);
-    for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
-      matrix[y][x] = row_ptr[x];
-    }
+    uint8_t *row_ptr = grey_frame->data[0] + (y * grey_frame->linesize[0]);
+    uint8_t *dest_row = &matrix[y * ANU_PHASH_INPUT_SIZE];
+    memcpy(dest_row, row_ptr, ANU_PHASH_INPUT_SIZE);
   }
 
   uint64_t hash = 0;
   switch (hash_algo) {
     case ANU_HASH_ALGO_DCT:
       {
-        hash = dct_hash(&matrix[0][0]);
+        hash = dct_hash(matrix);
         break;
       }
     default:
