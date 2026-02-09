@@ -82,8 +82,8 @@ static uint64_t hash_decoded_frame (VideoReader *vreader,
   return hash;
 }
 
-int hash_video (anuFile* file, anuHashType hash_algo, int segments,
-                uint64_t* hashes_out) {
+int hash_video (anuFile *file, anuHashType hash_algo, int segments,
+                uint64_t *hashes_out) {
 
   if (segments <= 0) {
     printf("Skipping hash for `%s`\n", file->path);
@@ -101,7 +101,7 @@ int hash_video (anuFile* file, anuHashType hash_algo, int segments,
   /* Container: vreader.fmt_ctx; */
 
   /* Video stream */
-  AVStream* vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
+  AVStream *vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
 
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
@@ -217,8 +217,8 @@ int hash_video (anuFile* file, anuHashType hash_algo, int segments,
   return 0;
 }
 
-size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
-                              anukrtaConfig* config) {
+size_t anu_report_duplicates (const anuFileQ *files, const uint64_t *hashes,
+                              anukrtaConfig *config) {
 
   if (files->count == 0) {
     return 0;
@@ -227,7 +227,7 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
   int threshold = config->threshold;
 
   /* array to mark files we've already grouped so we don't process them twice */
-  bool* reported = calloc(files->count, sizeof(bool));
+  bool *reported = calloc(files->count, sizeof(bool));
 
   if (!reported) {
     fprintf(stderr, "Memory allocation failed.\n");
@@ -239,10 +239,10 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
   printf("========================================\n");
 
   size_t groups_found = 0;
-  anuFile* file_a;
-  anuFile* file_b;
-  uint64_t* hash_a;
-  uint64_t* hash_b;
+  anuFile *file_a;
+  anuFile *file_b;
+  uint64_t *hash_a;
+  uint64_t *hash_b;
   uint64_t total_dist = 0;
   for (size_t i = 0; i < files->count; i++) {
 
@@ -309,7 +309,7 @@ size_t anu_report_duplicates (const anuFileQ* files, const uint64_t* hashes,
   return groups_found;
 }
 
-int anukrta_driver (anukrtaConfig config, char* path) {
+int anukrta_driver (anukrtaConfig config, char *path) {
   /* const int SEGMENTS = config.segments; */
   /* const int THRESHOLD = config.threshold; /\* 0=Exact, 20=Similar *\/ */
   anuFileQ files;
@@ -328,13 +328,13 @@ int anukrta_driver (anukrtaConfig config, char* path) {
   printf("\nFILE COUNT: `%zu`\n", file_count);
 
   /* Array of hashes */
-  uint64_t* hashes = calloc((file_count * config.segments), sizeof(uint64_t));
+  uint64_t *hashes = calloc((file_count * config.segments), sizeof(uint64_t));
 
   if (!hashes) {
     abort();
   }
 
-  anuFile* file;
+  anuFile *file;
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
@@ -349,9 +349,9 @@ int anukrta_driver (anukrtaConfig config, char* path) {
   return 0;
 }
 
-int main (int argc, char* argv[]) {  // NOLINT (unused-*)
+int main (int argc, char *argv[]) {  // NOLINT (unused-*)
 
-  char* PATH = "./etc/";
+  char *PATH = "./etc/";
   anukrtaConfig config = {.segments = 2, .threshold = 20};
   anukrta_driver(config, PATH);
 

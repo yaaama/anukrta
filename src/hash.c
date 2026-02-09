@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 
 /* Size of row/col len of DCT hash */
 #define ANU_PHASH_DCT_SIZE 8
@@ -83,7 +82,7 @@ static const float dct_weights[8][32] = {
      0.060745072F,  0.200801909F,  0.249698862F,  0.185237750F,  0.036682554F,
      -0.128525749F, -0.235386044F}};
 
-uint64_t dct_hash (uint8_t* input_pixels) {
+uint64_t dct_hash (uint8_t *input_pixels) {
 
   /* Intermediate storage */
   float row_result[DCT_INTERMEDIATE_BUF_LEN];
@@ -93,7 +92,7 @@ uint64_t dct_hash (uint8_t* input_pixels) {
   float sum = 0.0F;
   /* Pass 1: 1D DCT on Rows */
   for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    uint8_t* row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
+    uint8_t *row_ptr = &input_pixels[((ptrdiff_t)y * ANU_PHASH_INPUT_SIZE)];
 
     for (int u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
       sum = 0;
@@ -127,12 +126,12 @@ uint64_t dct_hash (uint8_t* input_pixels) {
     sum_pixels += dct_result[i];
   }
 
-  printf("\tValue of [0][0] %f\n", (double)dct_result[0]);
-  printf("\tSummed value of DCT (skipping first elem): %f\n",
-         (double)sum_pixels);
+  /* printf("\tValue of [0][0] %.20f\n", (double)dct_result[0]); */
+  /* printf("\tSummed value of DCT (skipping first elem): %.20f\n",
+   * (double)sum_pixels); */
 
   float average = sum_pixels / (DCT_DIGEST_LEN - 1);
-  printf("\tAverage value of pixels: %f\n", (double)average);
+  /* printf("\tAverage value of pixels: %.20f\n", (double)average); */
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;

@@ -39,7 +39,6 @@ Test (hashing, dct_flat_values) {
                onehundred_hash_result);
 }
 
-
 Test (hashing, hamming_distances) {
 
   uint64_t hamming[] = {
