@@ -21,14 +21,17 @@ Diagnostics:
   Includes:
     # IgnoreHeader: ["criterion*"]
     AnalyzeAngledIncludes: false
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
 
-MissingIncludes: Strict
 Completion:
   AllScopes: true
+  MacroFilter: FuzzyMatch
 
 Hover:
   ShowAKA: true
   MacroContentsLimit: 2048
+
 Documentation:
   CommentFormat: Doxygen
 

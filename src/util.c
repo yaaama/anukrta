@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 /* Helper to visualise matrix */
-void debug_print_matrix (const float* matrix, int rows, int cols) {
+void debug_print_matrix (const float *matrix, int rows, int cols) {
   printf("--- %dx%d Visual Dump ---\n", cols, rows);
   for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
     for (int x = 0; x < cols; x++) {
@@ -47,9 +47,9 @@ uint64_t hamming_distance (uint64_t hash1, uint64_t hash2) {
   return __builtin_popcountll(hash1 ^ hash2);
 }
 
-int compare_floats (const void* a, const void* b) {
-  float arg1 = *(const float*)a;
-  float arg2 = *(const float*)b;
+int compare_floats (const void *a, const void *b) {
+  float arg1 = *(const float *)a;
+  float arg2 = *(const float *)b;
 
   if (arg1 < arg2) {
     return -1;

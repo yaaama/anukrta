@@ -58,6 +58,7 @@ static uint64_t hash_decoded_frame (VideoReader *vreader,
   for (long y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
     uint8_t *row_ptr = grey_frame->data[0] + (y * grey_frame->linesize[0]);
     uint8_t *dest_row = &matrix[y * ANU_PHASH_INPUT_SIZE];
+    /* We copy row by row using memcpy */
     memcpy(dest_row, row_ptr, ANU_PHASH_INPUT_SIZE);
   }
 
