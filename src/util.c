@@ -28,6 +28,8 @@ void debug_print_matrix (const float* matrix, int rows, int cols) {
 }
 
 uint64_t hamming_distance (uint64_t hash1, uint64_t hash2) {
+
+#if 0
   uint64_t x =
       hash1 ^
       hash2; /* XOR finds the differences (returns 1 where bits differ) */
@@ -40,6 +42,9 @@ uint64_t hamming_distance (uint64_t hash1, uint64_t hash2) {
   }
 
   return dist;
+#endif
+
+  return __builtin_popcountll(hash1 ^ hash2);
 }
 
 int compare_floats (const void* a, const void* b) {
