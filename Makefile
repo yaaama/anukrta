@@ -7,6 +7,7 @@ SRC_DIR := src
 OBJ_DIR := build/objs
 BUILD_DIR := build
 INCLUDE_DIR := src
+VENDOR_DIR := src/vendor
 TEST_DIR := tests
 
 # Compiler settings
@@ -50,8 +51,7 @@ else
 	CFLAGS += $(RELEASE_FLAGS)
 endif
 
-INCLUDES = $(addprefix -I,$(SRC_DIR) $(INCLUDE_DIR))
-
+INCLUDES = $(addprefix -I,$(SRC_DIR) $(INCLUDE_DIR) $(VENDOR_DIR))
 CPPFLAGS = $(INCLUDES) -MMD -MP
 
 # ==========================================
@@ -67,7 +67,8 @@ FFMPEG_LIBS := -lavformat \
 -lavdevice
 
 # Combine flags
-ALL_CFLAGS := $(CFLAGS) -I$(INCLUDE_DIR) $(FFMPEG_INC)
+# ALL_CFLAGS := $(CFLAGS) -I$(INCLUDE_DIR) $(FFMPEG_INC)
+ALL_CFLAGS := $(CFLAGS) $(CPPFLAGS) $(FFMPEG_INC)
 ALL_LDFLAGS :=
 ALL_LDLIBS := -lm -lpthread -lz $(FFMPEG_LIBS)
 
@@ -96,6 +97,8 @@ endif
 # ==========================================
 # Find all .c files in SRC_DIR
 SOURCES := $(wildcard $(SRC_DIR)/*.c)
+SOURCES += $(wildcard $(VENDOR_DIR)/*.c)
+
 # Create object file names (e.g., src/main.c -> obj/main.o)
 OBJECTS := $(SOURCES:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 MAIN_OBJ := $(OBJ_DIR)/main.o
