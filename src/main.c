@@ -110,7 +110,7 @@ int hash_video (anu_file *file, anuHashType hash_algo, int segments,
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
 
-  long video_duration_us = get_video_duration(vreader.fmt_ctx, vid_stream_ptr);
+  long video_duration_us = get_video_duration(&vreader);
   assert(video_duration_us > 0);
 
   vreader.video_duration = video_duration_us;

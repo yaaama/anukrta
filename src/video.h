@@ -36,7 +36,7 @@ AVStream *vreader_get_video_stream(video_io *vreader);
 
 int open_video_reader(char *filename, video_io *vreader);
 void close_video_reader(video_io *vreader);
-long get_video_duration(AVFormatContext *fmt_ctx, AVStream *vid_stream);
+long get_video_duration(video_io *vreader);
 int seek_to_timestamp(video_io *vreader, int64_t target_pts);
 int init_grey_frame(int width, int height, AVFrame *out_frame);
 int scale_frame(AVFrame *src_frame, size_t width, size_t height,

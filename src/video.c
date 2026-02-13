@@ -78,6 +78,7 @@ int normalize_colourspace (AVFrame *frame, SwsContext *context) {
   if (0 > sws_setColorspaceDetails(context, inv_table, src_range, table,
                                    dst_range, 0, 1 << 16, 1 << 16)) {
     fprintf(stderr, "Failed to set colourspace.\n");
+
     return -1;
   }
   return 0;
@@ -327,7 +328,8 @@ double frame_pts_to_seconds (long pts, AVRational timebase) {
  * @return Duration of video in microseconds.
  *
  */
-long get_video_duration (AVFormatContext *fmt_ctx, AVStream *vid_stream) {
+long get_video_duration (video_io *vreader) {
+  AVStream *vid_stream = vreader_get_video_stream(vreader);
 
   /* duration in stream-base */
   long duration_in_sb = vid_stream->duration;
@@ -340,13 +342,14 @@ long get_video_duration (AVFormatContext *fmt_ctx, AVStream *vid_stream) {
         stderr,
         "Warning: Video stream is omitting duration. Falling back to container "
         "duration (`%ld`)\n",
-        fmt_ctx->duration);
+        vreader->fmt_ctx->duration);
 
-    return fmt_ctx->duration;
+    return vreader->fmt_ctx->duration;
   }
 
   long duration_us =
       av_rescale_q(duration_in_sb, stream_timebase, AV_TIME_BASE_Q);
+
   printf("Duration of video: `%f` seconds (`%ld` micro/s)\n",
          frame_pts_to_seconds(duration_in_sb, stream_timebase), duration_us);
   return duration_us;
