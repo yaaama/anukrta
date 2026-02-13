@@ -11,7 +11,6 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
-  concurrency-*,
   misc-*,
 
   clang-analyzer-*,
@@ -38,6 +37,11 @@ SystemHeaders: false
 HeaderFilterRegex: '.*/(include|src)/.*\.h$'
 FormatStyle: file
 CheckOptions:
+
+# - key: readability-identifier-naming.TypedefPrefix
+#   value: 'anu'
+    # - key: readability-identifier-naming.TypedefSuffix
+    #   value: ''
   # Naming conventions (C style)
   - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
@@ -53,8 +57,7 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.TypedefCase
     value: lower_case
-  - key: readability-identifier-naming.TypedefSuffix
-    value: '_t'
+
   - key: readability-identifier-naming.EnumCase
     value: lower_case
   - key: readability-identifier-naming.EnumConstantCase
