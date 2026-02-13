@@ -1,8 +1,10 @@
 #include <criterion/assert.h>
 #include <criterion/criterion.h>
 #include <criterion/internal/assert.h>
+#include <criterion/internal/test.h>
 #include <criterion/logging.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "../src/hash.h"
 #include "../src/util.h"

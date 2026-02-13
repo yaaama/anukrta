@@ -63,7 +63,10 @@ static void bkTree_insert_internal (bkNode *node, uint64_t hash,
 }
 
 void bkTree_insert (bkTree *tree, uint64_t hash, uint64_t file_id) {
-  if (tree->root == NULL) {
+  if (!tree) {
+    return;
+  }
+  if (!tree->root) {
     tree->root = bkTreeNode_new(hash, file_id);
   } else {
     bkTree_insert_internal(tree->root, hash, file_id);
@@ -141,11 +144,12 @@ static void bkNode_print_recursive (bkNode *node, int depth,
 }
 
 void bkTree_print_ascii (bkTree *tree) {
-  printf("\n--- BK Tree Structure ---\n");
+
   if (!tree || !tree->root) {
     printf("(Empty Tree)\n");
     return;
   }
+  printf("\n--- BK Tree Structure ---\n");
   bkNode_print_recursive(tree->root, 0, -1);
   printf("-------------------------\n");
 }

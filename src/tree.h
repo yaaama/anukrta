@@ -27,7 +27,7 @@ typedef struct bkTree {
 } bkTree;
 
 /* Create new BK node */
-bkNode *bkNode_new(uint64_t hash, uint64_t file_id);
+bkNode *bkTreeNode_new(uint64_t hash, uint64_t file_id);
 
 /* Search for nodes with hashes with distance less than tolerance */
 void bkTree_search(bkNode *node, uint64_t hash, uint64_t tolerance,
@@ -36,7 +36,7 @@ void bkTree_search(bkNode *node, uint64_t hash, uint64_t tolerance,
 /* Insert hash into tree */
 void bkTree_insert(bkTree *tree, uint64_t hash, uint64_t file_id);
 /* Free node */
-void bkNode_free(bkNode *node);
+void bkTreeNode_free(bkNode *node);
 void bkTree_print_ascii(bkTree *tree);
 
 #endif  // TREE_H_
