@@ -131,6 +131,7 @@ $(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS) | $(BUILD_DIR)
 
 # 3. Compiling
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
 	@echo "Compiling $<..."
 	$(CC) $(ALL_CFLAGS) -c $< -o $@
 
