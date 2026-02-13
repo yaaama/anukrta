@@ -9,9 +9,9 @@
 
 #include "util.h"
 
-bkNode *bkTreeNode_new (uint64_t hash, uint64_t file_id) {
+bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
 
-  bkNode *node = calloc(1, sizeof(bkNode));
+  bk_node *node = calloc(1, sizeof(bk_node));
 
   if (!node) {
     exit(EXIT_FAILURE);
@@ -25,7 +25,7 @@ bkNode *bkTreeNode_new (uint64_t hash, uint64_t file_id) {
 }
 
 // NOLINTBEGIN (*recursion)
-void bkTreeNode_free (bkNode *node) {
+void bk_tree_node_free (bk_node *node) {
   // NOLINTEND
   if (!node) {
     return;
@@ -33,7 +33,7 @@ void bkTreeNode_free (bkNode *node) {
 
   for (int i = 0; i < BK_CHILD_ARR_SIZE; i++) {
     if (node->children[i]) {
-      bkTreeNode_free(node->children[i]);
+      bk_tree_node_free(node->children[i]);
     }
   }
 
@@ -41,7 +41,7 @@ void bkTreeNode_free (bkNode *node) {
 }
 
 // NOLINTBEGIN (*recursion)
-static void bkTree_insert_internal (bkNode *node, uint64_t hash,
+static void bkTree_insert_internal (bk_node *node, uint64_t hash,
                                     uint64_t file_id) {
   // NOLINTEND
   uint64_t dist = hamming_distance(node->hash, hash);
@@ -56,27 +56,27 @@ static void bkTree_insert_internal (bkNode *node, uint64_t hash,
   /* Traverse down the tree */
   if (!node->children[dist]) {
     /* Create new child here */
-    node->children[dist] = bkTreeNode_new(hash, file_id);
+    node->children[dist] = bk_tree_node_new(hash, file_id);
   } else {
     /* Recurse */
     bkTree_insert_internal(node->children[dist], hash, file_id);
   }
 }
 
-void bkTree_insert (bkTree *tree, uint64_t hash, uint64_t file_id) {
+void bk_tree_insert (bk_tree *tree, uint64_t hash, uint64_t file_id) {
   if (!tree) {
     return;
   }
   if (!tree->root) {
-    tree->root = bkTreeNode_new(hash, file_id);
+    tree->root = bk_tree_node_new(hash, file_id);
   } else {
     bkTree_insert_internal(tree->root, hash, file_id);
   }
 }
 
 // NOLINTBEGIN (*recursion)
-void bkTree_search (bkNode *node, uint64_t hash, uint64_t tolerance,
-                    anuDupeGroup *groups_out) {
+void bk_tree_search (bk_node *node, uint64_t hash, uint64_t tolerance,
+                     anu_dupe_group *groups_out) {
   // NOLINTEND
 
   uint64_t distance = hamming_distance(node->hash, hash);
@@ -101,14 +101,14 @@ void bkTree_search (bkNode *node, uint64_t hash, uint64_t tolerance,
 
   for (uint64_t i = min_search; i <= max_search; i++) {
     if (node->children[i]) {
-      bkTree_search(node->children[i], hash, tolerance, groups_out);
+      bk_tree_search(node->children[i], hash, tolerance, groups_out);
     }
   }
 }
 
 // NOLINTBEGIN (*recursion)
-static void bkNode_print_recursive (bkNode *node, int depth,
-                                    int edge_distance) {
+static void bk_node_print_recursive (bk_node *node, int depth,
+                                     int edge_distance) {
   // NOLINTEND
   if (!node) {
     return;
@@ -139,18 +139,18 @@ static void bkNode_print_recursive (bkNode *node, int depth,
      file_ids) */
   for (int i = 1; i < BK_CHILD_ARR_SIZE; i++) {
     if (node->children[i]) {
-      bkNode_print_recursive(node->children[i], depth + 1, i);
+      bk_node_print_recursive(node->children[i], depth + 1, i);
     }
   }
 }
 
-void bkTree_print_ascii (bkTree *tree) {
+void bk_tree_print_ascii (bk_tree *tree) {
 
   if (!tree || !tree->root) {
     printf("(Empty Tree)\n");
     return;
   }
   printf("\n--- BK Tree Structure ---\n");
-  bkNode_print_recursive(tree->root, 0, -1);
+  bk_node_print_recursive(tree->root, 0, -1);
   printf("-------------------------\n");
 }

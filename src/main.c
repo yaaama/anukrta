@@ -21,14 +21,13 @@
 #include "util.h"
 #include "video.h"
 
-typedef struct anukrtaConfig {
+typedef struct anukrta_config {
   int segments;
   int threshold;
-} anukrtaConfig;
+} anukrta_config;
 
 /* This is the function called ONLY when a valid frame is fully decoded */
-static uint64_t hash_decoded_frame (VideoReader *vreader,
-                                    anuHashType hash_algo) {
+static uint64_t hash_decoded_frame (video_io *vreader, anuHashType hash_algo) {
 
   AVFrame *grey_frame = av_frame_alloc();
   if (grey_frame == NULL) {
@@ -87,14 +86,14 @@ static uint64_t hash_decoded_frame (VideoReader *vreader,
   return hash;
 }
 
-int hash_video (anuFile *file, anuHashType hash_algo, int segments,
+int hash_video (anu_file *file, anuHashType hash_algo, int segments,
                 uint64_t *hashes_out) {
 
   if (segments <= 0) {
     printf("Skipping hash for `%s`\n", file->path);
     return 0;
   }
-  VideoReader vreader;
+  video_io vreader;
 
   /* Setup video reader */
   if (open_video_reader(file->path, &vreader) < 0) {
@@ -106,7 +105,7 @@ int hash_video (anuFile *file, anuHashType hash_algo, int segments,
   /* Container: vreader.fmt_ctx; */
 
   /* Video stream */
-  AVStream *vid_stream_ptr = vreader.fmt_ctx->streams[vreader.video_stream_idx];
+  AVStream *vid_stream_ptr = vreader_get_video_stream(&vreader);
 
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
@@ -222,8 +221,8 @@ int hash_video (anuFile *file, anuHashType hash_algo, int segments,
   return 0;
 }
 
-size_t anu_report_duplicates (const anuFileQ *files, const uint64_t *hashes,
-                              anukrtaConfig *config) {
+size_t anu_report_duplicates (const anu_file_q *files, const uint64_t *hashes,
+                              anukrta_config *config) {
 
   if (files->count == 0) {
     return 0;
@@ -244,8 +243,8 @@ size_t anu_report_duplicates (const anuFileQ *files, const uint64_t *hashes,
   printf("========================================\n");
 
   size_t groups_found = 0;
-  anuFile *file_a;
-  anuFile *file_b;
+  anu_file *file_a;
+  anu_file *file_b;
   uint64_t *hash_a;
   uint64_t *hash_b;
   uint64_t total_dist = 0;
@@ -286,13 +285,13 @@ size_t anu_report_duplicates (const anuFileQ *files, const uint64_t *hashes,
           groups_found++;
           header_printed = true;
           printf("Group #%zu: %s\n", groups_found,
-                 anuFile_get_filename(file_a));
+                 anu_file_get_filename(file_a));
         }
 
         /* Print the match */
-        printf("%s\n", anuFile_get_filename(file_a));
+        printf("%s\n", anu_file_get_filename(file_a));
         printf("|--- [Dist: %lu] %s\n", total_dist,
-               anuFile_get_filename(file_b));
+               anu_file_get_filename(file_b));
 
         /* Mark B as handled so it doesn't start its own group later */
         reported[j] = true;
@@ -314,10 +313,11 @@ size_t anu_report_duplicates (const anuFileQ *files, const uint64_t *hashes,
   return groups_found;
 }
 
-int anukrta_driver (anukrtaConfig config, char *path) {
-  /* const int SEGMENTS = config.segments; */
-  /* const int THRESHOLD = config.threshold; /\* 0=Exact, 20=Similar *\/ */
-  anuFileQ files;
+int anukrta_driver (anukrta_config config, char *path) {
+
+  /* Store the files we find in the path */
+  anu_file_q files;
+  /* Initialise the list to 20 items */
   anu_fileq_init(&files, 20);
 
   if (anu_recursive_filewalk(path, &files)) {
@@ -339,7 +339,7 @@ int anukrta_driver (anukrtaConfig config, char *path) {
     exit(EXIT_FAILURE);
   }
 
-  anuFile *file;
+  anu_file *file;
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
@@ -356,9 +356,9 @@ int anukrta_driver (anukrtaConfig config, char *path) {
 
 int main (int argc, char *argv[]) {  // NOLINT (unused-*)
 
-  char *PATH = "./etc/";
-  anukrtaConfig config = {.segments = 2, .threshold = 20};
-  anukrta_driver(config, PATH);
+  char *path = "./etc/";
+  anukrta_config config = {.segments = 2, .threshold = 20};
+  anukrta_driver(config, path);
 
   return 0;
 }

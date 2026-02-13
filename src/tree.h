@@ -7,37 +7,37 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct anuDupeGroup {
+typedef struct anu_dupe_group {
   uint64_t files[MAX_FILES_PER_NODE];
   size_t file_count;
 
-} anuDupeGroup;
+} anu_dupe_group;
 
-typedef struct bkNode {
+typedef struct bk_node {
   uint64_t hash;
   int exact_dupe_count;
   uint64_t exact_dupe_file_ids[BK_CHILD_ARR_SIZE];
   /* Children of node, indexed by distance */
-  struct bkNode *children[65];
+  struct bk_node *children[65];
   size_t child_count;
-} bkNode;
+} bk_node;
 
-typedef struct bkTree {
+typedef struct bk_tree {
   /* Root node */
-  bkNode *root;
-} bkTree;
+  bk_node *root;
+} bk_tree;
 
 /* Create new BK node */
-bkNode *bkTreeNode_new(uint64_t hash, uint64_t file_id);
+bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 
 /* Search for nodes with hashes with distance less than tolerance */
-void bkTree_search(bkNode *node, uint64_t hash, uint64_t tolerance,
-                   anuDupeGroup *groups_out);
+void bk_tree_search(bk_node *node, uint64_t hash, uint64_t tolerance,
+                    anu_dupe_group *groups_out);
 
 /* Insert hash into tree */
-void bkTree_insert(bkTree *tree, uint64_t hash, uint64_t file_id);
+void bk_tree_insert(bk_tree *tree, uint64_t hash, uint64_t file_id);
 /* Free node */
-void bkTreeNode_free(bkNode *node);
-void bkTree_print_ascii(bkTree *tree);
+void bk_tree_node_free(bk_node *node);
+void bk_tree_print_ascii(bk_tree *tree);
 
 #endif  // TREE_H_

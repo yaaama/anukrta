@@ -17,19 +17,19 @@
 #include "stack.h"
 #include "util.h"
 
-void anu_fileq_init (anuFileQ *q, size_t init_capacity) {
+void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
   assert(init_capacity);
   if (!q) {
     return;
   }
   q->capacity = init_capacity;
   q->count = 0;
-  q->items = (anuFile *)calloc(q->capacity, sizeof(anuFile));
+  q->items = (anu_file *)calloc(q->capacity, sizeof(anu_file));
   q->head = 0;
   q->tail = 0;
 }
 
-int anu_fileq_enqueue (anuFileQ *q, anuFile *file_in) {
+int anu_fileq_enqueue (anu_file_q *q, anu_file *file_in) {
 
   /* should return an error */
   if ((!file_in) || (!q)) {
@@ -38,7 +38,7 @@ int anu_fileq_enqueue (anuFileQ *q, anuFile *file_in) {
 
   if (q->capacity <= q->count) {
     q->capacity *= 2;
-    anuFile *temp = realloc(q->items, (sizeof(anuFile) * q->capacity));
+    anu_file *temp = realloc(q->items, (sizeof(anu_file) * q->capacity));
     if (!temp) {
       /* probs out of mem */
       exit(EXIT_FAILURE);
@@ -55,7 +55,7 @@ int anu_fileq_enqueue (anuFileQ *q, anuFile *file_in) {
   return 0;
 }
 
-int anu_fileq_dequeue (anuFileQ *q, anuFile *file_out) {
+int anu_fileq_dequeue (anu_file_q *q, anu_file *file_out) {
 
   if (!q || q->count == 0 || !file_out) {
     return 0;
@@ -67,7 +67,7 @@ int anu_fileq_dequeue (anuFileQ *q, anuFile *file_out) {
   return 1;
 }
 
-void anu_fileq_destroy (anuFileQ *q) {
+void anu_fileq_destroy (anu_file_q *q) {
 
   if (!q || !q->items) {
     return;
@@ -78,24 +78,24 @@ void anu_fileq_destroy (anuFileQ *q) {
 
 int anu_files_in_path(DIR **dir, struct dirent **filelist_out);
 
-char *anuFile_get_filename (anuFile *f) { return f->path + f->name; }
+char *anu_file_get_filename (anu_file *f) { return f->path + f->name; }
 
-struct anuDirJob {
+struct anu_dir_job {
   char path[512];
 };
 
 /* Video extensions */
-const char *VIDEO_EXTENSIONS[] = {
+static const char *video_extensions[] = {
     "3g2", "3gp",  "amv",  "asf", "avi", "f4a",  "f4b", "f4p", "f4v", "flv",
     "flv", "gifv", "m4p",  "m4v", "m4v", "mkv",  "mng", "mod", "mov", "mp2",
     "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
     "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv", NULL};
 
-const size_t VIDEO_EXTENSIONS_COUNT =
-    (sizeof(VIDEO_EXTENSIONS) / sizeof(VIDEO_EXTENSIONS[0]));
+static const size_t VIDEO_EXTENSIONS_COUNT =
+    (sizeof(video_extensions) / sizeof(video_extensions[0]));
 
 /* Check extension of filename */
-int anu_file_ext_supported (const char *filename) {
+static int anu_file_ext_supported (const char *filename) {
   assert(filename);
   const char *dot = strrchr(filename, '.');
 
@@ -125,8 +125,8 @@ int anu_file_ext_supported (const char *filename) {
   }
 
   /* Search if extension is within array */
-  for (int i = 0; VIDEO_EXTENSIONS[i] != NULL; i++) {
-    if (strcmp(file_ext_lower, VIDEO_EXTENSIONS[i]) == 0) {
+  for (size_t i = 0; i < VIDEO_EXTENSIONS_COUNT; i++) {
+    if (strcmp(file_ext_lower, video_extensions[i]) == 0) {
       return 1;
     }
   }
@@ -134,7 +134,7 @@ int anu_file_ext_supported (const char *filename) {
 }
 
 /* TODO Resolve tilde into absolute path */
-int anu_resolve_tilde (char *path) {
+static int anu_resolve_tilde (char *path) {
 
   if (!path) {
     return -1;
@@ -155,21 +155,21 @@ int anu_open_dir (char *dir_path, DIR **out) {
   return 0;
 }
 
-int anu_recursive_filewalk (char *searchp, anuFileQ *files_out) {
+int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
 
   /* Initialise first directory we will explore */
-  struct anuDirJob dirjob;
+  struct anu_dir_job dirjob;
 
   /* Temp var to hold the directory we are currently in */
-  struct anuDirJob currjob;
+  struct anu_dir_job currjob;
 
   size_t file_len = strlen(searchp);
   memcpy(dirjob.path, searchp, file_len);
   dirjob.path[file_len] = '\0';
 
   /* Stack containing directories to visit */
-  anuStack dirstack;
-  anu_stack_init(&dirstack, 20, sizeof(struct anuDirJob));
+  anu_stack dirstack;
+  anu_stack_init(&dirstack, 20, sizeof(struct anu_dir_job));
   anu_stack_push(&dirstack, &dirjob);
 
   /* Directory stream */
@@ -184,7 +184,7 @@ int anu_recursive_filewalk (char *searchp, anuFileQ *files_out) {
   char fullpath[ANU_MAX_PATH_LEN] = {0};
   /* Files found counter */
   size_t files_found = 0;
-  anuFile newfile;
+  anu_file newfile;
 
   while (anu_stack_pop(&dirstack, &currjob)) {
 

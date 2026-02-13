@@ -151,7 +151,7 @@ int init_grey_frame (int width, int height, AVFrame *out_frame) {
   return 0;
 }
 
-int decode_packet (VideoReader *vreader) {
+int decode_packet (video_io *vreader) {
   /* Send packet to decoder */
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
 
@@ -188,7 +188,7 @@ int decode_packet (VideoReader *vreader) {
   return ret;
 }
 
-int open_video_reader (char *filename, VideoReader *vreader) {
+int open_video_reader (char *filename, video_io *vreader) {
 
   /* Initialise VideoReader */
   vreader->fmt_ctx = NULL;
@@ -241,11 +241,11 @@ int open_video_reader (char *filename, VideoReader *vreader) {
     fprintf(stderr, "No decoder found for stream.\n");
     return -1;
   }
-
   if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
     fprintf(stderr, "No video stream found.\n");
     return -1;
   }
+
   printf("Found video stream at index `%d`\n", vreader->video_stream_idx);
 
   /* Get codec parameters */
@@ -288,7 +288,7 @@ int open_video_reader (char *filename, VideoReader *vreader) {
   return 0;
 }
 
-void close_video_reader (VideoReader *vreader) {
+void close_video_reader (video_io *vreader) {
   if (vreader->packet) {
     av_packet_free(&vreader->packet);
   }
@@ -374,7 +374,7 @@ long calculate_frame_steps (long duration, int segments) {
  *
  * @note When `av_seek_frame` fails, this function returns its value.
  */
-int seek_to_timestamp (VideoReader *vreader, int64_t target_pts) {
+int seek_to_timestamp (video_io *vreader, int64_t target_pts) {
 
   int ret = 0;
 
@@ -399,4 +399,11 @@ int seek_to_timestamp (VideoReader *vreader, int64_t target_pts) {
   }
 
   return 0;
+}
+
+AVStream *vreader_get_video_stream (video_io *vreader) {
+  assert(vreader);
+  assert(vreader->video_stream_idx >= 0);
+  assert(vreader->fmt_ctx);
+  return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }

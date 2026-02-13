@@ -4,14 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-void anu_stack_init (anuStack *s, size_t capacity, size_t elem_size) {
+void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
   s->items = malloc(capacity * elem_size);
   s->capacity = capacity;
   s->count = 0;
   s->elem_size = elem_size;
 }
 
-void anu_stack_push (anuStack *s, void *item_ptr) {
+void anu_stack_push (anu_stack *s, void *item_ptr) {
 
   if (s->count == s->capacity) {
     s->capacity = (s->capacity * 2);
@@ -27,7 +27,7 @@ void anu_stack_push (anuStack *s, void *item_ptr) {
   ++s->count;
 }
 
-int anu_stack_pop (anuStack *s, void *dest) {
+int anu_stack_pop (anu_stack *s, void *dest) {
   if (s->count == 0) {
     return 0;
   }
@@ -38,4 +38,4 @@ int anu_stack_pop (anuStack *s, void *dest) {
   return 1;
 }
 
-void anu_stack_destroy (anuStack *s) { free(s->items); }
+void anu_stack_destroy (anu_stack *s) { free(s->items); }
