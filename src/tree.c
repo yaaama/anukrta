@@ -39,6 +39,7 @@ void bkTreeNode_free (bkNode *node) {
   free(node);
 }
 
+
 // NOLINTBEGIN (*recursion)
 static void bkTree_insert_internal (bkNode *node, uint64_t hash,
                                     uint64_t file_id) {

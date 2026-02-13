@@ -18,7 +18,7 @@ void anu_stack_push (anuStack* s, void* item_ptr) {
     void** copied = (void**)realloc(s->items, (s->capacity * s->elem_size));
     if (copied == NULL) {
       perror("Reallocation failed.");
-      exit(0);
+      exit(EXIT_FAILURE);
     }
     s->items = (void*)copied;
   }

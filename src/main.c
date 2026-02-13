@@ -33,13 +33,13 @@ static uint64_t hash_decoded_frame (VideoReader *vreader,
   AVFrame *grey_frame = av_frame_alloc();
   if (grey_frame == NULL) {
     fprintf(stderr, "Failed to allocate memory for frame.\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 
   /* Create an empty grey frame */
   if (init_grey_frame(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE, grey_frame)) {
     fprintf(stderr, "Failed to initialise frame.\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 
   /* Scale frame down to 32x32 and store in empty grey frame */
@@ -48,7 +48,7 @@ static uint64_t hash_decoded_frame (VideoReader *vreader,
     fprintf(stderr, "Failed to scale frame!");
     /* Clean up before aborting */
     av_frame_free(&grey_frame);
-    abort();
+    exit(EXIT_FAILURE);
   }
 
   /* Generate a 2D matrix of the greyscale values */
@@ -336,7 +336,7 @@ int anukrta_driver (anukrtaConfig config, char *path) {
   uint64_t *hashes = calloc((file_count * config.segments), sizeof(uint64_t));
 
   if (!hashes) {
-    abort();
+    exit(EXIT_FAILURE);
   }
 
   anuFile *file;
