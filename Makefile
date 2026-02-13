@@ -2,11 +2,11 @@
 #   Project Settings
 # ==========================================
 TARGET_NAME := anukrta
-TEST_TARGET_NAME := test_suite
+TEST_TARGET_NAME := test
 SRC_DIR := src
 OBJ_DIR := build/objs
 BUILD_DIR := build
-INCLUDE_DIR :=
+INCLUDE_DIR := src
 TEST_DIR := tests
 
 # Compiler settings
@@ -17,23 +17,30 @@ DEBUG := 1
 
 # FLAGS FOR DEVELOPMENT
 DEV_FLAGS := -ggdb -O0 -g3 \
--fextend-variable-liveness \
--ftrapv \
--Wdouble-promotion \
 -Wconversion \
+-Wdouble-promotion \
+-Wjump-misses-init \
+-Wmissing-include-dirs \
+-Wmissing-prototypes \
+-Wnested-externs \
+-Wno-incompatible-pointer-types-discards-qualifiers \
 -Wno-sign-conversion \
--fno-omit-frame-pointer \
+-Wno-unused-function \
 -Wno-unused-parameter \
 -Wno-unused-variable \
--Wno-unused-function \
--Wno-incompatible-pointer-types-discards-qualifiers
+-Wold-style-definition \
+-Wredundant-decls \
+-Wshadow \
+-fextend-variable-liveness \
+-fno-omit-frame-pointer \
+-ftrapv
 
 # FLAGS FOR RELEASE BUILD
 RELEASE_FLAGS := -O2
 
 # DEFAULT FLAGS
-CFLAGS := -std=c11 \
--Wall -Wextra -Wstrict-prototypes \
+CFLAGS := -std=c11
+CFLAGS += -Wall -Wextra -Wstrict-prototypes \
 -Wold-style-definition -Wshadow \
 -Wvla -pedantic
 
@@ -69,7 +76,7 @@ ALL_LDLIBS := -lm -lpthread -lz $(FFMPEG_LIBS)
 # ==========================================
 ifeq (${ASAN}, 1)
 # ASAN Flags
-ASAN_FLAGS := -fsanitize=undefined,address
+ASAN_FLAGS := -fsanitize=undefined -fsanitize=address
 
 ALL_CFLAGS += $(ASAN_FLAGS) -fsanitize-trap -fno-optimize-sibling-calls
 # -fsanitize-address-use-after-return=always  -fsanitize-address-use-after-scope
@@ -108,7 +115,7 @@ FILES := $(shell find $(SRC_DIR) $(TEST_DIR) $(INCLUDE_DIR) -name '*.c' -o -name
 
 .PHONY: all test run bear clean
 # ALL
-all: $(BUILD_DIR)/$(TARGET_NAME)
+all: $(BUILD_DIR)/$(TARGET_NAME) $(BUILD_DIR)/$(TEST_TARGET_NAME)
 
 # 1. Linking
 $(BUILD_DIR)/$(TARGET_NAME): $(OBJECTS) | $(BUILD_DIR)
@@ -136,7 +143,7 @@ $(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.c
 
 # 4. Directory Creation
 $(BUILD_DIR) $(OBJ_DIR):
-	@mkdir -p $@
+	@mkdir -p $(OBJ_DIR)
 
 # 6. Include Dependencies
 -include $(DEPS)
@@ -148,13 +155,13 @@ clean:
 	@rm -f etc/asan.log.*
 
 .PHONY: compile_commands.json
-compile_commands.json: $(BUILD_DIR)/compile_commands.json
-
-$(BUILD_DIR)/compile_commands.json:
+compile_commands.json:
+	@mkdir -p $(BUILD_DIR)
 	@echo "Generating compile_commands.json..."
 	bear -o $(BUILD_DIR)/compile_commands.json -- $(MAKE) -B
 
 # Alias for convenience
+.PHONY: bear
 bear: compile_commands.json
 
 .PHONY: run
@@ -170,6 +177,7 @@ endif
 	 UBSAN_OPTIONS="$(DEFAULT_UBSAN_OPTIONS):$(UBSAN_OPTIONS)" \
 	 ./$(BUILD_DIR)/$(TARGET_NAME)
 
+.PHONY: test
 test: $(BUILD_DIR)/$(TEST_TARGET_NAME)
 	@echo "Running Tests..."
 ifeq (${ASAN}, 1)
@@ -188,27 +196,19 @@ lint: bear
 	@echo "Running clang-tidy"
 	@clang-tidy -p $(BUILD_DIR) --warnings-as-errors='*' $(FILES)
 
-.PHONY: printvars
-printvars:
-	@printf "\
-	OS: \"$(OS)\"\n \
-	EXEC: \"$(TARGET_NAME)\"\n \
-	TEST_EXEC: \"$(TEST_TARGET_NAME)\"\n \
-	SRC_DIR: \"$(SRC_DIR)\"\n \
-	OBJ_DIR: \"$(OBJ_DIR)\"\n \
-	BUILD_DIR: \"$(BUILD_DIR)\"\n \
-	SOURCES: \"$(SOURCES)\"\n \
-	TEST_DIR: \"$(TEST_DIR)\"\n \
-	TEST_SOURCES: \"$(TEST_SOURCES)\"\n \
-	INCLUDE_DIR: \"$(INCLUDE_DIR)\"\n \
-	INCLUDES: \"$(INCLUDES)\"\n \
-	TEST_INCLUDES: \"$(TEST_INCLUDES)\"\n \
-	CXX: \"$(CXX)\"\n \
-	CPPFLAGS: \"$(CPPFLAGS)\"\n \
-	LDFLAGS: \"$(ALL_LDFLAGS)\"\n \
-	TEST_LDFLAGS: \"$(TEST_LDFLAGS)\"\n \
-	ALL_LDLIBS: \"$(ALL_LDLIBS)\"\n \
-	ALL_CFLAGS: \"$(ALL_CFLAGS)\"\n \
-	TEST_LDLIBS: \"$(TEST_LDLIBS)\"\n \
-	DEV_FLAGS: \"$(DEV_FLAGS)\"\n \
-	"
+.PHONY: release
+release:
+	$(MAKE) DEBUG=0 ASAN=0
+
+.PHONY: debug
+debug:
+	$(MAKE) DEBUG=1
+
+.PHONY: profile
+profile: release
+	perf record -g $(BUILD_DIR)/$(TARGET_NAME)
+	perf report
+
+.PHONY: memcheck
+memcheck: debug
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $(BUILD_DIR)/$(TARGET_NAME)
