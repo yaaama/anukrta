@@ -1,6 +1,7 @@
 
 #include "tree.h"
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -13,12 +14,12 @@ bkNode *bkTreeNode_new (uint64_t hash, uint64_t file_id) {
   bkNode *node = calloc(1, sizeof(bkNode));
 
   if (!node) {
-    abort();
+    exit(EXIT_FAILURE);
   }
-  node->file_id_count = 0;
+  node->exact_dupe_count = 0;
   node->hash = hash;
-  node->file_ids[0] = file_id;
-  node->file_id_count = 1;
+  node->exact_dupe_file_ids[0] = file_id;
+  node->exact_dupe_count = 1;
 
   return node;
 }
@@ -39,7 +40,6 @@ void bkTreeNode_free (bkNode *node) {
   free(node);
 }
 
-
 // NOLINTBEGIN (*recursion)
 static void bkTree_insert_internal (bkNode *node, uint64_t hash,
                                     uint64_t file_id) {
@@ -48,8 +48,8 @@ static void bkTree_insert_internal (bkNode *node, uint64_t hash,
 
   if (!dist) {
     /* Exact match (collision). Add data to this node. */
-    node->file_ids[node->file_id_count] = file_id;
-    ++node->file_id_count;
+    node->exact_dupe_file_ids[node->exact_dupe_count] = file_id;
+    ++node->exact_dupe_count;
     return;
   }
 
@@ -83,8 +83,8 @@ void bkTree_search (bkNode *node, uint64_t hash, uint64_t tolerance,
 
   if (distance <= tolerance) {
 
-    for (int k = 0; k < node->file_id_count; k++) {
-      groups_out->files[groups_out->file_count] = node->file_ids[k];
+    for (int k = 0; k < node->exact_dupe_count; k++) {
+      groups_out->files[groups_out->file_count] = node->exact_dupe_file_ids[k];
       ++groups_out->file_count;
     }
   }
@@ -129,8 +129,8 @@ static void bkNode_print_recursive (bkNode *node, int depth,
 
   printf("Hash: %016lx | Files: ", node->hash);
 
-  for (int i = 0; i < node->file_id_count; i++) {
-    printf("%ld ", node->file_ids[i]);
+  for (int i = 0; i < node->exact_dupe_count; i++) {
+    printf("%ld ", node->exact_dupe_file_ids[i]);
   }
   printf("\n");
 

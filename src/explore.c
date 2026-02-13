@@ -17,19 +17,19 @@
 #include "stack.h"
 #include "util.h"
 
-void anu_fileq_init (anuFileQ* q, size_t init_capacity) {
+void anu_fileq_init (anuFileQ *q, size_t init_capacity) {
   assert(init_capacity);
   if (!q) {
     return;
   }
   q->capacity = init_capacity;
   q->count = 0;
-  q->items = (anuFile*)calloc(q->capacity, sizeof(anuFile));
+  q->items = (anuFile *)calloc(q->capacity, sizeof(anuFile));
   q->head = 0;
   q->tail = 0;
 }
 
-int anu_fileq_enqueue (anuFileQ* q, anuFile* file_in) {
+int anu_fileq_enqueue (anuFileQ *q, anuFile *file_in) {
 
   /* should return an error */
   if ((!file_in) || (!q)) {
@@ -38,7 +38,7 @@ int anu_fileq_enqueue (anuFileQ* q, anuFile* file_in) {
 
   if (q->capacity <= q->count) {
     q->capacity *= 2;
-    anuFile* temp = realloc(q->items, (sizeof(anuFile) * q->capacity));
+    anuFile *temp = realloc(q->items, (sizeof(anuFile) * q->capacity));
     if (!temp) {
       /* probs out of mem */
       exit(EXIT_FAILURE);
@@ -55,7 +55,7 @@ int anu_fileq_enqueue (anuFileQ* q, anuFile* file_in) {
   return 0;
 }
 
-int anu_fileq_dequeue (anuFileQ* q, anuFile* file_out) {
+int anu_fileq_dequeue (anuFileQ *q, anuFile *file_out) {
 
   if (!q || q->count == 0 || !file_out) {
     return 0;
@@ -67,7 +67,7 @@ int anu_fileq_dequeue (anuFileQ* q, anuFile* file_out) {
   return 1;
 }
 
-void anu_fileq_destroy (anuFileQ* q) {
+void anu_fileq_destroy (anuFileQ *q) {
 
   if (!q || !q->items) {
     return;
@@ -76,16 +76,16 @@ void anu_fileq_destroy (anuFileQ* q) {
   free(q->items);
 }
 
-int anu_files_in_path(DIR** dir, struct dirent** filelist_out);
+int anu_files_in_path(DIR **dir, struct dirent **filelist_out);
 
-char* anuFile_get_filename (anuFile* f) { return f->path + f->name; }
+char *anuFile_get_filename (anuFile *f) { return f->path + f->name; }
 
 struct anuDirJob {
   char path[512];
 };
 
 /* Video extensions */
-const char* VIDEO_EXTENSIONS[] = {
+const char *VIDEO_EXTENSIONS[] = {
     "3g2", "3gp",  "amv",  "asf", "avi", "f4a",  "f4b", "f4p", "f4v", "flv",
     "flv", "gifv", "m4p",  "m4v", "m4v", "mkv",  "mng", "mod", "mov", "mp2",
     "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
@@ -95,9 +95,9 @@ const size_t VIDEO_EXTENSIONS_COUNT =
     (sizeof(VIDEO_EXTENSIONS) / sizeof(VIDEO_EXTENSIONS[0]));
 
 /* Check extension of filename */
-int anu_file_ext_supported (const char* filename) {
+int anu_file_ext_supported (const char *filename) {
   assert(filename);
-  const char* dot = strrchr(filename, '.');
+  const char *dot = strrchr(filename, '.');
 
   if (!dot || dot == filename) {
     return 0;
@@ -106,7 +106,7 @@ int anu_file_ext_supported (const char* filename) {
   char file_ext_lower[8] = {0};
 
   /* Skip over the dot... */
-  const char* extension = ++dot;
+  const char *extension = ++dot;
 
   size_t ext_len = strlen(extension);
 
@@ -134,7 +134,7 @@ int anu_file_ext_supported (const char* filename) {
 }
 
 /* TODO Resolve tilde into absolute path */
-int anu_resolve_tilde (char* path) {
+int anu_resolve_tilde (char *path) {
 
   if (!path) {
     return -1;
@@ -143,7 +143,7 @@ int anu_resolve_tilde (char* path) {
   return 0;
 }
 
-int anu_open_dir (char* dir_path, DIR** out) {
+int anu_open_dir (char *dir_path, DIR **out) {
 
   *out = opendir(dir_path);
 
@@ -155,7 +155,7 @@ int anu_open_dir (char* dir_path, DIR** out) {
   return 0;
 }
 
-int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
+int anu_recursive_filewalk (char *searchp, anuFileQ *files_out) {
 
   /* Initialise first directory we will explore */
   struct anuDirJob dirjob;
@@ -173,9 +173,9 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
   anu_stack_push(&dirstack, &dirjob);
 
   /* Directory stream */
-  DIR* dir;
+  DIR *dir;
   /* Dir entry */
-  struct dirent* dp;
+  struct dirent *dp;
   /* Stat buffer */
   struct stat statb;
   /* Return value of calling stat on a file */
@@ -241,7 +241,7 @@ int anu_recursive_filewalk (char* searchp, anuFileQ* files_out) {
         newfile.path[path_length] = '\0';
 
         /* Find the last slash so we can extract the name */
-        char* last_slash = strrchr(newfile.path, '/');
+        char *last_slash = strrchr(newfile.path, '/');
 
         if (last_slash) {
           /* last_slash points to '/'. */

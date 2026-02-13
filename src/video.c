@@ -21,10 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
+static void save_gray_frame (unsigned char *buf, int wrap, int xsize,
                              int ysize,  // NOLINT(*swappable-parameters)
-                             char* prefix, long frame_num) {
-  FILE* fptr;
+                             char *prefix, long frame_num) {
+  FILE *fptr;
 
   char filename[1024];
   snprintf(filename, sizeof(filename), "%s_frame-%ld.pgm", prefix, frame_num);
@@ -48,7 +48,7 @@ static void save_gray_frame (unsigned char* buf, int wrap, int xsize,
   fclose(fptr);
 }
 
-int normalize_colourspace (AVFrame* frame, SwsContext* context) {
+int normalize_colourspace (AVFrame *frame, SwsContext *context) {
 
   int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
 
@@ -56,8 +56,8 @@ int normalize_colourspace (AVFrame* frame, SwsContext* context) {
   int dst_range = 1;
 
   /* Dummy variables to retrieve default coefficients */
-  int* inv_table;
-  int* table;
+  int *inv_table;
+  int *table;
   int dummy_src;
   int dummy_dst;
   int dummy_bright;
@@ -83,8 +83,8 @@ int normalize_colourspace (AVFrame* frame, SwsContext* context) {
   return 0;
 }
 
-int scale_frame (AVFrame* src_frame, size_t width, size_t height,
-                 AVFrame* out_frame) {
+int scale_frame (AVFrame *src_frame, size_t width, size_t height,
+                 AVFrame *out_frame) {
 
   enum AVPixelFormat input_fmt = src_frame->format;
 
@@ -110,7 +110,7 @@ int scale_frame (AVFrame* src_frame, size_t width, size_t height,
 
   /* Initialize the Scaler (SwsContext) */
   /* Convert from Source Format -> Gray8 @ 8x8 */
-  struct SwsContext* sws_ctx = sws_getContext(
+  struct SwsContext *sws_ctx = sws_getContext(
       src_frame->width, src_frame->height, input_fmt, (int)width, (int)height,
       out_frame->format, SWS_AREA, NULL, NULL, NULL);
 
@@ -127,7 +127,7 @@ int scale_frame (AVFrame* src_frame, size_t width, size_t height,
   int scaling_ret = sws_scale_frame(sws_ctx, out_frame, src_frame);
   if (scaling_ret <= 0) {
     fprintf(stderr, "Scaling FAILED: `%s`", av_err2str(scaling_ret));
-    exit(-1);
+    exit(EXIT_FAILURE);
   }
 
   sws_free_context(&sws_ctx);
@@ -137,7 +137,7 @@ int scale_frame (AVFrame* src_frame, size_t width, size_t height,
 /**
  * @brief Initialise a grayscale frame of specified width and height.
  **/
-int init_grey_frame (int width, int height, AVFrame* out_frame) {
+int init_grey_frame (int width, int height, AVFrame *out_frame) {
   out_frame->height = height;
   out_frame->width = width;
   out_frame->format = AV_PIX_FMT_GRAY8;
@@ -151,7 +151,7 @@ int init_grey_frame (int width, int height, AVFrame* out_frame) {
   return 0;
 }
 
-int decode_packet (VideoReader* vreader) {
+int decode_packet (VideoReader *vreader) {
   /* Send packet to decoder */
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
 
@@ -188,7 +188,7 @@ int decode_packet (VideoReader* vreader) {
   return ret;
 }
 
-int open_video_reader (char* filename, VideoReader* vreader) {
+int open_video_reader (char *filename, VideoReader *vreader) {
 
   /* Initialise VideoReader */
   vreader->fmt_ctx = NULL;
@@ -230,8 +230,8 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   /* Find Video Stream & Codec */
 
-  const AVCodec* codec = NULL;
-  AVCodecParameters* codec_params = NULL;
+  const AVCodec *codec = NULL;
+  AVCodecParameters *codec_params = NULL;
 
   /* Finds best stream that matches our specifications */
   vreader->video_stream_idx = av_find_best_stream(
@@ -282,13 +282,13 @@ int open_video_reader (char* filename, VideoReader* vreader) {
 
   if (vreader->frame == NULL || vreader->packet == NULL) {
     fprintf(stderr, "Failed to allocate memory for packet/frame.\n");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   return 0;
 }
 
-void close_video_reader (VideoReader* vreader) {
+void close_video_reader (VideoReader *vreader) {
   if (vreader->packet) {
     av_packet_free(&vreader->packet);
   }
@@ -327,7 +327,7 @@ double frame_pts_to_seconds (long pts, AVRational timebase) {
  * @return Duration of video in microseconds.
  *
  */
-long get_video_duration (AVFormatContext* fmt_ctx, AVStream* vid_stream) {
+long get_video_duration (AVFormatContext *fmt_ctx, AVStream *vid_stream) {
 
   /* duration in stream-base */
   long duration_in_sb = vid_stream->duration;
@@ -374,7 +374,7 @@ long calculate_frame_steps (long duration, int segments) {
  *
  * @note When `av_seek_frame` fails, this function returns its value.
  */
-int seek_to_timestamp (VideoReader* vreader, int64_t target_pts) {
+int seek_to_timestamp (VideoReader *vreader, int64_t target_pts) {
 
   int ret = 0;
 

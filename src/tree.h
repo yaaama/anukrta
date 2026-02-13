@@ -15,9 +15,10 @@ typedef struct anuDupeGroup {
 
 typedef struct bkNode {
   uint64_t hash;
-  uint64_t file_ids[MAX_FILES_PER_NODE];
-  int file_id_count;
-  struct bkNode *children[65]; /* Children of node */
+  int exact_dupe_count;
+  uint64_t exact_dupe_file_ids[BK_CHILD_ARR_SIZE];
+  /* Children of node, indexed by distance */
+  struct bkNode *children[65];
   size_t child_count;
 } bkNode;
 
