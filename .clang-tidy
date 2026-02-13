@@ -11,12 +11,14 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  concurrency-*,
   misc-*,
 
   clang-analyzer-*,
   -*clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
 
   -*cert-err33-c,
+
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
   -readability-identifier-length,
@@ -33,9 +35,31 @@ HeaderFileExtensions:
 ImplementationFileExtensions:
   - c
 SystemHeaders: false
-HeaderFilterRegex: .*
+HeaderFilterRegex: '.*/(include|src)/.*\.h$'
 FormatStyle: file
 CheckOptions:
+  # Naming conventions (C style)
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.StructCase
+    value: lower_case
+  - key: readability-identifier-naming.TypedefCase
+    value: lower_case
+  - key: readability-identifier-naming.TypedefSuffix
+    value: '_t'
+  - key: readability-identifier-naming.EnumCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+
   - key: readability-implicit-bool-conversion.AllowIntegerConditions
     value: "true"
   - key: llvm-else-after-return.WarnOnConditionVariables
