@@ -89,7 +89,7 @@ static const char *video_extensions[] = {
     "3g2", "3gp",  "amv",  "asf", "avi", "f4a",  "f4b", "f4p", "f4v", "flv",
     "flv", "gifv", "m4p",  "m4v", "m4v", "mkv",  "mng", "mod", "mov", "mp2",
     "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
-    "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv", NULL};
+    "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv"};
 
 static const size_t VIDEO_EXTENSIONS_COUNT =
     (sizeof(video_extensions) / sizeof(video_extensions[0]));
@@ -120,7 +120,7 @@ static int anu_file_ext_supported (const char *filename) {
 
   int u = 0;
   while (file_ext_lower[u] != '\0') {
-    file_ext_lower[u] = (char)anuUtil_tolower(file_ext_lower[u]);
+    file_ext_lower[u] = anuUtil_tolower(file_ext_lower[u]);
     ++u;
   }
 
