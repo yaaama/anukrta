@@ -366,7 +366,7 @@ int anukrta_driver (anukrta_config config, char *path) {
     }
     if (hashing_ret == -1) {
       /* Some failure occured. */
-      log_error("Failed to hash this file %s", anu_file_get_filename(file));
+      log_error("Failed to hash file %s", anu_file_get_filename(file));
       continue;
     }
 
