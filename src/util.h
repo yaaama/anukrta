@@ -24,7 +24,17 @@ typedef size_t usize;
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 void debug_print_matrix(const float *matrix, int rows, int cols);
-uint64_t hamming_distance(uint64_t hash1, uint64_t hash2);
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
+/* Return bigger value */
+#define MAXIMUM(x, y) ((x) > (y) ? (x) : (y))
+/* Return smaller value */
+#define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
+/* Range constraint macro to ensure value is between min and max */
+#define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM(_val, _max), _min)
+
+u32 hamming_distance(uint64_t hash1, uint64_t hash2);
 int compare_floats(const void *a, const void *b);
 
 int anu_util_tolower(int c);
