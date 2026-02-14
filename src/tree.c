@@ -75,31 +75,36 @@ void bk_tree_insert (bk_tree *tree, uint64_t hash, uint64_t file_id) {
 }
 
 // NOLINTBEGIN (*recursion)
-void bk_tree_search (bk_node *node, uint64_t hash, uint64_t tolerance,
+void bk_tree_search (bk_node *node, uint64_t hash, i32 tolerance,
                      anu_dupe_group *groups_out) {
   // NOLINTEND
+  if (tolerance < 0) {
+    return;
+  }
 
-  uint64_t distance = hamming_distance(node->hash, hash);
+  u32 distance = hamming_distance(node->hash, hash);
 
-  if (distance <= tolerance) {
-
+  /* Found a match */
+  if (distance <= (u32)tolerance) {
     for (int k = 0; k < node->exact_dupe_count; k++) {
-      groups_out->files[groups_out->file_count] = node->exact_dupe_file_ids[k];
-      ++groups_out->file_count;
+      size_t next_group_idx = groups_out->file_count;
+      uint64_t *match = &groups_out->files[next_group_idx];
+      *match = node->exact_dupe_file_ids[k];
+      groups_out->file_count++;
     }
   }
-  uint64_t min_search = 1;
-  uint64_t max_search = distance + tolerance;
 
-  if (tolerance < distance) {
-    min_search = distance - tolerance;
+  i32 min_search = (i32)distance - tolerance;
+  i32 max_search = (i32)distance + tolerance;
+
+  if (min_search < 0) {
+    min_search = 0;
   }
-
   if (max_search > 64) {
     max_search = 64;
   }
 
-  for (uint64_t i = min_search; i <= max_search; i++) {
+  for (i32 i = min_search; i <= max_search; i++) {
     if (node->children[i]) {
       bk_tree_search(node->children[i], hash, tolerance, groups_out);
     }

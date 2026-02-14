@@ -7,10 +7,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct anu_dupe_group {
-  uint64_t files[MAX_FILES_PER_NODE];
-  size_t file_count;
+#include "util.h"
 
+typedef struct anu_dupe_group {
+  uint64_t files[65];
+  size_t file_count;
 } anu_dupe_group;
 
 typedef struct bk_node {
@@ -31,7 +32,7 @@ typedef struct bk_tree {
 bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 
 /* Search for nodes with hashes with distance less than tolerance */
-void bk_tree_search(bk_node *node, uint64_t hash, uint64_t tolerance,
+void bk_tree_search(bk_node *node, uint64_t hash, i32 tolerance,
                     anu_dupe_group *groups_out);
 
 /* Insert hash into tree */
