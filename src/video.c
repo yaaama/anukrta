@@ -1,6 +1,5 @@
 #include "video.h"
 
-#include <asm-generic/errno-base.h>
 #include <assert.h>
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
@@ -24,6 +23,9 @@
 
 #include "util.h"
 #include "vendor/log.h"
+
+/* Hardcode this so I don't have to include another header */
+#define ANU_EAGAIN 11
 
 static long frame_pts_to_microsecond (long pts, AVRational timebase) {
   return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
@@ -194,7 +196,7 @@ int anu_video_decode_packet (video_io *vreader) {
   while (ret >= 0) {
     ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
 
-    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+    if (ret == AVERROR(ANU_EAGAIN) || ret == AVERROR_EOF) {
       /* Not an error. Just means we need more packets or stream is done. */
       return 0;
     }
