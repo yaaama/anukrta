@@ -15,6 +15,8 @@ Diagnostics:
       readability-avoid-unconditional-preprocessor-if,
       readability-redundant-declaration,
       incompatible-pointer-types-discards-qualifiers,
+      missing-prototypes,
+      misc-no-recursion,
     ]
   ClangTidy:
     # Add: [bugprone-*, performance-*, readability-*, misc-*, clang-analyzer-*]
