@@ -32,14 +32,16 @@ typedef struct video_io {
 
 } video_io;
 
-AVStream *vreader_get_video_stream(video_io *vreader);
+AVStream *anu_video_get_vid_stream(video_io *vreader);
 
-int open_video_reader(char *filename, video_io *vreader);
-void close_video_reader(video_io *vreader);
-long get_video_duration(video_io *vreader);
-int seek_to_timestamp(video_io *vreader, int64_t target_pts);
-int init_grey_frame(int width, int height, AVFrame *out_frame);
-int scale_frame(AVFrame *src_frame, size_t width, size_t height,
-                AVFrame *out_frame);
-int decode_packet(video_io *vreader);
+int anu_video_open(char *filename, video_io *vreader);
+void anu_video_close(video_io *vreader);
+long anu_video_get_duration(video_io *vreader);
+int anu_video_seek_to_timestamp_pts(video_io *vreader, int64_t target_pts);
+int anu_video_frame_init(int width, int height, AVFrame *out_frame);
+int anu_video_scale_frame(AVFrame *src_frame, size_t width, size_t height,
+                          AVFrame *out_frame);
+int anu_video_decode_packet(video_io *vreader);
+void copy_frame_to_buffer(AVFrame *frame, uint8_t *dest, int width);
+
 #endif  // ANU_VIDEO_H

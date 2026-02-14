@@ -127,12 +127,12 @@ static void bk_node_print_recursive (bk_node *node, int depth,
     printf("[ROOT] ");
   }
 
-  printf("Hash: %016lx | Files: ", node->hash);
+  printf("Hash: %016lX | Files: [", node->hash);
 
   for (int i = 0; i < node->exact_dupe_count; i++) {
-    printf("%lu ", node->exact_dupe_file_ids[i]);
+    printf(" %lu,", node->exact_dupe_file_ids[i]);
   }
-  printf("\n");
+  printf("]\n");
 
   /* Recurse children
      We iterate 1 to 64 because distance 0 is the node itself (handled in

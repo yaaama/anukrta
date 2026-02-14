@@ -207,6 +207,8 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
                                  (currjob.path), dp->d_name);
 
       if (path_length > ANU_MAX_PATH_LEN) {
+        log_warn("Path length (%d) > max path length (%d)", path_length,
+                 ANU_MAX_PATH_LEN);
         continue;
       }
 
@@ -260,8 +262,6 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
 
     closedir(dir);
   }
-
-  log_debug("Files found: `%zu`", files_found);
 
   anu_stack_destroy(&dirstack);
   return 0;

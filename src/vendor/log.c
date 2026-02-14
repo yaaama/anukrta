@@ -53,10 +53,19 @@ static const char *level_colors[] = {"\x1b[94m", "\x1b[36m", "\x1b[32m",
 static void stdout_callback (log_event *ev) {
   char buf[16];
   buf[strftime(buf, sizeof(buf), "%H:%M:%S", ev->time)] = '\0';
+
 #ifdef LOG_USE_COLOR
+
+#ifdef LOG_USE_FUNC_NAME
+  fprintf(ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:%s:\x1b[0m ", buf,
+          level_colors[ev->level], level_strings[ev->level], ev->file, ev->line,
+          ev->func);
+#else
   fprintf(ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ", buf,
           level_colors[ev->level], level_strings[ev->level], ev->file,
           ev->line);
+#endif
+
 #else
   fprintf(ev->udata, "%s %-5s %s:%d: ", buf, level_strings[ev->level], ev->file,
           ev->line);
@@ -121,12 +130,14 @@ static void init_event (log_event *ev, void *udata) {
   ev->udata = udata;
 }
 
-void log_log (int level, const char *file, int line, const char *fmt, ...) {
+void log_log (int level, const char *file, const char *func, int line,
+              const char *fmt, ...) {
   log_event ev = {
       .fmt = fmt,
       .file = file,
       .line = line,
       .level = level,
+      .func = func,
   };
 
   lock();

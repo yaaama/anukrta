@@ -20,8 +20,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
+#include "util.h"
 #include "vendor/log.h"
+
+static long frame_pts_to_microsecond (long pts, AVRational timebase) {
+  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+}
+
+static double frame_pts_to_seconds (long pts, AVRational timebase) {
+  return ((double)av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
+}
 
 static void save_gray_frame (unsigned char *buf, int wrap, int xsize,
                              int ysize,  // NOLINT(*swappable-parameters)
@@ -50,7 +60,23 @@ static void save_gray_frame (unsigned char *buf, int wrap, int xsize,
   fclose(fptr);
 }
 
-int normalize_colourspace (AVFrame *frame, SwsContext *context) {
+void copy_frame_to_buffer (AVFrame *frame, uint8_t *dest, int width) {
+  /* Access the raw data pointer for the first plane (Y / Grayscale) */
+  uint8_t *src_data = frame->data[0];
+  int src_linesize = frame->linesize[0];
+
+  for (long y = 0; y < width; y++) {
+    /* Calculate the start of the row in the source frame */
+    uint8_t *src_row = src_data + (y * src_linesize);
+
+    /* Calculate the start of the row in the destination buffer */
+    uint8_t *dest_row = dest + (y * width);
+
+    memcpy(dest_row, src_row, width);
+  }
+}
+
+static int normalize_colourspace (AVFrame *frame, SwsContext *context) {
 
   int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
 
@@ -79,15 +105,15 @@ int normalize_colourspace (AVFrame *frame, SwsContext *context) {
    * contrast/saturation) */
   if (0 > sws_setColorspaceDetails(context, inv_table, src_range, table,
                                    dst_range, 0, 1 << 16, 1 << 16)) {
-    log_error(stderr, "Failed to set colourspace.");
+    log_error("Failed to set colourspace.");
 
     return -1;
   }
   return 0;
 }
 
-int scale_frame (AVFrame *src_frame, size_t width, size_t height,
-                 AVFrame *out_frame) {
+int anu_video_scale_frame (AVFrame *src_frame, size_t width, size_t height,
+                           AVFrame *out_frame) {
 
   enum AVPixelFormat input_fmt = src_frame->format;
 
@@ -118,7 +144,7 @@ int scale_frame (AVFrame *src_frame, size_t width, size_t height,
       out_frame->format, SWS_AREA, NULL, NULL, NULL);
 
   if (!sws_ctx) {
-    log_error(stderr, "Failed to create scaling context.");
+    log_error("Failed to create scaling context.");
     return -1;
   }
 
@@ -140,7 +166,7 @@ int scale_frame (AVFrame *src_frame, size_t width, size_t height,
 /**
  * @brief Initialise a grayscale frame of specified width and height.
  **/
-int init_grey_frame (int width, int height, AVFrame *out_frame) {
+int anu_video_frame_init (int width, int height, AVFrame *out_frame) {
   out_frame->height = height;
   out_frame->width = width;
   out_frame->format = AV_PIX_FMT_GRAY8;
@@ -154,7 +180,7 @@ int init_grey_frame (int width, int height, AVFrame *out_frame) {
   return 0;
 }
 
-int decode_packet (video_io *vreader) {
+int anu_video_decode_packet (video_io *vreader) {
   /* Send packet to decoder */
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
 
@@ -191,7 +217,21 @@ int decode_packet (video_io *vreader) {
   return ret;
 }
 
-int open_video_reader (char *filename, video_io *vreader) {
+/**
+ * @brief Open video and initialise video struct.
+ *
+ * This will open a video given by the param 'filename'.
+ *
+ * You need to call the complimentary function to close and destroy the struct
+ * once you are done with it.
+ *
+ * @param filename[in] Path of file to open.
+ * @param vreader[out] Struct to initialise.
+ * @return 0 if success, non-zero for anything else.
+ *
+ */
+
+int anu_video_open (char *filename, video_io *vreader) {
 
   /* Initialise VideoReader */
   vreader->fmt_ctx = NULL;
@@ -210,9 +250,8 @@ int open_video_reader (char *filename, video_io *vreader) {
   int errcode = 0;
   errcode = avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL);
   if (errcode < 0) {
-    log_warn(stderr, "Could not open file (`%s`): `%s`", filename,
-             av_err2str(errcode));
-    log_trace(stderr, "Will try to read stream information next...");
+    log_warn("Could not open file (`%s`): `%s`", filename, av_err2str(errcode));
+    log_trace("Will try to read stream information next...");
   }
 
   /* Will read bytes from file/decode a few frames to fill out context that the
@@ -249,7 +288,7 @@ int open_video_reader (char *filename, video_io *vreader) {
     return -1;
   }
 
-  log_debug("Found video stream at index `%d`", vreader->video_stream_idx);
+  log_trace("Found video stream at index `%d`", vreader->video_stream_idx);
 
   /* Get codec parameters */
   codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
@@ -288,10 +327,15 @@ int open_video_reader (char *filename, video_io *vreader) {
     exit(EXIT_FAILURE);
   }
 
+  vreader->video_duration = anu_video_get_duration(vreader);
+  log_debug("Video duration is: %.2f s / (%zu micro/s).",
+            ANU_US_TO_SECONDS(vreader->video_duration),
+            vreader->video_duration);
+
   return 0;
 }
 
-void close_video_reader (video_io *vreader) {
+void anu_video_close (video_io *vreader) {
   if (vreader->packet) {
     av_packet_free(&vreader->packet);
   }
@@ -309,14 +353,6 @@ void close_video_reader (video_io *vreader) {
   }
 }
 
-long frame_pts_to_microsecond (long pts, AVRational timebase) {
-  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
-}
-
-double frame_pts_to_seconds (long pts, AVRational timebase) {
-  return ((double)av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
-}
-
 /**
  * @brief Get duration of video.
  *
@@ -328,13 +364,13 @@ double frame_pts_to_seconds (long pts, AVRational timebase) {
  * @return Duration of video in microseconds.
  *
  */
-long get_video_duration (video_io *vreader) {
-  AVStream *vid_stream = vreader_get_video_stream(vreader);
+long anu_video_get_duration (video_io *vreader) {
+  AVStream *vid_stream = anu_video_get_vid_stream(vreader);
 
   /* duration in stream-base */
   long duration_in_sb = vid_stream->duration;
   AVRational stream_timebase = vid_stream->time_base;
-  log_debug("Time base for stream: `%d/%d`", stream_timebase.num,
+  log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
             stream_timebase.den);
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
@@ -346,23 +382,9 @@ long get_video_duration (video_io *vreader) {
     return vreader->fmt_ctx->duration;
   }
 
-  long duration_us =
-      av_rescale_q(duration_in_sb, stream_timebase, AV_TIME_BASE_Q);
+  long duration_us = frame_pts_to_microsecond(duration_in_sb, stream_timebase);
 
-  log_debug("Duration of video: `%f` seconds (`%ld` micro/s)",
-            frame_pts_to_seconds(duration_in_sb, stream_timebase), duration_us);
   return duration_us;
-}
-
-/**
- * @brief Number of frames divided by segments.
- *
- * Returns the number of frames to seek ahead to for the next segment of video.
- **/
-long calculate_frame_steps (long duration, int segments) {
-  assert(duration > 0 && segments > 0);
-  long frame_steps = duration / segments;
-  return frame_steps;
 }
 
 /**
@@ -376,7 +398,7 @@ long calculate_frame_steps (long duration, int segments) {
  *
  * @note When `av_seek_frame` fails, this function returns its value.
  */
-int seek_to_timestamp (video_io *vreader, int64_t target_pts) {
+int anu_video_seek_to_timestamp_pts (video_io *vreader, int64_t target_pts) {
 
   int ret = 0;
 
@@ -403,7 +425,7 @@ int seek_to_timestamp (video_io *vreader, int64_t target_pts) {
   return 0;
 }
 
-AVStream *vreader_get_video_stream (video_io *vreader) {
+AVStream *anu_video_get_vid_stream (video_io *vreader) {
   assert(vreader);
   assert(vreader->video_stream_idx >= 0);
   assert(vreader->fmt_ctx);

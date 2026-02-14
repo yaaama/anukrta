@@ -31,43 +31,43 @@ typedef struct anukrta_config {
 static uint64_t hash_decoded_frame (video_io *vreader,
                                     anu_hash_type hash_algo) {
 
-  AVFrame *grey_frame = av_frame_alloc();
-  if (grey_frame == NULL) {
-    log_fatal("Failed to allocate memory for frame.");
+  uint64_t hash = 0;
+  AVFrame *grey_frame = NULL;
+
+  log_trace("Trying to alloc grey-frame...");
+  grey_frame = av_frame_alloc();
+  if (!grey_frame) {
+    log_fatal("Failed to allocate memory for grey-frame.");
     exit(EXIT_FAILURE);
   }
+  log_trace("Allocated grey-frame.");
 
   /* Create an empty grey frame */
-  if (init_grey_frame(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE, grey_frame)) {
+  if (anu_video_frame_init(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
+                           grey_frame)) {
     log_fatal("Failed to initialise frame.");
     exit(EXIT_FAILURE);
   }
+  log_trace("Video frame initialised with %dx%d dimensions.",
+            ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE);
 
   /* Scale frame down to 32x32 and store in empty grey frame */
-  if (scale_frame(vreader->frame, ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
-                  grey_frame)) {
+  if (anu_video_scale_frame(vreader->frame, ANU_PHASH_INPUT_SIZE,
+                            ANU_PHASH_INPUT_SIZE, grey_frame) != 0) {
     log_fatal("Failed to scale frame!");
     /* Clean up before exiting */
     av_frame_free(&grey_frame);
     exit(EXIT_FAILURE);
   }
 
-  /* Generate a 2D matrix of the greyscale values */
+  /* Prep a 2D matrix to store greyscale values */
+  const size_t matrix_size =
+      (size_t)ANU_PHASH_INPUT_SIZE * ANU_PHASH_INPUT_SIZE;
   uint8_t matrix[ANU_PHASH_INPUT_SIZE * ANU_PHASH_INPUT_SIZE];
 
   /* Populate matrix with frame data */
-  uint8_t *row_begin = grey_frame->data[0];
-  int greyframe_row_len = grey_frame->linesize[0];
-  uint8_t *row_ptr;
-  uint8_t *dest_row;
-  for (long y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    row_ptr = &row_begin[y * greyframe_row_len];
-    dest_row = &matrix[y * ANU_PHASH_INPUT_SIZE];
-    /* We copy row by row using memcpy */
-    memcpy(dest_row, row_ptr, ANU_PHASH_INPUT_SIZE);
-  }
+  copy_frame_to_buffer(grey_frame, matrix, ANU_PHASH_INPUT_SIZE);
 
-  uint64_t hash = 0;
   switch (hash_algo) {
     case ANU_HASH_ALGO_DCT:
       {
@@ -76,12 +76,12 @@ static uint64_t hash_decoded_frame (video_io *vreader,
       }
     default:
       {
-        log_warn(stderr, "Hashing algorithm not specified.");
+        log_warn("Hashing algorithm not specified.");
       }
   }
 
   if (hash == 0) {
-    log_warn(stderr, "Received a 0 value for hash.");
+    log_warn("Received a 0 value for hash.");
   }
 
   av_frame_free(&grey_frame);
@@ -98,24 +98,22 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
   video_io vreader;
 
   /* Setup video reader */
-  if (open_video_reader(file->path, &vreader) < 0) {
+  if (anu_video_open(file->path, &vreader) < 0) {
     /* Cleanup partial opens */
-    close_video_reader(&vreader);
+    anu_video_close(&vreader);
     return -1;
   }
 
   /* Container: vreader.fmt_ctx; */
 
   /* Video stream */
-  AVStream *vid_stream_ptr = vreader_get_video_stream(&vreader);
+  AVStream *vid_stream_ptr = anu_video_get_vid_stream(&vreader);
 
   /* We want to split the video into this many segments */
   int total_video_segments = segments;
 
-  long video_duration_us = get_video_duration(&vreader);
+  long video_duration_us = vreader.video_duration;
   assert(video_duration_us > 0);
-
-  vreader.video_duration = video_duration_us;
 
   if (!file->duration_us) {
     file->duration_us = video_duration_us;
@@ -126,7 +124,7 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
     log_info("Skipping file because duration is less than 4 seconds (%.2f)\n",
              ANU_US_TO_SECONDS((double)file->duration_us));
 
-    close_video_reader(&vreader);
+    anu_video_close(&vreader);
     return 0;
   }
 #endif
@@ -152,12 +150,12 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    log_trace("Segment [%d/%d] : Seeking to PTS %" PRId64 " (%.1f sec)", i + 1,
+    log_debug("Segment [%d/%d] : Seeking to PTS %" PRId64 " (%.1f sec)", i + 1,
               total_video_segments, seek_target_sb,
               (double)seek_target_us / ANU_TIME_ONE_SEC_IN_US);
 
     /* Seek to timestamp */
-    if (seek_to_timestamp(&vreader, seek_target_sb) < 0) {
+    if (anu_video_seek_to_timestamp_pts(&vreader, seek_target_sb) < 0) {
       log_warn("Could not seek to segment `%d`", i);
       continue; /* Try next segment */
     }
@@ -171,7 +169,7 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
         continue;
       }
 
-      decoding_success = decode_packet(&vreader);
+      decoding_success = anu_video_decode_packet(&vreader);
 
       /* Successfully decoded a frame */
       if (decoding_success == 1) {
@@ -186,7 +184,7 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
 
         hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
 
-        log_trace("Frame: %ld | Hash: [0x%X]", vreader.codec_ctx->frame_num,
+        log_debug("Frame: %ld | Hash: [0x%lX]", vreader.codec_ctx->frame_num,
                   hashes_out[frames_decoded]);
 
         frame_found_for_segment = true;
@@ -217,9 +215,18 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
   }
 
   /* Cleanup */
-  close_video_reader(&vreader);
+  anu_video_close(&vreader);
 
-  log_trace("Done. Processed %d frames.\n", frames_decoded);
+  char hashes[1024];
+  int total_len = 0;
+  for (int i = 0; i < frames_decoded; i++) {
+    int end = sprintf(&hashes[total_len], "%d: \"0x%lX\" ", i, hashes_out[i]);
+    total_len += end;
+    hashes[total_len] = '|';
+  }
+  hashes[total_len] = '\0';
+  log_trace("DONE. Processed %d frames.", frames_decoded);
+  log_debug("Hashes (%s):\n%s\n", anu_file_get_filename(file), hashes);
   return 0;
 }
 
@@ -359,6 +366,8 @@ int anukrta_driver (anukrta_config config, char *path) {
 
 int main (int argc, char *argv[]) {  // NOLINT (unused-*)
   char *path = "./etc/";
+
+  log_set_level(LOG_DEBUG);
   anukrta_config config = {.segments = 2, .threshold = 20};
   log_info("%s now running...", argv[0]);
   anukrta_driver(config, path);
