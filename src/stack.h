@@ -1,5 +1,5 @@
-#ifndef STACK_H_
-#define STACK_H_
+#ifndef ANU_STACK_H
+#define ANU_STACK_H
 
 #include <stddef.h>
 
@@ -15,4 +15,4 @@ void anu_stack_push(anu_stack *s, void *item_ptr);
 int anu_stack_pop(anu_stack *s, void *dest);
 void anu_stack_destroy(anu_stack *s);
 
-#endif  // STACK_H_
+#endif  // ANU_STACK_H

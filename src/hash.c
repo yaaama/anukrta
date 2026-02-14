@@ -24,7 +24,7 @@
 
 /* Pre-computed DCT weights for 32->8 reduction */
 /* NOTE: If `ANU_PHASH_DCT_SIZE` changes, these will be invalid */
-static const float dct_weights[8][32] = {
+static const float DCT_WEIGHTS[8][32] = {
     {0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F,
      0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F,
      0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F, 0.176776692F,
@@ -99,7 +99,7 @@ uint64_t dct_hash (uint8_t *input_pixels) {
 
       for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
-        sum += (float)row_ptr[x] * (dct_weights[u][x]);
+        sum += (float)row_ptr[x] * (DCT_WEIGHTS[u][x]);
       }
       row_result[(y * ANU_PHASH_DCT_SIZE) + u] = sum;
     }
@@ -110,7 +110,7 @@ uint64_t dct_hash (uint8_t *input_pixels) {
       sum = 0.0F;
       for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
         sum += row_result[(ptrdiff_t)((y * ANU_PHASH_DCT_SIZE) + x)] *
-               (dct_weights[v][y]);
+               (DCT_WEIGHTS[v][y]);
       }
       dct_result[(v * ANU_PHASH_DCT_SIZE) + x] = sum;
     }

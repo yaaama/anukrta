@@ -162,7 +162,7 @@ clean:
 compile_commands.json:
 	@mkdir -p $(BUILD_DIR)
 	@echo "Generating compile_commands.json..."
-	bear -o $(BUILD_DIR)/compile_commands.json -- $(MAKE) -B
+	bear -a -- $(MAKE) --no-print-directory
 
 # Alias for convenience
 .PHONY: bear
@@ -189,6 +189,20 @@ ifeq (${ASAN}, 1)
 else
 	@./$(BUILD_DIR)/$(TEST_TARGET_NAME) --verbose
 endif
+
+.PHONY: analyze
+analyze: clean
+	scan-build --use-cc=clang -o $(BUILD_DIR)/scan-reports $(MAKE)
+
+.PHONY: check
+check:
+	@echo "Running cppcheck..."
+	@cppcheck --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
+	--suppress=missingIncludeSystem \
+	--template='{file}:{line}:{column}: {severity}: {message} [{id}]' \
+	-i $(VENDOR_DIR) \
+	-I $(INCLUDE_DIR) \
+	$(SRC_DIR)
 
 .PHONY: format
 format: bear

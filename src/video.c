@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "vendor/log.h"
+
 static void save_gray_frame (unsigned char *buf, int wrap, int xsize,
                              int ysize,  // NOLINT(*swappable-parameters)
                              char *prefix, long frame_num) {
@@ -68,7 +70,7 @@ int normalize_colourspace (AVFrame *frame, SwsContext *context) {
   if (0 > sws_getColorspaceDetails(context, (&inv_table), &dummy_src, (&table),
                                    &dummy_dst, &dummy_bright, &dummy_cont,
                                    &dummy_sat)) {
-    fprintf(stderr, "Failed to get colorspace details.\n");
+    log_error("Failed to get colorspace details.");
     return -1;
   }
 
@@ -77,7 +79,7 @@ int normalize_colourspace (AVFrame *frame, SwsContext *context) {
    * contrast/saturation) */
   if (0 > sws_setColorspaceDetails(context, inv_table, src_range, table,
                                    dst_range, 0, 1 << 16, 1 << 16)) {
-    fprintf(stderr, "Failed to set colourspace.\n");
+    log_error(stderr, "Failed to set colourspace.");
 
     return -1;
   }
@@ -116,18 +118,18 @@ int scale_frame (AVFrame *src_frame, size_t width, size_t height,
       out_frame->format, SWS_AREA, NULL, NULL, NULL);
 
   if (!sws_ctx) {
-    fprintf(stderr, "Failed to create SwsContext.\n");
+    log_error(stderr, "Failed to create scaling context.");
     return -1;
   }
 
   /* Normalise colourspaces */
   if (normalize_colourspace(src_frame, sws_ctx)) {
-    fprintf(stderr, "Colourspace normalisation returned an error...\n");
+    log_error("Colourspace normalisation failed.");
   }
 
   int scaling_ret = sws_scale_frame(sws_ctx, out_frame, src_frame);
   if (scaling_ret <= 0) {
-    fprintf(stderr, "Scaling FAILED: `%s`", av_err2str(scaling_ret));
+    log_error("Scaling FAILED: `%s`", av_err2str(scaling_ret));
     exit(EXIT_FAILURE);
   }
 
@@ -145,7 +147,7 @@ int init_grey_frame (int width, int height, AVFrame *out_frame) {
 
   if (av_frame_get_buffer(out_frame, 0) != 0) {
     av_frame_free(&out_frame);
-    fprintf(stderr, "Could not initialise grayscale frame buffer.\n");
+    log_error("Could not initialise grayscale frame buffer.");
     return 1;
   }
 
@@ -157,7 +159,7 @@ int decode_packet (video_io *vreader) {
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
 
   if (ret < 0) {
-    fprintf(stderr, "Error sending packet: `%s`\n", av_err2str(ret));
+    log_error("Could not send packet: `%s`", av_err2str(ret));
     return ret;
   }
 
@@ -176,7 +178,7 @@ int decode_packet (video_io *vreader) {
     }
 
     if (ret < 0) {
-      fprintf(stderr, "Error receiving frame: %s\n", av_err2str(ret));
+      log_error("Error receiving frame: %s", av_err2str(ret));
       return ret;
     }
 
@@ -199,7 +201,7 @@ int open_video_reader (char *filename, video_io *vreader) {
   vreader->video_stream_idx = -1;
   vreader->video_duration = 0;
 
-  printf("\n=== Opening File `%s` ===\n", filename);
+  log_info("Opening `%s`", filename);
 
   /* Open input file and read header data. */
   bool got_info = true;
@@ -208,9 +210,9 @@ int open_video_reader (char *filename, video_io *vreader) {
   int errcode = 0;
   errcode = avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL);
   if (errcode < 0) {
-    fprintf(stderr, "Could not open file (`%s`): `%s`\n", filename,
-            av_err2str(errcode));
-    fprintf(stderr, "Will try to read stream information next...\n");
+    log_warn(stderr, "Could not open file (`%s`): `%s`", filename,
+             av_err2str(errcode));
+    log_trace(stderr, "Will try to read stream information next...");
   }
 
   /* Will read bytes from file/decode a few frames to fill out context that the
@@ -218,16 +220,16 @@ int open_video_reader (char *filename, video_io *vreader) {
    */
   errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
   if (errcode < 0) {
-    fprintf(stderr, "Could not find stream info: `%s`\n", av_err2str(errcode));
+    log_warn("Could not find stream info: `%s`", av_err2str(errcode));
     got_info = false;
   }
 
   if (got_info == false) {
-    fprintf(stderr, "Failed to detect file format.\n");
+    log_error("Failed to detect file format.");
     return -1;
   }
 
-  printf("\nSearching container for video stream...\n");
+  log_trace("Searching container for video stream...");
 
   /* Find Video Stream & Codec */
 
@@ -239,15 +241,15 @@ int open_video_reader (char *filename, video_io *vreader) {
       vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
   if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
-    fprintf(stderr, "No decoder found for stream.\n");
+    log_error("No decoder found for stream.");
     return -1;
   }
   if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
-    fprintf(stderr, "No video stream found.\n");
+    log_error("No video stream found.");
     return -1;
   }
 
-  printf("Found video stream at index `%d`\n", vreader->video_stream_idx);
+  log_debug("Found video stream at index `%d`", vreader->video_stream_idx);
 
   /* Get codec parameters */
   codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
@@ -255,7 +257,7 @@ int open_video_reader (char *filename, video_io *vreader) {
   codec = avcodec_find_decoder(codec_params->codec_id);
 
   if (!codec) {
-    fprintf(stderr, "No codec found?...\n");
+    log_error("No codec found.");
     return -1;
   }
 
@@ -263,17 +265,17 @@ int open_video_reader (char *filename, video_io *vreader) {
   vreader->codec_ctx = avcodec_alloc_context3(codec);
 
   if (!vreader->codec_ctx) {
-    fprintf(stderr, "Failed to allocate memory.\n");
+    log_fatal("Failed to allocate memory.");
     return -1;
   }
 
   if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
-    fprintf(stderr, "Could not retrieve codec context.\n");
+    log_error("Could not retrieve codec context.");
     return -1;
   }
 
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
-    fprintf(stderr, "Failed to initialise codec `%s`\n", codec->long_name);
+    log_error("Failed to initialise codec `%s`", codec->long_name);
     return -1;
   }
 
@@ -282,7 +284,7 @@ int open_video_reader (char *filename, video_io *vreader) {
   vreader->packet = av_packet_alloc();
 
   if (vreader->frame == NULL || vreader->packet == NULL) {
-    fprintf(stderr, "Failed to allocate memory for packet/frame.\n");
+    log_fatal("Failed to allocate memory for packet/frame.");
     exit(EXIT_FAILURE);
   }
 
@@ -305,8 +307,6 @@ void close_video_reader (video_io *vreader) {
   if (vreader->fmt_ctx) {
     avformat_close_input(&vreader->fmt_ctx);
   }
-
-  vreader = NULL;
 }
 
 long frame_pts_to_microsecond (long pts, AVRational timebase) {
@@ -334,14 +334,13 @@ long get_video_duration (video_io *vreader) {
   /* duration in stream-base */
   long duration_in_sb = vid_stream->duration;
   AVRational stream_timebase = vid_stream->time_base;
-  printf("Time base for stream: `%d/%d`\n", stream_timebase.num,
-         stream_timebase.den);
+  log_debug("Time base for stream: `%d/%d`", stream_timebase.num,
+            stream_timebase.den);
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
-    fprintf(
-        stderr,
-        "Warning: Video stream is omitting duration. Falling back to container "
-        "duration (`%ld`)\n",
+    log_warn(
+        "Video stream is omitting duration. Falling back to container "
+        "duration (`%ld`)",
         vreader->fmt_ctx->duration);
 
     return vreader->fmt_ctx->duration;
@@ -350,8 +349,8 @@ long get_video_duration (video_io *vreader) {
   long duration_us =
       av_rescale_q(duration_in_sb, stream_timebase, AV_TIME_BASE_Q);
 
-  printf("Duration of video: `%f` seconds (`%ld` micro/s)\n",
-         frame_pts_to_seconds(duration_in_sb, stream_timebase), duration_us);
+  log_debug("Duration of video: `%f` seconds (`%ld` micro/s)",
+            frame_pts_to_seconds(duration_in_sb, stream_timebase), duration_us);
   return duration_us;
 }
 
@@ -396,8 +395,8 @@ int seek_to_timestamp (video_io *vreader, int64_t target_pts) {
                       AVSEEK_FLAG_BACKWARD);
 
   if (ret < 0) {
-    fprintf(stderr, "Error seeking to timestamp %" PRId64 ": %s\n", target_pts,
-            av_err2str(ret));
+    log_warn("Error seeking to timestamp %" PRId64 ": %s", target_pts,
+             av_err2str(ret));
     return ret;
   }
 

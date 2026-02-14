@@ -1,5 +1,5 @@
-#ifndef TREE_H_
-#define TREE_H_
+#ifndef ANU_BK_TREE_H
+#define ANU_BK_TREE_H
 
 #define BK_CHILD_ARR_SIZE 65
 #define MAX_FILES_PER_NODE 16
@@ -40,4 +40,4 @@ void bk_tree_insert(bk_tree *tree, uint64_t hash, uint64_t file_id);
 void bk_tree_node_free(bk_node *node);
 void bk_tree_print_ascii(bk_tree *tree);
 
-#endif  // TREE_H_
+#endif  // ANU_BK_TREE_H

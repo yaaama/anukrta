@@ -19,6 +19,7 @@
 #include "explore.h"
 #include "hash.h"
 #include "util.h"
+#include "vendor/log.h"
 #include "video.h"
 
 typedef struct anukrta_config {
@@ -27,25 +28,26 @@ typedef struct anukrta_config {
 } anukrta_config;
 
 /* This is the function called ONLY when a valid frame is fully decoded */
-static uint64_t hash_decoded_frame (video_io *vreader, anuHashType hash_algo) {
+static uint64_t hash_decoded_frame (video_io *vreader,
+                                    anu_hash_type hash_algo) {
 
   AVFrame *grey_frame = av_frame_alloc();
   if (grey_frame == NULL) {
-    fprintf(stderr, "Failed to allocate memory for frame.\n");
+    log_fatal("Failed to allocate memory for frame.");
     exit(EXIT_FAILURE);
   }
 
   /* Create an empty grey frame */
   if (init_grey_frame(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE, grey_frame)) {
-    fprintf(stderr, "Failed to initialise frame.\n");
+    log_fatal("Failed to initialise frame.");
     exit(EXIT_FAILURE);
   }
 
   /* Scale frame down to 32x32 and store in empty grey frame */
   if (scale_frame(vreader->frame, ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
                   grey_frame)) {
-    fprintf(stderr, "Failed to scale frame!");
-    /* Clean up before aborting */
+    log_fatal("Failed to scale frame!");
+    /* Clean up before exiting */
     av_frame_free(&grey_frame);
     exit(EXIT_FAILURE);
   }
@@ -74,23 +76,23 @@ static uint64_t hash_decoded_frame (video_io *vreader, anuHashType hash_algo) {
       }
     default:
       {
-        fprintf(stderr, "Hashing algorithm not specified.");
+        log_warn(stderr, "Hashing algorithm not specified.");
       }
   }
 
   if (hash == 0) {
-    fprintf(stderr, "Received a 0 value for hash.\n");
+    log_warn(stderr, "Received a 0 value for hash.");
   }
 
   av_frame_free(&grey_frame);
   return hash;
 }
 
-int hash_video (anu_file *file, anuHashType hash_algo, int segments,
+int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
                 uint64_t *hashes_out) {
 
   if (segments <= 0) {
-    printf("Skipping hash for `%s`\n", file->path);
+    log_trace("Skipping hash for `%s`\n", file->path);
     return 0;
   }
   video_io vreader;
@@ -119,11 +121,13 @@ int hash_video (anu_file *file, anuHashType hash_algo, int segments,
     file->duration_us = video_duration_us;
   }
 
-#if 0
+#if 1
   if (file->duration_us < (4L * ANU_TIME_ONE_SEC_IN_US)) {
-    printf("Skipping file because duration is less than 4 seconds (%.2f)\n",
-           ANU_US_TO_SECONDS((double)file->duration_us));
-    goto cleanup;
+    log_info("Skipping file because duration is less than 4 seconds (%.2f)\n",
+             ANU_US_TO_SECONDS((double)file->duration_us));
+
+    close_video_reader(&vreader);
+    return 0;
   }
 #endif
 
@@ -148,13 +152,13 @@ int hash_video (anu_file *file, anuHashType hash_algo, int segments,
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    printf("--- Segment %d/%d : Seeking to PTS %" PRId64 " (%.2f sec) ---\n",
-           i + 1, total_video_segments, seek_target_sb,
-           (double)seek_target_us / ANU_TIME_ONE_SEC_IN_US);
+    log_trace("Segment [%d/%d] : Seeking to PTS %" PRId64 " (%.1f sec)", i + 1,
+              total_video_segments, seek_target_sb,
+              (double)seek_target_us / ANU_TIME_ONE_SEC_IN_US);
 
     /* Seek to timestamp */
     if (seek_to_timestamp(&vreader, seek_target_sb) < 0) {
-      fprintf(stderr, "Could not seek to segment %d\n", i);
+      log_warn("Could not seek to segment `%d`", i);
       continue; /* Try next segment */
     }
 
@@ -180,12 +184,10 @@ int hash_video (anu_file *file, anuHashType hash_algo, int segments,
           continue; /* Loop again to get next frame */
         }
 
-        printf("\tHashing Frame `%ld`\n", vreader.codec_ctx->frame_num);
         hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
 
-        printf("\t%5s", "-----> ");
-        printf("Hash: [0x%016" PRIx64, hashes_out[frames_decoded]);
-        printf("]\n");
+        log_trace("Frame: %ld | Hash: [0x%X]", vreader.codec_ctx->frame_num,
+                  hashes_out[frames_decoded]);
 
         frame_found_for_segment = true;
         frames_decoded++;
@@ -202,7 +204,7 @@ int hash_video (anu_file *file, anuHashType hash_algo, int segments,
 
       /* Decoding error encountered */
       if (decoding_success < 0) {
-        fprintf(stderr, "Decoding failed.\n");
+        log_warn("Decoding failed.");
         av_packet_unref(vreader.packet);
         break;
       }
@@ -210,14 +212,14 @@ int hash_video (anu_file *file, anuHashType hash_algo, int segments,
     }
 
     if (!frame_found_for_segment) {
-      printf("Warning: No frame decoded for segment %d\n", i);
+      log_warn("No frame decoded for segment `%d`", i);
     }
   }
 
   /* Cleanup */
   close_video_reader(&vreader);
 
-  printf("Done. Processed %d frames.\n", frames_decoded);
+  log_trace("Done. Processed %d frames.\n", frames_decoded);
   return 0;
 }
 
@@ -234,7 +236,7 @@ size_t anu_report_duplicates (const anu_file_q *files, const uint64_t *hashes,
   bool *reported = calloc(files->count, sizeof(bool));
 
   if (!reported) {
-    fprintf(stderr, "Memory allocation failed.\n");
+    log_fatal("Memory allocation failed.");
     return 0;
   }
 
@@ -321,16 +323,17 @@ int anukrta_driver (anukrta_config config, char *path) {
   anu_fileq_init(&files, 20);
 
   if (anu_recursive_filewalk(path, &files)) {
-    fprintf(stderr, "Encountered an error searching for files.");
+    log_warn("Encountered an error searching for files.");
     return -1;
   }
   size_t file_count = files.count;
 
   if (file_count < 1) {
-    fprintf(stderr, "Detected no video files.\n");
+    log_warn("Detected no video files.");
     return -1;
   }
-  printf("\nFILE COUNT: `%zu`\n", file_count);
+
+  log_info("Found `%zu` files.", file_count);
 
   /* Array of hashes */
   uint64_t *hashes = calloc((file_count * config.segments), sizeof(uint64_t));
@@ -355,9 +358,9 @@ int anukrta_driver (anukrta_config config, char *path) {
 }
 
 int main (int argc, char *argv[]) {  // NOLINT (unused-*)
-
   char *path = "./etc/";
   anukrta_config config = {.segments = 2, .threshold = 20};
+  log_info("%s now running...", argv[0]);
   anukrta_driver(config, path);
 
   return 0;

@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 
 #include "stack.h"
 #include "util.h"
+#include "vendor/log.h"
 
 void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
   assert(init_capacity);
@@ -95,9 +97,9 @@ static const size_t VIDEO_EXTENSIONS_COUNT =
     (sizeof(video_extensions) / sizeof(video_extensions[0]));
 
 /* Check extension of filename */
-static int anu_file_ext_supported (const char *filename) {
+static int anu_file_ext_supported (char *filename) {
   assert(filename);
-  const char *dot = strrchr(filename, '.');
+  char *dot = strrchr(filename, '.');
 
   if (!dot || dot == filename) {
     return 0;
@@ -106,7 +108,7 @@ static int anu_file_ext_supported (const char *filename) {
   char file_ext_lower[8] = {0};
 
   /* Skip over the dot... */
-  const char *extension = ++dot;
+  char *extension = ++dot;
 
   size_t ext_len = strlen(extension);
 
@@ -120,7 +122,7 @@ static int anu_file_ext_supported (const char *filename) {
 
   int u = 0;
   while (file_ext_lower[u] != '\0') {
-    file_ext_lower[u] = anuUtil_tolower(file_ext_lower[u]);
+    file_ext_lower[u] = (char)anu_util_tolower(file_ext_lower[u]);
     ++u;
   }
 
@@ -190,7 +192,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
 
     /* Open directory for reading */
     if (anu_open_dir(currjob.path, &dir) != 0) {
-      fprintf(stderr, "Could not open directory: %s\n", currjob.path);
+      log_warn("Could not open directory: %s", currjob.path);
       continue;
     };
 
@@ -211,8 +213,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
       stat_return = stat(fullpath, &statb);
       /* Handle stat errors here... */
       if (stat_return) {
-        fprintf(stderr, "Stat failed for `%s`: ", fullpath);
-        perror("");
+        log_warn("Stat failed for `%s`: %s", fullpath, strerror(errno));
         continue;
       }
 
@@ -260,7 +261,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
     closedir(dir);
   }
 
-  printf("Files found: %zu\n", files_found);
+  log_debug("Files found: `%zu`", files_found);
 
   anu_stack_destroy(&dirstack);
   return 0;

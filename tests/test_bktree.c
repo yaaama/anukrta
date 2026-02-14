@@ -1,8 +1,4 @@
-#include <criterion/assert.h>
-#include <criterion/criterion.h>
-#include <criterion/internal/assert.h>
 #include <criterion/internal/test.h>
-#include <criterion/logging.h>
 #include <stdint.h>
 
 #include "../src/tree.h"
@@ -41,5 +37,4 @@ Test (BK_Tree, null_tree) {
   bk_tree *tree = NULL;
 
   bk_tree_insert(tree, 500L, 15);
-
 }

@@ -1,5 +1,5 @@
-#ifndef EXPLORE_H_
-#define EXPLORE_H_
+#ifndef ANU_EXPLORE_H
+#define ANU_EXPLORE_H
 
 #include <dirent.h>
 #include <inttypes.h>
@@ -37,4 +37,4 @@ int anu_open_dir(char *dir_path, DIR **out);
 int anu_recursive_filewalk(char *searchp, anu_file_q *files_out);
 
 char *anu_file_get_filename(anu_file *f);
-#endif  // EXPLORE_H_
+#endif  // ANU_EXPLORE_H

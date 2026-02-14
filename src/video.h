@@ -1,5 +1,5 @@
-#ifndef VIDEO_H_
-#define VIDEO_H_
+#ifndef ANU_VIDEO_H
+#define ANU_VIDEO_H
 
 #include <assert.h>
 #include <libavcodec/avcodec.h>
@@ -42,4 +42,4 @@ int init_grey_frame(int width, int height, AVFrame *out_frame);
 int scale_frame(AVFrame *src_frame, size_t width, size_t height,
                 AVFrame *out_frame);
 int decode_packet(video_io *vreader);
-#endif  // VIDEO_H_
+#endif  // ANU_VIDEO_H
