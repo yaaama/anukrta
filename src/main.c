@@ -177,8 +177,6 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
 
         current_pts = vreader.frame->best_effort_timestamp;
         if (current_pts < seek_target_sb) {
-          /* printf("Skipping frame at PTS %ld (Target: %ld)\n", current_pts,
-           * target_timestamp); */
           av_packet_unref(vreader.packet);
           continue; /* Loop again to get next frame */
         }
@@ -218,16 +216,21 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
   /* Cleanup */
   anu_video_close(&vreader);
 
+#ifndef NDEBUG
   char hashes[1024];
   int total_len = 0;
   for (int i = 0; i < frames_decoded; i++) {
-    int end = sprintf(&hashes[total_len], "%d: \"0x%lX\" ", i, hashes_out[i]);
+    int end = sprintf(&hashes[total_len], "#%d[%lX], ", i, hashes_out[i]);
     total_len += end;
-    hashes[total_len] = '|';
+    hashes[total_len] = ' ';
   }
   hashes[total_len] = '\0';
   log_trace("DONE. Processed %d frames.", frames_decoded);
   log_debug("Hashes (%s):\n%s\n", anu_file_get_filename(file), hashes);
+#else
+  log_trace("DONE. Processed %d frames for %s", frames_decoded, file->path);
+#endif
+
   return 0;
 }
 
