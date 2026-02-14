@@ -259,7 +259,7 @@ static size_t find_set (size_t i, size_t *parent) {
   return parent[i] = find_set(parent[i], parent);
 }
 
-// Merges the sets containing elements 'i' and 'j'
+/* Merges the sets containing elements 'i' and 'j' */
 static void unite_sets (size_t i, size_t j, size_t *parent) {
   size_t root_i = find_set(i, parent);
   size_t root_j = find_set(j, parent);
