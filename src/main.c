@@ -392,7 +392,7 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
   return report;
 }
 
-int anukrta_driver (anukrta_config config, char *path) {
+int anukrta_driver (anukrta_config *config, char *path) {
 
   /* Store the files we find in the path */
   anu_file_q files;
@@ -413,7 +413,7 @@ int anukrta_driver (anukrta_config config, char *path) {
   log_info("Found `%zu` files.", file_count);
 
   /* Array of hashes */
-  size_t hash_collection_len = (file_count * config.segments);
+  size_t hash_collection_len = (file_count * config->segments);
   uint64_t *hashes = calloc(hash_collection_len, sizeof(uint64_t));
 
   if (!hashes) {
@@ -426,8 +426,8 @@ int anukrta_driver (anukrta_config config, char *path) {
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
 
-    int hashing_ret = hash_video(file, ANU_HASH_ALGO_DCT, config.segments,
-                                 &hashes[i * config.segments]);
+    int hashing_ret = hash_video(file, ANU_HASH_ALGO_DCT, config->segments,
+                                 &hashes[i * config->segments]);
 
     if (hashing_ret == -2) {
       /* We skipped this hash so lets move onto the next file. */
@@ -439,12 +439,12 @@ int anukrta_driver (anukrta_config config, char *path) {
       continue;
     }
 
-    for (int j = 0; j < config.segments; j++) {
-      bk_tree_insert(&filetree, hashes[(i * config.segments) + j], i);
+    for (int j = 0; j < config->segments; j++) {
+      bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
     }
   }
 
-  anu_report report = anu_generate_report(&files, hashes, &config, &filetree);
+  anu_report report = anu_generate_report(&files, hashes, config, &filetree);
   anu_print_report(&report, &files);
   report_destroy(&report);
   /* bk_tree_print_ascii(&filetree); */
@@ -461,7 +461,7 @@ int main (int argc, char *argv[]) {  // NOLINT (unused-*)
   log_set_level(LOG_DEBUG);
   anukrta_config config = {.segments = 2, .threshold = 15};
   log_info("%s now running...", argv[0]);
-  anukrta_driver(config, path);
+  anukrta_driver(&config, path);
 
   return 0;
 }
