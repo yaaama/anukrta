@@ -18,6 +18,7 @@
 
 #include "explore.h"
 #include "hash.h"
+#include "tree.h"
 #include "util.h"
 #include "vendor/log.h"
 #include "video.h"
@@ -93,7 +94,7 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
 
   if (segments <= 0) {
     log_trace("Skipping hash for `%s`\n", file->path);
-    return 0;
+    return -2;
   }
   video_io vreader;
 
@@ -125,7 +126,7 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
              ANU_US_TO_SECONDS((double)file->duration_us));
 
     anu_video_close(&vreader);
-    return 0;
+    return -2;
   }
 #endif
 
@@ -343,21 +344,40 @@ int anukrta_driver (anukrta_config config, char *path) {
   log_info("Found `%zu` files.", file_count);
 
   /* Array of hashes */
-  uint64_t *hashes = calloc((file_count * config.segments), sizeof(uint64_t));
+  size_t hash_collection_len = (file_count * config.segments);
+  uint64_t *hashes = calloc(hash_collection_len, sizeof(uint64_t));
 
   if (!hashes) {
     exit(EXIT_FAILURE);
   }
 
   anu_file *file;
+  bk_tree filetree;
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
-    hash_video(file, ANU_HASH_ALGO_DCT, config.segments,
-               &hashes[i * config.segments]);
+
+    int hashing_ret = hash_video(file, ANU_HASH_ALGO_DCT, config.segments,
+                                 &hashes[i * config.segments]);
+
+    if (hashing_ret == -2) {
+      /* We skipped this hash so lets move onto the next file. */
+      continue;
+    }
+    if (hashing_ret == -1) {
+      /* Some failure occured. */
+      log_error("Failed to hash this file %s", anu_file_get_filename(file));
+      continue;
+    }
+
+    for (int j = 0; j < config.segments; j++) {
+      bk_tree_insert(&filetree, hashes[(i * config.segments) + j], i);
+    }
   }
 
   anu_report_duplicates(&files, hashes, &config);
+  bk_tree_print_ascii(&filetree);
+  bk_tree_node_free(filetree.root);
   anu_fileq_destroy(&files);
   free(hashes);
 
