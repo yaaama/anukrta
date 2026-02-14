@@ -18,6 +18,7 @@
 
 #include "explore.h"
 #include "hash.h"
+#include "stack.h"
 #include "tree.h"
 #include "util.h"
 #include "vendor/log.h"
@@ -89,8 +90,8 @@ static uint64_t hash_decoded_frame (video_io *vreader,
   return hash;
 }
 
-int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
-                uint64_t *hashes_out) {
+static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
+                       uint64_t *hashes_out) {
 
   if (segments <= 0) {
     log_trace("Skipping hash for `%s`\n", file->path);
@@ -120,7 +121,7 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
     file->duration_us = video_duration_us;
   }
 
-#if 1
+#if 0
   if (file->duration_us < (4L * ANU_TIME_ONE_SEC_IN_US)) {
     log_info("Skipping file because duration is less than 4 seconds (%.2f)\n",
              ANU_US_TO_SECONDS((double)file->duration_us));
@@ -234,96 +235,161 @@ int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
   return 0;
 }
 
-size_t anu_report_duplicates (const anu_file_q *files, const uint64_t *hashes,
-                              anukrta_config *config) {
+/* A dynamic array of file IDs */
+typedef struct {
+  uint64_t *file_ids;
+  size_t count;
+  size_t capacity;
+} anu_duplicate_group;
 
-  if (files->count == 0) {
-    return 0;
+/* Represents the entire report, containing multiple groups */
+typedef struct {
+  anu_duplicate_group *groups;
+  size_t count;
+  size_t capacity;
+} anu_report;
+
+/* Finds the representative (or "root") of the set containing element 'i'
+ *Implements path compression for efficiency. */
+static size_t find_set (size_t i, size_t *parent) {
+  if (parent[i] == i) {
+    return i;
   }
-  int segments = config->segments;
-  int threshold = config->threshold;
+  /* Path compression: set parent directly to the root */
+  return parent[i] = find_set(parent[i], parent);
+}
 
-  /* array to mark files we've already grouped so we don't process them twice */
-  bool *reported = calloc(files->count, sizeof(bool));
+// Merges the sets containing elements 'i' and 'j'
+static void unite_sets (size_t i, size_t j, size_t *parent) {
+  size_t root_i = find_set(i, parent);
+  size_t root_j = find_set(j, parent);
+  if (root_i != root_j) {
+    /* Make the root of 'i's set a child of the root of 'j's set */
+    parent[root_i] = root_j;
+  }
+}
 
-  if (!reported) {
-    log_fatal("Memory allocation failed.");
-    return 0;
+void anu_print_report (anu_report *report, anu_file_q *files) {
+  if (report->count == 0) {
+    printf("\n=== Report ===\n");
+    printf("No duplicate groups found.\n");
+    return;
   }
 
-  printf("\n\n========================================\n");
-  printf("SIMILARITY REPORT (Threshold: <= %d)\n", threshold);
-  printf("========================================\n");
+  printf("\n=== Duplicate Report: ===\n");
+  printf("Found %zu duplicate groups from %zu files\n", report->count,
+         files->count);
+  printf("----------------------------------------");
 
-  size_t groups_found = 0;
-  anu_file *file_a;
-  anu_file *file_b;
-  uint64_t *hash_a;
-  uint64_t *hash_b;
-  uint64_t total_dist = 0;
-  for (size_t i = 0; i < files->count; i++) {
+  for (size_t i = 0; i < report->count; i++) {
+    anu_duplicate_group *group = &report->groups[i];
+    printf("\n[+] Group #%zu (%zu items):\n", i + 1, group->count);
+    for (size_t j = 0; j < group->count; j++) {
+      size_t file_id = group->file_ids[j];
+      char *filename = files->items[file_id].path;
+      printf("\t- %s\n", filename);
+    }
+  }
+}
 
-    if (reported[i]) {
+static void report_destroy (anu_report *report) {
+  if (!report) {
+    return;
+  }
+  for (size_t i = 0; i < report->count; i++) {
+    free(report->groups[i].file_ids);
+  }
+  free(report->groups);
+}
+
+anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
+                                anukrta_config *config, bk_tree *tree) {
+  size_t file_count = files->count;
+  bk_tree_print_ascii(tree);
+
+  /* Union-Find to identify the groups */
+  size_t *parent = malloc(file_count * sizeof(size_t));
+  if (!parent) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* Initially, each file is in its own set */
+  for (size_t i = 0; i < file_count; i++) {
+    parent[i] = i;
+  }
+
+  for (size_t i = 0; i < file_count; i++) {
+    /* Important to zero-initialize */
+    anu_dupe_group segment_results = {0};
+
+    for (int seg = 0; seg < config->segments; seg++) {
+      uint64_t current_hash = hashes[(i * config->segments) + seg];
+      bk_tree_search(tree->root, current_hash, config->threshold,
+                     &segment_results);
+    }
+
+    for (size_t k = 0; k < segment_results.file_count; k++) {
+      size_t match_id = segment_results.files[k];
+      /* Merge the sets of the file and its match */
+      unite_sets(i, match_id, parent);
+    }
+  }
+
+  /* Convert the Union-Find result into a list of groups */
+  anu_report report = {0};
+
+  /* Initial capacity of report */
+  report.capacity = 10;
+  report.groups = calloc(report.capacity, sizeof(anu_duplicate_group));
+  if (!report.groups) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
+  root parent */
+  anu_stack *buckets = calloc(file_count, sizeof(anu_stack));
+  if (!buckets) {
+    exit(EXIT_FAILURE);
+  }
+
+  for (size_t i = 0; i < file_count; i++) {
+    size_t root = find_set(i, parent);
+    if (buckets[root].items == NULL) {
+      anu_stack_init(&buckets[root], 4, sizeof(uint64_t));
+    }
+    anu_stack_push(&buckets[root], &i);
+  }
+
+  /* NOTE: If a bucket has more than one file, it's a duplicate group */
+  /* Populate final report struct */
+  for (size_t i = 0; i < file_count; i++) {
+
+    /* Destroy any buckets with less than 1 file */
+    if (buckets[i].count <= 1) {
+      anu_stack_destroy(&buckets[i]);
       continue;
     }
 
-    file_a = &files->items[i];
-    hash_a = &hashes[i * segments];
-
-    bool header_printed = false;
-
-    /* Inner loop: Compare against all subsequent files */
-    for (size_t j = i + 1; j < files->count; j++) {
-      if (reported[j]) {
-        continue;
+    /* Check if we have reached report capcity before filling it */
+    if (report.count == report.capacity) {
+      report.capacity *= 2;
+      anu_duplicate_group *temp =
+          realloc(report.groups, report.capacity * sizeof(anu_duplicate_group));
+      if (!temp) {
+        exit(EXIT_FAILURE);
       }
-
-      file_b = &files->items[j];
-      hash_b = &hashes[j * segments];
-
-      /* Calculate total distance across all segments */
-      total_dist = 0;
-
-      for (int seg = 0; seg < segments; seg++) {
-        total_dist += hamming_distance((hash_a[seg]), (hash_b[seg]));
-      }
-      /* printf("Total Distance between %s and %s: %lu\n", file_a->path,
-       * file_b->path, total_dist); */
-
-      /* Check against threshold */
-      if (total_dist <= (uint64_t)threshold) {
-
-        /* Print Group Header (only once per group) */
-        if (!header_printed) {
-          groups_found++;
-          header_printed = true;
-          printf("Group #%zu: %s\n", groups_found,
-                 anu_file_get_filename(file_a));
-        }
-
-        /* Print the match */
-        printf("%s\n", anu_file_get_filename(file_a));
-        printf("|--- [Dist: %lu] %s\n", total_dist,
-               anu_file_get_filename(file_b));
-
-        /* Mark B as handled so it doesn't start its own group later */
-        reported[j] = true;
-      }
+      report.groups = temp;
     }
 
-    if (header_printed) {
-      printf("----------------------------------------\n");
-    }
+    anu_duplicate_group *new_group = &report.groups[report.count++];
+    new_group->count = buckets[i].count;
+    /* Steal the memory from the stack */
+    new_group->file_ids = buckets[i].items;
   }
 
-  if (groups_found == 0) {
-    printf("No similar files found.\n");
-  } else {
-    printf("Total Groups Found: %zu\n", groups_found);
-  }
-
-  free(reported);
-  return groups_found;
+  free(buckets);
+  free(parent);
+  return report;
 }
 
 int anukrta_driver (anukrta_config config, char *path) {
@@ -378,8 +444,10 @@ int anukrta_driver (anukrta_config config, char *path) {
     }
   }
 
-  anu_report_duplicates(&files, hashes, &config);
-  bk_tree_print_ascii(&filetree);
+  anu_report report = anu_generate_report(&files, hashes, &config, &filetree);
+  anu_print_report(&report, &files);
+  report_destroy(&report);
+  /* bk_tree_print_ascii(&filetree); */
   bk_tree_node_free(filetree.root);
   anu_fileq_destroy(&files);
   free(hashes);
@@ -391,7 +459,7 @@ int main (int argc, char *argv[]) {  // NOLINT (unused-*)
   char *path = "./etc/";
 
   log_set_level(LOG_DEBUG);
-  anukrta_config config = {.segments = 2, .threshold = 20};
+  anukrta_config config = {.segments = 2, .threshold = 15};
   log_info("%s now running...", argv[0]);
   anukrta_driver(config, path);
 
