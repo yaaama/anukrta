@@ -1,5 +1,6 @@
 ---
 BasedOnStyle: Google
+Language: C
 IndentCaseBlocks: true
 IndentCaseLabels: true
 IndentExternBlock: Indent
@@ -7,9 +8,35 @@ KeepEmptyLinesAtTheStartOfBlocks: true
 # KeepEmptyLines:
 #   AtStartOfBlock: true
 #   AtStartOfFile: true
-MaxEmptyLinesToKeep: 1
+BreakBeforeTernaryOperators: true
+InsertBraces: true
+# BreakBeforeBraces: Custom
+
+# NumericLiteralCase:
+#   ExponentLetter: Upper
+#   HexDigit: Upper
+#   Prefix: Upper
+#   Suffix: Upper
+
+# BraceWrapping:
+#   AfterEnum: true
+#   AfterStruct: false
+
+PPIndentWidth: 4
+ReflowComments: IndentOnly
+RemoveEmptyLinesInUnwrappedLines: true
 SeparateDefinitionBlocks: Always
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
 SpaceBeforeAssignmentOperators: true
+SpacesInLineCommentPrefix:
+  Maximum: -1
+  Minimum: 1
+UseTab: Never
+AllowShortIfStatementsOnASingleLine: false
+# ColumnLimit: 80
+IndentWidth: 2
+MaxEmptyLinesToKeep: 1
 # Example of usage:
 SpaceBeforeParens: Custom
 SpaceBeforeParensOptions:
