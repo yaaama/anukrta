@@ -1,11 +1,130 @@
 #include "stack.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "util.h"
+
+/*
+ * Vector
+ * ~~~~~~
+ */
+
+int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
+  assert(elem_size);
+
+  if (capacity == 0) {
+    capacity = 4;
+  }
+
+  v->items = malloc(capacity * elem_size);
+  if (!v->items) {
+    perror("Memory allocation failed.");
+    return EXIT_FAILURE;
+  }
+
+  v->capacity = capacity;
+  v->count = 0;
+  v->_elem_size = elem_size;
+  return EXIT_SUCCESS;
+}
+
+int vector_is_full (anu_vector *v) {
+  assert(v);
+  return (v->capacity == v->count);
+}
+
+int anu_vector_is_empty (anu_vector *v) {
+  assert(v);
+  return (v->count == 0);
+}
+
+int anu_vector_append (anu_vector *v, void *item) {
+  assert(v && item);
+
+  if (vector_is_full(v)) {
+    size_t new_capacity = v->capacity * 2;
+    void *temp = realloc(v->items, v->_elem_size * new_capacity);
+    if (!temp) {
+      perror("Reallocation failed.");
+      return EXIT_FAILURE;
+    }
+    v->items = temp;
+    v->capacity = new_capacity;
+  }
+
+  void *target = (byte *) v->items + (v->count * v->_elem_size);
+  memcpy(target, item, v->_elem_size);
+  ++(v->count);
+  return (int) v->count;
+}
+
+int anu_vector_get (anu_vector *v, int index, void *out) {
+
+  assert(v && index >= 0 && out);
+
+  if (v->count == 0 || index >= (int) v->count) {
+    return -1;
+  }
+
+  void *item_ptr = (byte *) (v->items) + (index * v->_elem_size);
+
+  memcpy(out, item_ptr, v->_elem_size);
+  return index;
+}
+
+int anu_vector_pop_end (anu_vector *v, void *out) {
+  assert(v);
+
+  if (v->count < 1) {
+    return 0;
+  }
+
+  --(v->count);
+
+  if (!out) {
+    return (int) v->count;
+  }
+  void *item_ptr = (byte *) (v->items) + (v->count * v->_elem_size);
+
+  memcpy(out, item_ptr, v->_elem_size);
+  return (int) v->count;
+}
+
+int anu_vector_count (anu_vector *v) {
+  assert(v);
+  return (int) v->count;
+}
+
+void anu_vector_destroy (anu_vector *v) {
+  if (!v) {
+    return;
+  }
+
+  if (v->items) {
+    free(v->items);
+    v->items = NULL;
+  }
+  v->capacity = 0;
+  v->count = 0;
+  v->_elem_size = 0;
+}
+
+/* TODO */
+/* void anu_vector_for_all(anu_vector *v, void (*operation)(void *)) */
+
+/*****************************************************************************/
+
+/*
+ * Stack
+ * ~~~~~
+ */
+
 void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
 
+  assert(elem_size);
   if (capacity == 0) {
     capacity = 4;
   }
@@ -34,7 +153,7 @@ void anu_stack_push (anu_stack *s, void *item_ptr) {
     s->items = copied;
     s->capacity = new_capacity;
   }
-  void *target_address = (char *)s->items + (s->count * s->elem_size);
+  void *target_address = (char *) s->items + (s->count * s->elem_size);
   memcpy(target_address, item_ptr, s->elem_size);
   ++s->count;
 }
@@ -44,7 +163,7 @@ int anu_stack_pop (anu_stack *s, void *dest) {
     return 0;
   }
   --s->count;
-  void *source = (char *)s->items + (s->count * s->elem_size);
+  void *source = (char *) s->items + (s->count * s->elem_size);
   memcpy(dest, source, s->elem_size);
 
   return 1;
@@ -56,7 +175,7 @@ void anu_stack_peek (anu_stack *s, void *dest) {
   if (anu_stack_is_empty(s)) {
     return;
   }
-  void *source = (char *)s->items + ((s->count - 1) * s->elem_size);
+  void *source = (char *) s->items + ((s->count - 1) * s->elem_size);
   memcpy(dest, source, s->elem_size);
 }
 
