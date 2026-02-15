@@ -11,8 +11,8 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 typedef float f32;
 typedef double f64;
+typedef uint8_t byte;
 typedef uintptr_t uptr;
-typedef char byte;
 typedef ptrdiff_t size;
 typedef size_t usize;
 
@@ -20,10 +20,10 @@ typedef size_t usize;
 #define ANU_TIME_ONE_SEC_IN_US 1000000
 /* Convert microseconds to seconds */
 #define ANU_US_TO_SECONDS(A) ((double)(A) / (ANU_TIME_ONE_SEC_IN_US))
+
 /* Array size macro */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
-void debug_print_matrix(const float *matrix, int rows, int cols);
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
@@ -36,8 +36,8 @@ void debug_print_matrix(const float *matrix, int rows, int cols);
 
 u32 hamming_distance(uint64_t hash1, uint64_t hash2);
 int compare_floats(const void *a, const void *b);
-
-int anu_util_tolower(int c);
+void debug_print_matrix(const float *matrix, int rows, int cols);
 void anu_util_print_indent(int depth);
+int anu_util_tolower(int c);
 
 #endif  // ANU_UTIL_H
