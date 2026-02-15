@@ -25,8 +25,18 @@
 #include "video.h"
 
 typedef struct anukrta_config {
+  /* Number of segments to hash from a video */
   int segments;
+  /* Threshold of similarity to consider them duplicates */
   int threshold;
+  /* Video length shorter than this will be skipped */
+  int skip_duration;
+  /* Hashing algorithm to use */
+  int hash_algorithm;
+  /* Detect black frames in video and skip them? */
+  int detect_black_frames;
+  /* Detect rotation in videos? */
+  int detect_rotation;
 } anukrta_config;
 
 /* This is the function called ONLY when a valid frame is fully decoded */
