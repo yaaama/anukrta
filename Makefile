@@ -41,6 +41,7 @@ DEV_FLAGS := -ggdb -O0 -g3 \
 -Wredundant-decls \
 -Wshadow \
 -fno-omit-frame-pointer \
+-fno-optimize-sibling-calls \
 -ftrapv \
 -pipe
 
@@ -95,7 +96,7 @@ ifeq (${ASAN}, 1)
 # ASAN Flags
 ASAN_FLAGS := -fsanitize=undefined -fsanitize=address
 
-ALL_CFLAGS += $(ASAN_FLAGS) -fsanitize-trap -fno-optimize-sibling-calls
+ALL_CFLAGS += $(ASAN_FLAGS) -fsanitize-trap
 # -fsanitize-address-use-after-return=always  -fsanitize-address-use-after-scope
 
 ALL_LDFLAGS += $(ASAN_FLAGS)
@@ -201,9 +202,9 @@ endif
 test: $(BUILD_DIR)/$(TEST_TARGET_NAME)
 	@echo "Running Tests..."
 ifeq (${ASAN}, 1)
-	@ASAN_OPTIONS="$(DEFAULT_ASAN_OPTIONS)" ./$(BUILD_DIR)/$(TEST_TARGET_NAME) --verbose
+	@ASAN_OPTIONS="$(DEFAULT_ASAN_OPTIONS)" ./$(BUILD_DIR)/$(TEST_TARGET_NAME)
 else
-	@./$(BUILD_DIR)/$(TEST_TARGET_NAME) --verbose
+	@./$(BUILD_DIR)/$(TEST_TARGET_NAME)
 endif
 
 .PHONY: analyze
