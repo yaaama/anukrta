@@ -6,7 +6,7 @@
 Test (BK_Tree, initialise) {
   bk_tree tree = {0};
   bk_tree_insert(&tree, 10000L, 1);
-  bk_tree_print_ascii(&tree);
+  /* bk_tree_print_ascii(&tree); */
   bk_tree_node_free(tree.root);
 }
 
@@ -27,7 +27,7 @@ Test (BK_Tree, normal_insertions) {
   bk_tree_insert(&tree, 0x6759bbec41d3ac3d, 13);
   bk_tree_insert(&tree, 0x0e6a9794b7a32cd4, 14);
   bk_tree_insert(&tree, 500L, 15);
-  bk_tree_print_ascii(&tree);
+  /* bk_tree_print_ascii(&tree); */
 
   bk_tree_node_free(tree.root);
 }
