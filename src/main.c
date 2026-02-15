@@ -63,8 +63,6 @@ static uint64_t hash_decoded_frame (video_io *vreader,
   }
 
   /* Prep a 2D matrix to store greyscale values */
-  const size_t matrix_size =
-      (size_t)ANU_PHASH_INPUT_SIZE * ANU_PHASH_INPUT_SIZE;
   uint8_t matrix[ANU_PHASH_INPUT_SIZE * ANU_PHASH_INPUT_SIZE];
 
   /* Populate matrix with frame data */
