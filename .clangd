@@ -1,10 +1,9 @@
 # #-*- mode: yaml -*-
 
 CompileFlags: # Tweak the parse settings
-  Add: [-xc, -Wall, -Wextra, -std=c11]
+  Add: [-xc, -Wall, -Wextra, -std=c11, -march=native, -isystem, /usr/include,]
   # Remove: -W*                     # strip all other warning-related flags
   Compiler: clang # Change argv[0] of compile flags to `clang`
-  Add: [-isystem, /usr/include,]
 
 Diagnostics:
   Suppress:

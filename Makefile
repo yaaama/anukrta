@@ -67,22 +67,22 @@ ifeq (${DEBUG}, 1)
 else
 	CFLAGS += $(RELEASE_FLAGS)
 endif
-INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR) )
+INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
 CPPFLAGS = $(INCLUDES) -MMD -MP
 
 # ==========================================
 #   FFmpeg Configuration
 # ==========================================
 # FFmpeg libraries to link against
-FFMPEG_LIBS := -lavformat \
--lavcodec \
--lavutil \
--lswscale \
--lswresample \
+FFMPEG_LIBS := -lavcodec \
+-lavdevice \
 -lavfilter \
--lavdevice
+-lavformat \
+-lavutil \
+-lswresample \
+-lswscale
 
-SYS_INCLUDES := -isystem /usr/include
+SYS_INCLUDES :=
 # Combine flags
 ALL_CFLAGS := $(CFLAGS) $(CPPFLAGS) $(SYS_INCLUDES) $(FFMPEG_INC)
 ALL_LDFLAGS :=
