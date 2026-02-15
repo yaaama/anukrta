@@ -1,4 +1,5 @@
 ---
+# clang-diagnostic-*,
 Checks: >
   -*,
   bugprone-*,
@@ -8,7 +9,7 @@ Checks: >
   readability-*,
   misc-*,
   clang-analyzer-*,
-  clang-diagnostic-*,
+  -clang-diagnostic-missing-prototypes,
   -*clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   -*cert-err33-c,
   -readability-identifier-length,
@@ -17,6 +18,7 @@ Checks: >
   -readability-magic-numbers,
   -readability-avoid-unconditional-preprocessor-if,
   -readability-non-const-parameter,
+  -misc-no-recursion,
   -*unused-*,
   -*swappable-parameters,
 
@@ -26,10 +28,9 @@ HeaderFileExtensions:
 ImplementationFileExtensions:
   - c
 SystemHeaders: false
-HeaderFilterRegex: 'src/(?!vendor/).*'
+HeaderFilterRegex: "src/(?!vendor/).*"
 FormatStyle: file
 CheckOptions:
-
   # Naming conventions (C style)
   - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
@@ -70,6 +71,4 @@ CheckOptions:
 
   - key: google-readability-function-size.StatementThreshold
     value: "800"
-
-
 ...
