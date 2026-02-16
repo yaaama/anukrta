@@ -16,10 +16,26 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t size;
 typedef size_t usize;
 
+/* Structure describing the configuration settings to use for this run. */
+typedef struct anukrta_config {
+  /* Number of segments to hash from a video */
+  int segments;
+  /* Threshold of similarity to consider them duplicates */
+  int threshold;
+  /* Video length shorter than this will be skipped */
+  int skip_duration;
+  /* Hashing algorithm to use */
+  int hash_algorithm;
+  /* Detect black frames in video and skip them? */
+  int detect_black_frames;
+  /* Detect rotation in videos? */
+  int detect_rotation;
+} anukrta_config;
+
 /* One second in microseconds */
 #define ANU_TIME_ONE_SEC_IN_US 1000000
 /* Convert microseconds to seconds */
-#define ANU_US_TO_SECONDS(A) ((double)(A) / (ANU_TIME_ONE_SEC_IN_US))
+#define ANU_US_TO_SECONDS(A) ((double) (A) / (ANU_TIME_ONE_SEC_IN_US))
 
 /* Array size macro */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
