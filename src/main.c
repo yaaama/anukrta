@@ -117,7 +117,7 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
 #if 0
   if (file->duration_us < (4L * ANU_TIME_ONE_SEC_IN_US)) {
     log_info("Skipping file because duration is less than 4 seconds (%.2f)\n",
-             ANU_US_TO_SECONDS((double)file->duration_us));
+             (file->duration_us / ANU_TIME_ONE_SEC_IN_US));
 
     anu_video_close(&vreader);
     return -2;
@@ -145,9 +145,9 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    log_debug("Segment [%d/%d] : Seeking to PTS %" PRId64 " (%.1f sec)", i + 1,
-              total_video_segments, seek_target_sb,
-              (double) seek_target_us / ANU_TIME_ONE_SEC_IN_US);
+    log_debug("--- Segment [%d/%d] ---", i + 1, total_video_segments);
+    log_debug("Seeking to PTS %d (%.1f sec)", seek_target_sb,
+              anu_time_microseconds_to_seconds(seek_target_us));
 
     /* Seek to timestamp */
     if (anu_video_seek_to_timestamp_pts(&vreader, seek_target_sb) < 0) {
@@ -177,7 +177,7 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
 
         hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
 
-        log_debug("Frame: %ld | Hash: [0x%lX]", vreader.codec_ctx->frame_num,
+        log_debug("Frame '%ld' => %lX", vreader.codec_ctx->frame_num,
                   hashes_out[frames_decoded]);
 
         frame_found_for_segment = true;
@@ -214,13 +214,13 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
   char hashes[1024];
   int total_len = 0;
   for (int i = 0; i < frames_decoded; i++) {
-    int end = sprintf(&hashes[total_len], "#%d[%lX], ", i, hashes_out[i]);
+    int end = sprintf(&hashes[total_len], " %lX,", hashes_out[i]);
     total_len += end;
     hashes[total_len] = ' ';
   }
   hashes[total_len] = '\0';
   log_trace("DONE. Processed %d frames.", frames_decoded);
-  log_debug("Hashes (%s):\n%s\n", anu_file_get_filename(file), hashes);
+  log_debug("Hashed '%s' => {%s}\n", anu_file_get_filename(file), hashes);
 #else
   log_trace("DONE. Processed %d frames for %s", frames_decoded, file->path);
 #endif
@@ -295,7 +295,16 @@ int main (int argc, char *argv[]) {  // NOLINT (unused-*)
   char *path = "./etc/";
 
   log_set_level(LOG_DEBUG);
-  anukrta_config config = {.segments = 2, .threshold = 15};
+
+  printf("\n--------------------\n");
+  printf("Starting...\n");
+  printf("--------------------\n");
+
+  anukrta_config config = {.segments = 2,
+                           .threshold = 15,
+                           .hash_algorithm = ANU_HASH_ALGO_DCT,
+                           .skip_duration = 503410};
+
   log_info("%s now running...", argv[0]);
   anukrta_driver(&config, path);
 

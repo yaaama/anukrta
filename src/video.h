@@ -43,5 +43,6 @@ int anu_video_scale_frame(AVFrame *src_frame, size_t width, size_t height,
                           AVFrame *out_frame);
 int anu_video_decode_packet(video_io *vreader);
 void copy_frame_to_buffer(AVFrame *frame, uint8_t *dest, int width);
+double anu_time_microseconds_to_seconds(long microseconds);
 
 #endif  // ANU_VIDEO_H

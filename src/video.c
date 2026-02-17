@@ -27,12 +27,16 @@
 /* Hardcode this so I don't have to include another header */
 #define ANU_EAGAIN 11
 
+double anu_time_microseconds_to_seconds (long microseconds) {
+  return (double) microseconds / ANU_TIME_ONE_SEC_IN_US;
+}
+
 static long frame_pts_to_microsecond (long pts, AVRational timebase) {
   return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
 static double frame_pts_to_seconds (long pts, AVRational timebase) {
-  return ((double)av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
+  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
 }
 
 static void save_gray_frame (unsigned char *buf, int wrap, int xsize,
@@ -57,7 +61,7 @@ static void save_gray_frame (unsigned char *buf, int wrap, int xsize,
   /* writing line by line */
   int index;
   for (index = 0; index < ysize; index++) {
-    fwrite(buf + ((ptrdiff_t)index * wrap), 1, xsize, fptr);
+    fwrite(buf + ((ptrdiff_t) index * wrap), 1, xsize, fptr);
   }
   fclose(fptr);
 }
@@ -142,7 +146,7 @@ int anu_video_scale_frame (AVFrame *src_frame, size_t width, size_t height,
   /* Initialize the Scaler (SwsContext) */
   /* Convert from Source Format -> Gray8 @ 8x8 */
   struct SwsContext *sws_ctx = sws_getContext(
-      src_frame->width, src_frame->height, input_fmt, (int)width, (int)height,
+      src_frame->width, src_frame->height, input_fmt, (int) width, (int) height,
       out_frame->format, SWS_AREA, NULL, NULL, NULL);
 
   if (!sws_ctx) {
@@ -330,8 +334,8 @@ int anu_video_open (char *filename, video_io *vreader) {
   }
 
   vreader->video_duration = anu_video_get_duration(vreader);
-  log_debug("Video duration is: %.2f s / (%zu micro/s).",
-            ANU_US_TO_SECONDS(vreader->video_duration),
+  log_debug("Video duration is [%.2f s / %zu micro/s].",
+            anu_time_microseconds_to_seconds(vreader->video_duration),
             vreader->video_duration);
 
   return 0;
@@ -378,8 +382,9 @@ long anu_video_get_duration (video_io *vreader) {
   if (duration_in_sb == AV_NOPTS_VALUE) {
     log_warn(
         "Video stream is omitting duration. Falling back to container "
-        "duration (`%ld`)",
-        vreader->fmt_ctx->duration);
+        "duration: [%fs / %ld micro/s] ",
+        vreader->fmt_ctx->duration,
+        ((double) vreader->fmt_ctx->duration / ANU_TIME_ONE_SEC_IN_US));
 
     return vreader->fmt_ctx->duration;
   }

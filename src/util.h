@@ -32,10 +32,13 @@ typedef struct anukrta_config {
   int detect_rotation;
 } anukrta_config;
 
-/* One second in microseconds */
+/**
+ * @brief
+ * One second in microseconds
+ *
+ * This is useful as FFmpeg uses microseconds for their timebase
+ */
 #define ANU_TIME_ONE_SEC_IN_US 1000000
-/* Convert microseconds to seconds */
-#define ANU_US_TO_SECONDS(A) ((double) (A) / (ANU_TIME_ONE_SEC_IN_US))
 
 /* Array size macro */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
