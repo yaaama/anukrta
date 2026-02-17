@@ -22,6 +22,7 @@ InsertBraces: true
 #   AfterEnum: true
 #   AfterStruct: false
 
+IndentPPDirectives: AfterHash
 PPIndentWidth: 4
 ReflowComments: IndentOnly
 RemoveEmptyLinesInUnwrappedLines: true
