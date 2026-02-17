@@ -1,11 +1,5 @@
 MAKEFLAGS += --no-print-directory
-V ?= 0
-
-ifeq ($(V),1)
-    Q :=
-else
-    Q := @
-endif
+-include config.mk
 
 # ==========================================
 #   Project Settings
@@ -19,57 +13,34 @@ INCLUDE_DIR := src
 VENDOR_DIR := src/vendor
 TEST_DIR := tests
 
-
-# Compiler settings
-CC := clang
-
-ASAN := 1
-DEBUG := 1
-
-# FLAGS FOR DEVELOPMENT
-DEV_FLAGS := -ggdb -O0 -g3 \
--Wconversion \
--Wdouble-promotion \
--Wjump-misses-init \
--Wmissing-include-dirs \
--Wnested-externs \
--Wno-sign-conversion \
--Wno-unused-function \
--Wno-unused-parameter \
--Wno-unused-variable \
--Wold-style-definition \
--Wredundant-decls \
--Wshadow \
--fno-omit-frame-pointer \
--fno-optimize-sibling-calls \
--ftrapv \
--pipe
-
-ifeq (${CC}, clang)
-	DEV_FLAGS += -fextend-variable-liveness -Wno-incompatible-pointer-types-discards-qualifiers
-endif
-ifeq (${CC}, gcc)
-	DEV_FLAGS += -Wno-discarded-qualifiers
-endif
-
-# FLAGS FOR RELEASE BUILD
-RELEASE_FLAGS := -O2
-
-# DEFAULT FLAGS
+# DEFAULT C FLAGS
 CFLAGS := -std=c11
 CFLAGS += -Wall -Wextra -Wstrict-prototypes \
--Wold-style-definition -Wshadow \
--Wvla -Wmissing-prototypes
+-Wold-style-definition -Wshadow -Wvla \
+-Wconversion -Wdouble-promotion \
+-Wmissing-include-dirs \
+-Wnested-externs -Wno-sign-conversion \
+-Wredundant-decls
 # Disable pedantic for now
+# -Wjump-misses-init \
 # -pedantic
+
+DEBUG ?= 1
+ASAN ?= 0
+PROFILE ?= 0
 
 ifeq (${DEBUG}, 1)
 	CFLAGS += $(DEV_FLAGS)
 else
 	CFLAGS += $(RELEASE_FLAGS)
 endif
+
+ifeq (${PROFILE}, 1)
+	CFLAGS += $(PROFILE_FLAGS)
+endif
+
 INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
-CPPFLAGS = $(INCLUDES) -MMD -MP
+CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 
 # ==========================================
 #   FFmpeg Configuration
@@ -83,9 +54,8 @@ FFMPEG_LIBS := -lavcodec \
 -lswresample \
 -lswscale
 
-SYS_INCLUDES :=
 # Combine flags
-ALL_CFLAGS := $(CFLAGS) $(CPPFLAGS) $(SYS_INCLUDES) $(FFMPEG_INC)
+ALL_CFLAGS := $(CFLAGS) $(CPPFLAGS)
 ALL_LDFLAGS :=
 ALL_LDLIBS := -lm -lpthread -lz $(FFMPEG_LIBS)
 
@@ -94,18 +64,18 @@ ALL_LDLIBS := -lm -lpthread -lz $(FFMPEG_LIBS)
 # ==========================================
 ifeq (${ASAN}, 1)
 # ASAN Flags
-ASAN_FLAGS := -fsanitize=undefined -fsanitize=address
+ASAN_FLAGS := -fsanitize=undefined -fsanitize=address -fsanitize-address-use-after-return=always -fsanitize-address-use-after-scope
 
-ALL_CFLAGS += $(ASAN_FLAGS) -fsanitize-trap
-# -fsanitize-address-use-after-return=always  -fsanitize-address-use-after-scope
-
-ALL_LDFLAGS += $(ASAN_FLAGS)
+CFLAGS += $(ASAN_FLAGS) -fsanitize-trap
+LDFLAGS += $(ASAN_FLAGS)
 
 # Name of ASAN logfile
 ASAN_LOG_FILE := etc/asan.log
 
-# Default options
-DEFAULT_ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+DEFAULT_LSAN_OPTIONS := verbosity=1:log_threads=1
+# Default ASAN Options
+DEFAULT_ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:verbosity=1:log_threads=1
+# Default UBSAN Options
 DEFAULT_UBSAN_OPTIONS := abort_on_error=1:halt_on_error=1:print_stacktrace=1
 endif
 
@@ -116,7 +86,7 @@ endif
 SOURCES := $(wildcard $(SRC_DIR)/*.c)
 SOURCES += $(wildcard $(VENDOR_DIR)/*.c)
 
-# Create object file names (e.g., src/main.c -> obj/main.o)
+# Create object file names (src/main.c -> obj/main.o)
 OBJECTS := $(SOURCES:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 MAIN_OBJ := $(OBJ_DIR)/main.o
 TEST_SOURCES := $(wildcard $(TEST_DIR)/*.c)
@@ -133,7 +103,7 @@ FILES := $(shell find $(SRC_DIR) $(TEST_DIR) -name '*.c' -o -name '*.h' -o -name
 #   Build Rules
 # ==========================================
 
-.PHONY: all test run bear clean
+.PHONY: all
 # ALL
 all: $(BUILD_DIR)/$(TARGET_NAME) $(BUILD_DIR)/$(TEST_TARGET_NAME)
 
@@ -141,13 +111,13 @@ all: $(BUILD_DIR)/$(TARGET_NAME) $(BUILD_DIR)/$(TEST_TARGET_NAME)
 $(BUILD_DIR)/$(TARGET_NAME): $(OBJECTS) | $(BUILD_DIR)
 	@echo "=================================================="
 	@echo "Linking $(TARGET_NAME)..."
-	$(Q)$(CC) $(ALL_LDFLAGS) $^ $(ALL_LDLIBS) -o $@
+	$(Q)$(CC) $(LDFLAGS) $^ $(ALL_LDLIBS) -o $@
 
 # 2. Test Linking
 # Links: (App Objects - Main) + (Test Objects) + Criterion
 $(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS) | $(BUILD_DIR)
 	@echo "Linking Tests $(TEST_TARGET_NAME)..."
-	$(Q)$(CC) $(ALL_LDFLAGS) $^ $(ALL_LDLIBS) -lcriterion -o $@
+	$(Q)$(CC) $(LDFLAGS) $^ $(ALL_LDLIBS) -lcriterion -o $@
 
 # 3. Compiling
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
@@ -170,6 +140,7 @@ $(BUILD_DIR) $(OBJ_DIR):
 -include $(DEPS)
 
 # 5. Clean
+.PHONY: clean
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(OBJ_DIR) $(BUILD_DIR)
@@ -187,16 +158,21 @@ bear: compile_commands.json
 
 .PHONY: run
 run: $(BUILD_DIR)/$(TARGET_NAME)
+ifeq (${ASAN}, 1)
 	@echo "=================================================="
 	@echo "Running $(TARGET_NAME) with Sanitizers..."
-ifeq (${ASAN}, 1)
 	@echo "ASAN Options: $(DEFAULT_ASAN_OPTIONS)"
 	@echo "Logs will be written to: $(ASAN_LOG_FILE).<pid>"
-endif
 	@echo "=================================================="
 	@ASAN_OPTIONS="$(DEFAULT_ASAN_OPTIONS):$(ASAN_OPTIONS)" \
-	 UBSAN_OPTIONS="$(DEFAULT_UBSAN_OPTIONS):$(UBSAN_OPTIONS)" \
-	 ./$(BUILD_DIR)/$(TARGET_NAME)
+LSAN_OPTIONS="$(DEFAULT_LSAN_OPTIONS):$(LSAN_OPTIONS)" \
+UBSAN_OPTIONS="$(DEFAULT_UBSAN_OPTIONS):$(UBSAN_OPTIONS)" ./$(BUILD_DIR)/$(TARGET_NAME)
+else
+	@echo "=================================================="
+	@echo "Running..."
+	@echo "=================================================="
+	@./$(BUILD_DIR)/$(TARGET_NAME)
+endif
 
 .PHONY: test
 test: $(BUILD_DIR)/$(TEST_TARGET_NAME)
@@ -217,31 +193,29 @@ check:
 	@cppcheck --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
 	--suppress=missingIncludeSystem \
 	--template='{file}:{line}:{column}: {severity}: {message} [{id}]' \
-	-i $(VENDOR_DIR) \
-	$(SRC_DIR)
+	-i $(VENDOR_DIR) $(SRC_DIR)
 
 .PHONY: format
-format: bear
+format:
 	@echo "Running clang-format"
 	@clang-format -n -i $(FILES)
 
 .PHONY: lint
-lint: bear
+lint:
 	@echo "Running clang-tidy"
 	@clang-tidy $(FILES)
 
 .PHONY: release
-release:
+release: clean
 	$(MAKE) DEBUG=0 ASAN=0
+
+.PHONY: release-debug
+release-debug: clean
+	$(MAKE) -B PROFILE=1 ASAN=0 DEBUG=0
 
 .PHONY: debug
 debug:
 	$(MAKE) DEBUG=1 ASAN=1
-
-.PHONY: profile
-profile: release
-	perf record -g $(BUILD_DIR)/$(TARGET_NAME)
-	perf report
 
 .PHONY: memcheck
 memcheck: debug
