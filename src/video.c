@@ -28,7 +28,11 @@
 #define ANU_EAGAIN 11
 
 double anu_time_microseconds_to_seconds (long microseconds) {
-  return (double) microseconds / ANU_TIME_ONE_SEC_IN_US;
+  return ((double) microseconds / ANU_TIME_ONE_SEC_IN_US);
+}
+
+long anu_time_seconds_to_microseconds (double seconds) {
+  return (long) (seconds * (double) ANU_TIME_ONE_SEC_IN_US);
 }
 
 static long frame_pts_to_microsecond (long pts, AVRational timebase) {
@@ -334,7 +338,7 @@ int anu_video_open (char *filename, video_io *vreader) {
   }
 
   vreader->video_duration = anu_video_get_duration(vreader);
-  log_debug("Video duration is [%.2f s / %zu micro/s].",
+  log_debug("Video duration -> %.1fs / %zu micro/s.",
             anu_time_microseconds_to_seconds(vreader->video_duration),
             vreader->video_duration);
 
@@ -379,19 +383,18 @@ long anu_video_get_duration (video_io *vreader) {
   log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
             stream_timebase.den);
 
-  if (duration_in_sb == AV_NOPTS_VALUE) {
-    log_warn(
-        "Video stream is omitting duration. Falling back to container "
-        "duration: [%fs / %ld micro/s] ",
-        vreader->fmt_ctx->duration,
-        ((double) vreader->fmt_ctx->duration / ANU_TIME_ONE_SEC_IN_US));
-
-    return vreader->fmt_ctx->duration;
+  if (duration_in_sb > 0) {
+    return frame_pts_to_microsecond(duration_in_sb, stream_timebase);
   }
 
-  long duration_us = frame_pts_to_microsecond(duration_in_sb, stream_timebase);
+  if (duration_in_sb == AV_NOPTS_VALUE) {
+    log_warn(
+        "Video stream omitting duration, using container values as fallback");
+    duration_in_sb = vreader->fmt_ctx->duration;
+    return duration_in_sb;
+  }
 
-  return duration_us;
+  return -1;
 }
 
 /**

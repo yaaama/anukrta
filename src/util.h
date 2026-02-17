@@ -23,7 +23,7 @@ typedef struct anukrta_config {
   /* Threshold of similarity to consider them duplicates */
   int threshold;
   /* Video length shorter than this will be skipped */
-  int skip_duration;
+  long skip_duration;
   /* Hashing algorithm to use */
   int hash_algorithm;
   /* Detect black frames in video and skip them? */

@@ -83,10 +83,10 @@ static uint64_t hash_decoded_frame (video_io *vreader,
   return hash;
 }
 
-static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
+static int hash_video (anu_file *file, anukrta_config *config,
                        uint64_t *hashes_out) {
 
-  if (segments <= 0) {
+  if (config->segments <= 0) {
     log_trace("Skipping hash for `%s`\n", file->path);
     return -2;
   }
@@ -105,7 +105,7 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
   AVStream *vid_stream_ptr = anu_video_get_vid_stream(&vreader);
 
   /* We want to split the video into this many segments */
-  int total_video_segments = segments;
+  int total_video_segments = config->segments;
 
   long video_duration_us = vreader.video_duration;
   assert(video_duration_us > 0);
@@ -114,15 +114,14 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
     file->duration_us = video_duration_us;
   }
 
-#if 0
-  if (file->duration_us < (4L * ANU_TIME_ONE_SEC_IN_US)) {
-    log_info("Skipping file because duration is less than 4 seconds (%.2f)\n",
-             (file->duration_us / ANU_TIME_ONE_SEC_IN_US));
+  if (file->duration_us <= config->skip_duration) {
+    log_info("Skipping File - Duration less than threshold (%.1f < %.1f) ",
+             anu_time_microseconds_to_seconds(file->duration_us),
+             anu_time_microseconds_to_seconds(config->skip_duration));
 
     anu_video_close(&vreader);
     return -2;
   }
-#endif
 
   long frame_step_us = video_duration_us / total_video_segments;
   /* Counter for # of frames successfully decoded */
@@ -175,7 +174,8 @@ static int hash_video (anu_file *file, anu_hash_type hash_algo, int segments,
           continue; /* Loop again to get next frame */
         }
 
-        hashes_out[frames_decoded] = hash_decoded_frame(&vreader, hash_algo);
+        hashes_out[frames_decoded] =
+            hash_decoded_frame(&vreader, config->hash_algorithm);
 
         log_debug("Frame '%ld' => %lX", vreader.codec_ctx->frame_num,
                   hashes_out[frames_decoded]);
@@ -262,8 +262,7 @@ int anukrta_driver (anukrta_config *config, char *path) {
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
 
-    int hashing_ret = hash_video(file, ANU_HASH_ALGO_DCT, config->segments,
-                                 &hashes[i * config->segments]);
+    int hashing_ret = hash_video(file, config, &hashes[i * config->segments]);
 
     if (hashing_ret == -2) {
       /* We skipped this hash so lets move onto the next file. */
@@ -300,10 +299,11 @@ int main (int argc, char *argv[]) {  // NOLINT (unused-*)
   printf("Starting...\n");
   printf("--------------------\n");
 
-  anukrta_config config = {.segments = 2,
-                           .threshold = 15,
-                           .hash_algorithm = ANU_HASH_ALGO_DCT,
-                           .skip_duration = 503410};
+  anukrta_config config = {
+      .segments = 2,
+      .threshold = 15,
+      .hash_algorithm = ANU_HASH_ALGO_DCT,
+      .skip_duration = anu_time_seconds_to_microseconds(4.0)};
 
   log_info("%s now running...", argv[0]);
   anukrta_driver(&config, path);
