@@ -11,6 +11,9 @@
 #include "tree.h"
 #include "util.h"
 
+#ifdef ANU__USE_RECURSIVE_SET_FIND
+#    pragma message("Making use of recursive `find_set` implementation.")
+
 /* Finds the representative (or "root") of the set containing element 'i'
  *Implements path compression for efficiency. */
 static size_t find_set (size_t i, size_t *parent) {
@@ -20,11 +23,42 @@ static size_t find_set (size_t i, size_t *parent) {
   /* Path compression: set parent directly to the root */
   return parent[i] = find_set(parent[i], parent);
 }
+#else
+static size_t find_set_halving (size_t i, size_t *parent) {
+  while (parent[i] != i) {
+    // Make the node point to its grandparent
+    parent[i] = parent[parent[i]];
+    i = parent[i];
+  }
+  return i;
+}
+
+static size_t find_set (size_t i, size_t *parent) {
+  size_t root = i;
+
+  /* Pass 1: Find the actual root */
+  while (parent[root] != root) {
+    root = parent[root];
+  }
+
+  /* Pass 2: Path compression
+   * Traverse the path again, making every node point to the root */
+  while (parent[i] != root) {
+    size_t next_node = parent[i];
+    parent[i] = root;
+    i = next_node;
+  }
+
+  return root;
+}
+#endif
 
 /* Merges the sets containing elements 'i' and 'j' */
 static void unite_sets (size_t i, size_t j, size_t *parent) {
+  /* Recursive implementation */
   size_t root_i = find_set(i, parent);
   size_t root_j = find_set(j, parent);
+
   if (root_i != root_j) {
     /* Make the root of 'i's set a child of the root of 'j's set */
     parent[root_i] = root_j;
