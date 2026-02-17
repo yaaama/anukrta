@@ -194,8 +194,9 @@ int anu_video_decode_packet (video_io *vreader) {
   /* Send packet to decoder */
   int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
 
-  if (ret < 0) {
-    log_error("Could not send packet: `%s`", av_err2str(ret));
+  /* Check if it was successful */
+  if (ret != 0) {
+    log_error("Failed sending packet: %s", av_err2str(ret));
     return ret;
   }
 
@@ -253,7 +254,6 @@ int anu_video_open (char *filename, video_io *vreader) {
 
   log_info("Opening `%s`", filename);
 
-  /* Open input file and read header data. */
   bool got_info = true;
 
   /* Opens input file and guesses format of file */
@@ -261,7 +261,7 @@ int anu_video_open (char *filename, video_io *vreader) {
   errcode = avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL);
   if (errcode < 0) {
     log_warn("Could not open file (`%s`): `%s`", filename, av_err2str(errcode));
-    log_trace("Will try to read stream information next...");
+    log_debug("Will try to read stream information next...");
   }
 
   /* Will read bytes from file/decode a few frames to fill out context that the
@@ -274,14 +274,15 @@ int anu_video_open (char *filename, video_io *vreader) {
   }
 
   if (got_info == false) {
-    log_error("Failed to detect file format.");
+    log_error("Failed to read header/stream for file %s", filename);
     return -1;
   }
 
   log_trace("Searching container for video stream...");
 
   /* Find Video Stream & Codec */
-
+  bool decoder_found = true;
+  bool stream_found = true;
   const AVCodec *codec = NULL;
   AVCodecParameters *codec_params = NULL;
 
@@ -291,10 +292,14 @@ int anu_video_open (char *filename, video_io *vreader) {
 
   if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
     log_error("No decoder found for stream.");
-    return -1;
+    decoder_found = false;
   }
   if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
     log_error("No video stream found.");
+    stream_found = false;
+  }
+
+  if (!stream_found || !decoder_found) {
     return -1;
   }
 
@@ -421,8 +426,7 @@ int anu_video_seek_to_timestamp_pts (video_io *vreader, int64_t target_pts) {
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
    jump to the nearest keyframe BEFORE this timestamp.
    *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
-   * frame number (rarely works well), so we stick to TimeStamp seeking
-   (default). */
+   * frame number (rarely works well), so we stick to TimeStamp seeking. */
   ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts,
                       AVSEEK_FLAG_BACKWARD);
 

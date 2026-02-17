@@ -168,7 +168,9 @@ static int hash_video (anu_file *file, anukrta_config *config,
       /* Successfully decoded a frame */
       if (decoding_success == 1) {
 
+        /* Decoded frame PTS */
         current_pts = vreader.frame->best_effort_timestamp;
+        /* If PTS is lower than seek_target, then repeat the loop */
         if (current_pts < seek_target_sb) {
           av_packet_unref(vreader.packet);
           continue; /* Loop again to get next frame */
