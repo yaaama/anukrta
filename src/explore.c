@@ -26,7 +26,7 @@ void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
   }
   q->capacity = init_capacity;
   q->count = 0;
-  q->items = (anu_file *)calloc(q->capacity, sizeof(anu_file));
+  q->items = calloc(q->capacity, sizeof(anu_file));
   q->head = 0;
   q->tail = 0;
 }
@@ -78,10 +78,6 @@ void anu_fileq_destroy (anu_file_q *q) {
   free(q->items);
 }
 
-int anu_files_in_path(DIR **dir, struct dirent **filelist_out);
-
-char *anu_file_get_filename (anu_file *f) { return f->path + f->name; }
-
 struct anu_dir_job {
   char path[512];
 };
@@ -122,7 +118,7 @@ static int anu_file_ext_supported (char *filename) {
 
   int u = 0;
   while (file_ext_lower[u] != '\0') {
-    file_ext_lower[u] = (char)anu_util_tolower(file_ext_lower[u]);
+    file_ext_lower[u] = (char) anu_util_tolower(file_ext_lower[u]);
     ++u;
   }
 
@@ -250,7 +246,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
           /* last_slash points to '/'. */
           /* We want the character AFTER the slash. */
           /* Subtract pointers: (End Address) - (Start Address) = Index */
-          newfile.name = (int)((last_slash + 1) - newfile.path);
+          newfile.name = (int) ((last_slash + 1) - newfile.path);
         } else {
           /* No slash, default to index 0. */
           newfile.name = 0;
@@ -266,3 +262,5 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
   anu_stack_destroy(&dirstack);
   return 0;
 }
+
+char *anu_file_get_filename (anu_file *f) { return f->path + f->name; }
