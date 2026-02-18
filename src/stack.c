@@ -42,7 +42,7 @@ int anu_vector_is_empty (anu_vector *v) {
 }
 
 int anu_vector_append (anu_vector *v, void *item) {
-  assert(v && item);
+  assert(v);
 
   if (vector_is_full(v)) {
     size_t new_capacity = v->capacity * 2;
