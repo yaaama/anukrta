@@ -259,7 +259,7 @@ int anukrta_driver (anukrta_config *config, char *path) {
   }
 
   anu_file *file;
-  bk_tree filetree;
+  bk_tree filetree = {0};
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
