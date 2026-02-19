@@ -293,7 +293,7 @@ int anukrta_driver (anukrta_config *config, char *path) {
 }
 
 int main (int argc, char *argv[]) {  // NOLINT (unused-*)
-  char *path = "./etc/";
+  char *path = "./etc/reference/";
 
   log_set_level(LOG_DEBUG);
 
