@@ -1,5 +1,9 @@
 /* Video similarity tool */
 
+#ifdef ANU_DEBUG
+#    pragma message "DEBUG MODE."
+#endif
+
 #include <assert.h>
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
@@ -212,7 +216,8 @@ static int hash_video (anu_file *file, anukrta_config *config,
   /* Cleanup */
   anu_video_close(&vreader);
 
-#ifndef NDEBUG
+#ifdef ANU_DEBUG
+
   char hashes[1024];
   int total_len = 0;
   for (int i = 0; i < frames_decoded; i++) {
@@ -221,12 +226,9 @@ static int hash_video (anu_file *file, anukrta_config *config,
     hashes[total_len] = ' ';
   }
   hashes[total_len] = '\0';
-  log_trace("DONE. Processed %d frames.", frames_decoded);
   log_debug("Hashed '%s' => {%s}\n", anu_file_get_filename(file), hashes);
-#else
-  log_trace("DONE. Processed %d frames for %s", frames_decoded, file->path);
 #endif
-
+  log_trace("DONE. Processed %d frames for %s", frames_decoded, file->path);
   return 0;
 }
 
@@ -295,17 +297,17 @@ int anukrta_driver (anukrta_config *config, char *path) {
 int main (int argc, char *argv[]) {  // NOLINT (unused-*)
   char *path = "./etc/reference/";
 
-  log_set_level(LOG_DEBUG);
+  log_set_level(LOG_TRACE);
 
   printf("\n--------------------\n");
   printf("Starting...\n");
   printf("--------------------\n");
 
   anukrta_config config = {
-      .segments = 2,
+      .segments = 4,
       .threshold = 15,
       .hash_algorithm = ANU_HASH_ALGO_DCT,
-      .skip_duration = anu_time_seconds_to_microseconds(4.0)};
+      .skip_duration = anu_time_seconds_to_microseconds(1.0)};
 
   log_info("%s now running...", argv[0]);
   anukrta_driver(&config, path);

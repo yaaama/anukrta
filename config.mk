@@ -6,7 +6,7 @@ else
 		Q := @
 endif
 
-CC = clang
+CC ?= clang
 
 
 # --- C Flags ---
@@ -46,4 +46,8 @@ USE_RECURSIVE_FIND_SET = 0
 
 ifeq ($(USE_RECURSIVE_FIND_SET), 1)
     PREPROC_DEFS += -DANU__USE_RECURSIVE_SET_FIND
+endif
+
+ifeq (${DEBUG}, 1)
+	PREPROC_DEFS += -DANU_DEBUG
 endif
