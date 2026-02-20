@@ -78,7 +78,7 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
   printf("----------------------------------------");
 
   for (size_t i = 0; i < report->count; i++) {
-    anu_duplicate_group *group = &report->groups[i];
+    dupe_group_vector *group = &report->groups[i];
     printf("\n[+] Group #%zu (%zu items):\n", i + 1, group->count);
     for (size_t j = 0; j < group->count; j++) {
       size_t file_id = group->file_ids[j];
@@ -141,7 +141,7 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
 
   /* Initial capacity of report */
   report.capacity = 10;
-  report.groups = calloc(report.capacity, sizeof(anu_duplicate_group));
+  report.groups = calloc(report.capacity, sizeof(dupe_group_vector));
   if (!report.groups) {
     exit(EXIT_FAILURE);
   }
@@ -176,15 +176,15 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
     /* Check if we have reached report capcity before filling it */
     if (report.count == report.capacity) {
       report.capacity *= 2;
-      anu_duplicate_group *temp =
-          realloc(report.groups, report.capacity * sizeof(anu_duplicate_group));
+      dupe_group_vector *temp =
+          realloc(report.groups, report.capacity * sizeof(dupe_group_vector));
       if (!temp) {
         exit(EXIT_FAILURE);
       }
       report.groups = temp;
     }
 
-    anu_duplicate_group *new_group = &report.groups[report.count++];
+    dupe_group_vector *new_group = &report.groups[report.count++];
     new_group->count = buckets[i].count;
     /* Steal the memory from the stack */
     new_group->file_ids = buckets[i].items;

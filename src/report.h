@@ -10,11 +10,14 @@ typedef struct {
   u64 *file_ids;
   usize count;
   usize capacity;
-} anu_duplicate_group;
+} dupe_group_vector;
 
-/* Represents the entire report, containing multiple groups */
+/*
+ * Represents the entire report, containing multiple groups.
+ * This will be printed after the program has hashed all files.
+ */
 typedef struct {
-  anu_duplicate_group *groups;
+  dupe_group_vector *groups;
   usize count;
   usize capacity;
 } anu_report;
