@@ -9,6 +9,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "explore.h"
+#include "util.h"
+
 /* Maximum number of video segments to process */
 #define ANU_MAX_VIDEO_SEGMENTS 20
 
@@ -32,6 +35,7 @@ typedef struct video_io {
 
 } video_io;
 
+int hash_video(anu_file *file, anukrta_config *config, uint64_t *hashes_out);
 AVStream *anu_video_get_vid_stream(video_io *vreader);
 
 int anu_video_open(char *filename, video_io *vreader);
