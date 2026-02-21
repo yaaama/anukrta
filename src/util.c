@@ -44,20 +44,7 @@ u32 hamming_distance (uint64_t hash1, uint64_t hash2) {
   return dist;
 #endif
 
-  return (u32)__builtin_popcountll(hash1 ^ hash2);
-}
-
-int compare_floats (const void *a, const void *b) {
-  float arg1 = *(const float *)a;
-  float arg2 = *(const float *)b;
-
-  if (arg1 < arg2) {
-    return -1;
-  }
-  if (arg1 > arg2) {
-    return 1;
-  }
-  return 0;
+  return (u32) __builtin_popcountll(hash1 ^ hash2);
 }
 
 int anu_util_tolower (int c) {
