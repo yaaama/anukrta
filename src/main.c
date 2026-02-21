@@ -1,7 +1,7 @@
 /* Video similarity tool */
 
 #ifdef ANU_DEBUG
-#    pragma message "DEBUG MODE."
+#    pragma message "Compilation in DEBUG mode."
 #endif
 
 #include <assert.h>

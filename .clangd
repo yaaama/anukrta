@@ -24,7 +24,6 @@ Diagnostics:
     # IgnoreHeader: ["criterion*"]
     AnalyzeAngledIncludes: false
   UnusedIncludes: Strict
-  MissingIncludes: Strict
 
 Completion:
   AllScopes: true
