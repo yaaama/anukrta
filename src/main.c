@@ -40,7 +40,7 @@ int anukrta_driver (anukrta_config *config, char *path) {
     return -1;
   }
 
-  log_info("Found `%zu` files.", file_count);
+  log_info("Found `%zu` files (%s)", file_count, path);
 
   /* Array of hashes */
   size_t hash_collection_len = (file_count * config->segments);
@@ -58,18 +58,23 @@ int anukrta_driver (anukrta_config *config, char *path) {
 
     int hashing_ret = hash_video(file, config, &hashes[i * config->segments]);
 
-    if (hashing_ret == -2) {
-      /* We skipped this hash so lets move onto the next file. */
-      continue;
-    }
-    if (hashing_ret == -1) {
-      /* Some failure occured. */
-      log_error("Failed to hash file %s", anu_file_get_filename(file));
-      continue;
-    }
-
-    for (int j = 0; j < config->segments; j++) {
-      bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
+    switch (hashing_ret) {
+      case -1:
+        {
+          log_error("Failed to hash file %s", anu_file_get_filename(file));
+          continue;
+        }
+      case -2:
+        {
+          /* We skipped this hash so lets move onto the next file. */
+          continue;
+        }
+      default:
+        {
+          for (int j = 0; j < config->segments; j++) {
+            bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
+          }
+        }
     }
   }
 
