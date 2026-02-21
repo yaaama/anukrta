@@ -34,12 +34,12 @@ static uint64_t hash_decoded_frame (video_io *vreader,
 
   uint64_t hash = 0;
   AVFrame *grey_frame = NULL;
-
   log_trace("Trying to alloc grey-frame...");
   grey_frame = av_frame_alloc();
+
   if (!grey_frame) {
     log_fatal("Failed to allocate memory for grey-frame.");
-    exit(EXIT_FAILURE);
+    goto cleanup;
   }
   log_trace("Allocated grey-frame.");
 
@@ -47,7 +47,7 @@ static uint64_t hash_decoded_frame (video_io *vreader,
   if (anu_video_frame_init(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
                            grey_frame)) {
     log_fatal("Failed to initialise frame.");
-    exit(EXIT_FAILURE);
+    goto cleanup;
   }
   log_trace("Video frame initialised with %dx%d dimensions.",
             ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE);
@@ -57,8 +57,7 @@ static uint64_t hash_decoded_frame (video_io *vreader,
                             ANU_PHASH_INPUT_SIZE, grey_frame) != 0) {
     log_fatal("Failed to scale frame!");
     /* Clean up before exiting */
-    av_frame_free(&grey_frame);
-    exit(EXIT_FAILURE);
+    goto cleanup;
   }
 
   /* Prep a 2D matrix to store greyscale values */
@@ -79,11 +78,18 @@ static uint64_t hash_decoded_frame (video_io *vreader,
       }
   }
 
+cleanup:
+  {
+
+    if (grey_frame) {
+      av_frame_free(&grey_frame);
+    }
+  }
+
   if (hash == 0) {
     log_warn("Received a 0 value for hash.");
   }
 
-  av_frame_free(&grey_frame);
   return hash;
 }
 

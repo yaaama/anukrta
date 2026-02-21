@@ -125,6 +125,7 @@ static int normalize_colourspace (AVFrame *frame, SwsContext *context) {
 int anu_video_scale_frame (AVFrame *src_frame, size_t width, size_t height,
                            AVFrame *out_frame) {
 
+  int ret = 0;
   enum AVPixelFormat input_fmt = src_frame->format;
 
   switch (input_fmt) {
@@ -155,22 +156,31 @@ int anu_video_scale_frame (AVFrame *src_frame, size_t width, size_t height,
 
   if (!sws_ctx) {
     log_error("Failed to create scaling context.");
-    return -1;
+    return 1;
   }
 
   /* Normalise colourspaces */
   if (normalize_colourspace(src_frame, sws_ctx)) {
     log_error("Colourspace normalisation failed.");
+    ret = 1;
+    goto cleanup;
   }
 
   int scaling_ret = sws_scale_frame(sws_ctx, out_frame, src_frame);
   if (scaling_ret <= 0) {
     log_error("Scaling FAILED: `%s`", av_err2str(scaling_ret));
-    exit(EXIT_FAILURE);
+    ret = 1;
+    goto cleanup;
   }
 
-  sws_free_context(&sws_ctx);
-  return 0;
+cleanup:
+  {
+    if (sws_ctx) {
+      sws_free_context(&sws_ctx);
+    }
+  }
+
+  return ret;
 }
 
 /**
@@ -182,7 +192,6 @@ int anu_video_frame_init (int width, int height, AVFrame *out_frame) {
   out_frame->format = AV_PIX_FMT_GRAY8;
 
   if (av_frame_get_buffer(out_frame, 0) != 0) {
-    av_frame_free(&out_frame);
     log_error("Could not initialise grayscale frame buffer.");
     return 1;
   }
