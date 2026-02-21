@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <time.h>
 
-#define ANU_MAX_PATH_LEN 512
+#include "util.h"
 
 typedef struct anu_file {
   /* Path */

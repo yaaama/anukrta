@@ -16,6 +16,8 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t size;
 typedef size_t usize;
 
+#define ANU_MAX_PATH_LEN 512
+
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
   /* Number of segments to hash from a video */
