@@ -56,15 +56,15 @@ static void stdout_callback (log_event *ev) {
 
 #ifdef LOG_USE_COLOR
 
-#ifdef LOG_USE_FUNC_NAME
+#    ifdef LOG_USE_FUNC_NAME
   fprintf(ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:%s:\x1b[0m ", buf,
           level_colors[ev->level], level_strings[ev->level], ev->file, ev->line,
           ev->func);
-#else
+#    else
   fprintf(ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ", buf,
           level_colors[ev->level], level_strings[ev->level], ev->file,
           ev->line);
-#endif
+#    endif
 
 #else
   fprintf(ev->udata, "%s %-5s %s:%d: ", buf, level_strings[ev->level], ev->file,
@@ -111,7 +111,7 @@ void log_set_quiet (bool enable) { l.quiet = enable; }
 int log_add_callback (log_log_fn fn, void *udata, int level) {
   for (int i = 0; i < MAX_CALLBACKS; i++) {
     if (!l.callbacks[i].fn) {
-      l.callbacks[i] = (callback){fn, udata, level};
+      l.callbacks[i] = (callback) {fn, udata, level};
       return 0;
     }
   }
@@ -130,14 +130,19 @@ static void init_event (log_event *ev, void *udata) {
   ev->udata = udata;
 }
 
-void log_log (int level, const char *file, const char *func, int line,
-              const char *fmt, ...) {
+void log_log (int level, const char *file,
+#ifdef LOG_USE_FUNC_NAME
+              const char *func,
+#endif  // LOG_USE_FUNC_NAME
+              int line, const char *fmt, ...) {
   log_event ev = {
       .fmt = fmt,
       .file = file,
       .line = line,
       .level = level,
+#ifdef LOG_USE_FUNC_NAME
       .func = func,
+#endif
   };
 
   lock();
