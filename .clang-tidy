@@ -21,6 +21,7 @@ Checks: >
   -misc-no-recursion,
   -*unused-*,
   -*swappable-parameters,
+  -misc-include-cleaner,
 
 WarningsAsErrors: ""
 HeaderFileExtensions:
