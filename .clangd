@@ -27,7 +27,8 @@ Diagnostics:
 
 Completion:
   AllScopes: true
-  MacroFilter: FuzzyMatch
+  MacroFilter: ExactPrefix
+  HeaderInsertion: None
 
 Hover:
   ShowAKA: true
