@@ -20,6 +20,8 @@ typedef size_t usize;
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
+  int verbose;
+  int simulate;
   /* Number of segments to hash from a video */
   int segments;
   /* Threshold of similarity to consider them duplicates */
