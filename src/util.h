@@ -20,20 +20,16 @@ typedef size_t usize;
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
-  int verbose;
-  int simulate;
-  /* Number of segments to hash from a video */
-  int segments;
-  /* Threshold of similarity to consider them duplicates */
-  int threshold;
-  /* Video length shorter than this will be skipped */
-  long skip_duration;
-  /* Hashing algorithm to use */
-  int hash_algorithm;
-  /* Detect black frames in video and skip them? */
-  int detect_black_frames;
-  /* Detect rotation in videos? */
-  int detect_rotation;
+  b32 verbose;        /* Turn on verbose output */
+  b32 simulate;       /* TODO Do not save/actually process any files */
+  b32 segments;       /* Number of segments to hash from a video */
+  b32 threshold;      /* Threshold of similarity to consider them duplicates */
+  b32 hash_algorithm; /* Hashing algorithm to use */
+  b32 detect_black_frames; /* Detect black frames in video and skip them? */
+  b32 detect_rotation;     /* Detect rotation in videos? */
+  long skip_duration;      /* Video length shorter than this will be skipped */
+  i32 paths_count;
+  char **paths;
 } anukrta_config;
 
 /**

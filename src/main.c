@@ -23,27 +23,29 @@
 #include "util.h"
 #include "video.h"
 
-int anukrta_driver (anukrta_config *config, char *path) {
+int anukrta_driver (anukrta_config *config) {
 
   /* Store the files we find in the path */
   anu_file_q files;
   /* Initialise the list to 20 items */
   anu_fileq_init(&files, 20);
 
-  if (anu_recursive_filewalk(path, &files)) {
-    log_warn("Encountered an error searching for files.");
-    anu_fileq_destroy(&files);
-    return -1;
+  for (int i = 0; i < config->paths_count; i++) {
+
+    if (anu_recursive_filewalk(config->paths[i], &files)) {
+      log_warn("Error searching for files in '%s'", config->paths[i]);
+    }
   }
+
   size_t file_count = files.count;
 
   if (file_count < 1) {
-    log_warn("No video files found in '%s'", path);
+    log_warn("No video files found!");
     anu_fileq_destroy(&files);
     return -1;
   }
 
-  log_info("Found `%zu` files (%s)", file_count, path);
+  log_info("Found `%zu` files", file_count);
 
   /* Array of hashes */
   size_t hash_collection_len = (file_count * config->segments);
@@ -110,13 +112,6 @@ int main (int argc, char **argv) {
     exit(EXIT_SUCCESS);
   }
 
-  if ((argc - parsing_return) > 1) {
-    printf("We only handle a single directory for now.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  char *path = argv[parsing_return];
-
   if (config.verbose) {
     log_set_level(LOG_TRACE);
     anu_cli_print_configuration(&config);
@@ -129,7 +124,7 @@ int main (int argc, char **argv) {
   printf("--------------------\n");
 
   log_info("%s now running...", argv[0]);
-  int driver_ret = anukrta_driver(&config, path);
+  int driver_ret = anukrta_driver(&config);
 
   return driver_ret;
 }

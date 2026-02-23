@@ -176,6 +176,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   int temp_optind = optind;
   if (optind < argc) {
     printf("\n--- Input Directories (%d) ---\n", argc - optind);
+    config->paths_count = argc - optind;
+    config->paths = &argv[optind];
   }
   while (temp_optind < argc) {
     printf("%s\n", argv[temp_optind++]);
