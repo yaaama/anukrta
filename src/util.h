@@ -28,6 +28,7 @@ typedef struct anukrta_config {
   b32 detect_black_frames; /* Detect black frames in video and skip them? */
   b32 detect_rotation;     /* Detect rotation in videos? */
   long skip_duration;      /* Video length shorter than this will be skipped */
+  b32 scan_curr_dir;
   i32 paths_count;
   char **paths;
 } anukrta_config;

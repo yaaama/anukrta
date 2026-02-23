@@ -481,6 +481,7 @@ int anu_video_open (char *filename, video_io *vreader) {
   errcode = avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL);
   if (errcode < 0) {
     log_warn("Could not open file (`%s`): `%s`", filename, av_err2str(errcode));
+    return -1;
     log_debug("Will try to read stream information next...");
   }
 

@@ -23,6 +23,22 @@
 #include "util.h"
 #include "video.h"
 
+static void scan_dirs (anukrta_config *config, anu_file_q *files) {
+  if (config->scan_curr_dir) {
+    log_info("Scanning current directory");
+    if (anu_recursive_filewalk(".", files)) {
+      log_warn("Error searching for files in current directory.");
+    }
+
+  } else {
+    for (int i = 0; i < config->paths_count; i++) {
+      if (anu_recursive_filewalk(config->paths[i], files)) {
+        log_warn("Error searching for files in '%s'", config->paths[i]);
+      }
+    }
+  }
+}
+
 int anukrta_driver (anukrta_config *config) {
 
   /* Store the files we find in the path */
@@ -30,12 +46,7 @@ int anukrta_driver (anukrta_config *config) {
   /* Initialise the list to 20 items */
   anu_fileq_init(&files, 20);
 
-  for (int i = 0; i < config->paths_count; i++) {
-
-    if (anu_recursive_filewalk(config->paths[i], &files)) {
-      log_warn("Error searching for files in '%s'", config->paths[i]);
-    }
-  }
+  scan_dirs(config, &files);
 
   size_t file_count = files.count;
 
