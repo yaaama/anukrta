@@ -41,6 +41,12 @@ typedef struct anukrta_config {
  */
 #define ANU_TIME_ONE_SEC_IN_US 1000000
 
+#define STRINGIFY(s) TOSTRING(s)
+#define TOSTRING(s) #s
+
+#define GLUE(a, b) a##b
+#define JOIN(a, b) GLUE(a, b)
+
 /* Array size macro */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -53,6 +59,25 @@ typedef struct anukrta_config {
 #define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
 /* Range constraint macro to ensure value is between min and max */
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM(_val, _max), _min)
+
+#define ANU_DIE(msg)                                           \
+  do {                                                         \
+    fprintf(stderr, "__FILE__:__LINE__:__func__ %s\n", (msg)); \
+    exit(EXIT_FAILURE);                                        \
+  } while (0);
+
+#define TODO(message)                                                    \
+  do {                                                                   \
+    fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, (message)); \
+    __builtin_unreachable();                                             \
+  } while (0)
+
+#define UNREACHABLE(message)                                           \
+  do {                                                                 \
+    fprintf(stderr, "Unreachable Code Reached: %s:%d: %s\n", __FILE__, \
+            __LINE__, (message));                                      \
+    __builtin_unreachable();                                           \
+  } while (0)
 
 u32 hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);

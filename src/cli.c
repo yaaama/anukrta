@@ -157,7 +157,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* --version */
       case 1001:
         {
-          printf("anukrta version 0.0.0\n");
+          printf("'anukrta' version: " ANU_VERSION "\n");
           return EXIT_SUCCESS;
         }
       case '?':
@@ -167,7 +167,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         }
       default:
         {
-          abort(); /* Should never reach here */
+          UNREACHABLE("CLI Parsing Error");
         }
     }
   }
