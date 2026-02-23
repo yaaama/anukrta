@@ -32,12 +32,14 @@ int anukrta_driver (anukrta_config *config, char *path) {
 
   if (anu_recursive_filewalk(path, &files)) {
     log_warn("Encountered an error searching for files.");
+    anu_fileq_destroy(&files);
     return -1;
   }
   size_t file_count = files.count;
 
   if (file_count < 1) {
-    log_warn("Detected no video files.");
+    log_warn("No video files in '%s'", path);
+    anu_fileq_destroy(&files);
     return -1;
   }
 
