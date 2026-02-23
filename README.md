@@ -6,7 +6,7 @@ A tool designed to detect videos that are duplicates/similar to one another.
 
 - FFmpeg libraries _(libav\*_)
 - Criterion (for unit testing)
-- A \*Nix environment (fairly sure this will not be functional on a windows machine).
+- A \*Nix environment (not tested on Windows).
 
 ## Building
 
@@ -14,21 +14,19 @@ A tool designed to detect videos that are duplicates/similar to one another.
 
 ## Usage
 
-The CLI is basic enough to use, the only _required_ argument is a directory of some kind _(currently only handles a single directory)_.
+The CLI is basic enough to use, you can specify directories (it will default to the current path if none specified).
 
-The directory you specify should have video files you want to analyse and hash.
+The directories you specify should have video files you want to analyse and hash to detect similarity.
 
-`anukrta` will search the directory recursively, so it does not matter if the video files are nested deeper in the directory.
+`anukrta` will search for videos recursively, so it does not matter if files are nested.
 
-A report will be printed,:
+A report will be printed containing groups of similar video files.
 
-- A group (collection of duplicate media files)
--
 
 ### Basic Usage
 
 ```shell
-anukrta [PATH]
+anukrta [paths...]
 ```
 
 Example Output:
