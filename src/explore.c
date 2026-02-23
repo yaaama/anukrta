@@ -146,7 +146,6 @@ int anu_open_dir (char *dir_path, DIR **out) {
   *out = opendir(dir_path);
 
   if (*out == NULL) {
-    perror("Could not open directory.");
     return 1;
   }
   /* printf("Opened directory: `%s`!\n", dir_path); */
