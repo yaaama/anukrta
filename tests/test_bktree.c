@@ -1,4 +1,4 @@
-#include <criterion/internal/test.h>
+#include <criterion/criterion.h>
 #include <stdint.h>
 
 #include "../src/tree.h"

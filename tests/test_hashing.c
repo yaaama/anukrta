@@ -1,5 +1,4 @@
-#include <criterion/internal/assert.h>
-#include <criterion/internal/test.h>
+#include <criterion/criterion.h>
 #include <stdint.h>
 #include <string.h>
 
