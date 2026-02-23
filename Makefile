@@ -15,7 +15,7 @@ SRC_DIR := src
 OBJ_DIR := build/objs
 BUILD_DIR := build
 INCLUDE_DIR := src
-VENDOR_DIR := src/vendor
+VENDOR_DIR := lib
 TEST_DIR := tests
 
 # DEFAULT C FLAGS

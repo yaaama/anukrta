@@ -15,9 +15,9 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include "log.h"
 #include "stack.h"
 #include "util.h"
-#include "vendor/log.h"
 
 void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
   assert(init_capacity);

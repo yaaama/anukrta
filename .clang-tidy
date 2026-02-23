@@ -29,7 +29,7 @@ HeaderFileExtensions:
 ImplementationFileExtensions:
   - c
 SystemHeaders: false
-HeaderFilterRegex: "src/(?!vendor/).*"
+HeaderFilterRegex: "^(src|include)/.*"
 FormatStyle: file
 CheckOptions:
   # Naming conventions (C style)

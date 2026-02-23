@@ -23,8 +23,8 @@
 
 #include "explore.h"
 #include "hash.h"
+#include "log.h"
 #include "util.h"
-#include "vendor/log.h"
 
 /* Hardcode this so I don't have to include another header */
 #define ANU_EAGAIN 11

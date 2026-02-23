@@ -17,10 +17,10 @@
 #include "cli.h"
 #include "explore.h"
 #include "hash.h"
+#include "log.h"
 #include "report.h"
 #include "tree.h"
 #include "util.h"
-#include "vendor/log.h"
 #include "video.h"
 
 int anukrta_driver (anukrta_config *config, char *path) {
