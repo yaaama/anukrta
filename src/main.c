@@ -38,7 +38,7 @@ int anukrta_driver (anukrta_config *config, char *path) {
   size_t file_count = files.count;
 
   if (file_count < 1) {
-    log_warn("No video files in '%s'", path);
+    log_warn("No video files found in '%s'", path);
     anu_fileq_destroy(&files);
     return -1;
   }
@@ -50,7 +50,7 @@ int anukrta_driver (anukrta_config *config, char *path) {
   uint64_t *hashes = calloc(hash_collection_len, sizeof(uint64_t));
 
   if (!hashes) {
-    exit(EXIT_FAILURE);
+    return -1;
   }
 
   anu_file *file;
@@ -129,7 +129,7 @@ int main (int argc, char **argv) {
   printf("--------------------\n");
 
   log_info("%s now running...", argv[0]);
-  anukrta_driver(&config, path);
+  int driver_ret = anukrta_driver(&config, path);
 
-  return 0;
+  return driver_ret;
 }
