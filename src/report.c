@@ -106,7 +106,6 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
   if (file_count == 0) {
     return report;
   }
-  bk_tree_print_ascii(tree);
 
   /* Union-Find to identify the groups */
   size_t *parent = malloc((file_count) * sizeof(size_t));

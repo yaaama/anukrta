@@ -78,7 +78,7 @@ int anukrta_driver (anukrta_config *config) {
     switch (hashing_ret) {
       case -1:
         {
-          log_error("Failed to hash file %s", anu_file_get_filename(file));
+          log_info("Failed to hash file %s", anu_file_get_filename(file));
           continue;
         }
       case -2:
@@ -98,7 +98,6 @@ int anukrta_driver (anukrta_config *config) {
   anu_report report = anu_generate_report(&files, hashes, config, &filetree);
   anu_print_report(&report, &files);
   anu_report_destroy(&report);
-  /* bk_tree_print_ascii(&filetree); */
   bk_tree_node_free(filetree.root);
   anu_fileq_destroy(&files);
   free(hashes);
