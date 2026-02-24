@@ -130,11 +130,12 @@ static void init_event (log_event *ev, void *udata) {
   ev->udata = udata;
 }
 
-void log_log (int level, const char *file,
 #ifdef LOG_USE_FUNC_NAME
-              const char *func,
+void log_log (int level, const char *file, const char *func, int line,
+              const char *fmt, ...) {
+#else
+void log_log (int level, const char *file, int line, const char *fmt, ...) {
 #endif  // LOG_USE_FUNC_NAME
-              int line, const char *fmt, ...) {
   log_event ev = {
       .fmt = fmt,
       .file = file,

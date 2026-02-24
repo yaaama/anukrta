@@ -155,7 +155,7 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
     log_debug("--- Segment [%d/%d] ---", i + 1, total_video_segments);
-    log_debug("Seeking to PTS %d (%.1f sec)", seek_target_sb,
+    log_debug("Seeking to PTS %ld (%.1f seconds)", seek_target_sb,
               anu_time_microseconds_to_seconds(seek_target_us));
 
     /* Seek to timestamp */
