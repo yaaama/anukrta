@@ -31,6 +31,9 @@ static void print_help (void) {
   fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output\n");
   fprintf(stderr,
           "\t-s, --segments\t\tNumber of segments to hash for each video\n");
+  fprintf(stderr,
+          "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to "
+          "64 (0 being the most similar).\n");
   fprintf(stderr, "\t--version\t\tPrint version and exit\n");
   fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes\n");
   fprintf(stderr,
@@ -48,6 +51,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
          config->detect_black_frames ? "YES" : "NO");
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
   printf("Segments to hash: %d\n", config->segments);
+  printf("Maximum Distance Threshold: %d\n", config->threshold);
   printf("Skip videos shorter than: %.1f seconds\n",
          (double) config->skip_duration / (double) ANU_TIME_ONE_SEC_IN_US);
 }
@@ -91,6 +95,45 @@ int validate_segments_value (char *endptr, long *out) {
   return 0;
 }
 
+int validate_threshold_value (char *endptr, long *out) {
+
+  /* Reset errno to 0 before calling strtol */
+  errno = 0;
+
+  /* Convert string (optarg) to a long integer in base 10 */
+  long val = strtol(optarg, &endptr, 10);
+
+  /* Check for overflow/underflow */
+  if (errno == ERANGE || val > INT_MAX || val < INT_MIN) {
+    fprintf(stderr, "Error: --threshold value '%s' is out of range.\n", optarg);
+    return -1;
+  }
+
+  /* Check if the user passed non-numeric gibberish.
+   * If endptr == optarg, they passed something like "abc"
+   * If *endptr != '\0', they passed a mix like "5abc" */
+  if (endptr == optarg || *endptr != '\0') {
+    fprintf(stderr, "Error: --threshold requires a valid integer, got '%s'.\n",
+            optarg);
+    return -1;
+  }
+
+  /* logic validation, similarity threshold shouldn't be negative or above 64 */
+  if (val < 0 || val > 64) {
+    fprintf(stderr, "Error: --threshold must range between 0 and 64.\n");
+    return -1;
+  }
+
+  if (errno) {
+    perror("Some error occured during arg parsing: ");
+    return -1;
+  }
+
+  *out = val;
+
+  return 0;
+}
+
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   extract_program_name(argv[0]);
@@ -99,9 +142,10 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   /* name, has_arg, flag, val */
   struct option anukrta_opts[] = {
-      {"help", no_argument, 0, 'h'},           /* -h | --help */
-      {"verbose", no_argument, 0, 'v'},        /* -v | --verbose */
-      {"segments", required_argument, 0, 's'}, /* -s | --segments */
+      {"help", no_argument, 0, 'h'},            /* -h | --help */
+      {"verbose", no_argument, 0, 'v'},         /* -v | --verbose */
+      {"segments", required_argument, 0, 's'},  /* -s | --segments */
+      {"threshold", required_argument, 0, 't'}, /* -t | --threshold */
       /* Long Options */
       {"version", no_argument, 0, 1001},              /* --version */
       {"dry-run", no_argument, &config->simulate, 1}, /* --dry-run */
@@ -160,17 +204,25 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       case 's':
         {
           char *endptr = NULL;
-
           long val = 0;
-
           if (validate_segments_value(endptr, &val)) {
             return -1;
           };
-
           assert(val > 0);
-          /* Cast it back to a standard integer */
-          segments = (int) val;
-          config->segments = segments;
+          config->segments = (int) val;
+          break;
+        }
+
+      /* -t | --threshold */
+      case 't':
+        {
+          char *endptr = NULL;
+          long val = 0;
+          assert(val > 0);
+          if (validate_threshold_value(endptr, &val)) {
+            return -1;
+          };
+          config->threshold = (int) val;
           break;
         }
       /* --version */
