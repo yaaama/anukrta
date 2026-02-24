@@ -158,7 +158,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       case 1001:
         {
           printf("'anukrta' version: " ANU_VERSION "\n");
-          return EXIT_SUCCESS;
+          config->_exit_early = 1;
+          return 0;
         }
       case '?':
         {
@@ -174,17 +175,19 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   /* Process remaining positional arguments */
   int temp_optind = optind;
+
   if (optind < argc) {
     printf("\n--- Input Directories (%d) ---\n", argc - optind);
     config->paths_count = argc - optind;
     config->paths = &argv[optind];
   } else {
-    config->paths = NULL;
+
+    printf("\n--- Scanning Current Directory ---\n");
     config->scan_curr_dir = 1;
+    config->paths_count = 1;
   }
   while (temp_optind < argc) {
     printf("%s\n", argv[temp_optind++]);
   }
-  /* Return index of when FILES start */
-  return optind;
+  return 0;
 }

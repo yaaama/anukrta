@@ -29,6 +29,7 @@ typedef struct anukrta_config {
   b32 detect_rotation;     /* Detect rotation in videos? */
   long skip_duration;      /* Video length shorter than this will be skipped */
   b32 scan_curr_dir;
+  b32 _exit_early;
   i32 paths_count;
   char **paths;
 } anukrta_config;

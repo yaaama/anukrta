@@ -1,5 +1,6 @@
 /* Video similarity tool */
 
+#include <libavutil/log.h>
 #ifdef ANU_DEBUG
 #    pragma message "Compilation in DEBUG mode."
 #endif
@@ -117,17 +118,15 @@ int main (int argc, char **argv) {
 
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
-  if (parsing_return == -1) {
-    exit(EXIT_FAILURE);
-  } else if (parsing_return == EXIT_SUCCESS) {
-    exit(EXIT_SUCCESS);
+  if (parsing_return || config._exit_early) {
+    exit(parsing_return);
   }
-
   if (config.verbose) {
     log_set_level(LOG_TRACE);
     anu_cli_print_configuration(&config);
   } else {
-    log_set_level(LOG_DEBUG);
+    log_set_level(LOG_WARN);
+    av_log_set_level(AV_LOG_PANIC);
   }
 
   printf("\n--------------------\n");
