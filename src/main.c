@@ -108,7 +108,7 @@ int anukrta_driver (anukrta_config *config) {
 int main (int argc, char **argv) {
 
   anukrta_config config = {
-      .simulate = 0,
+      .dry_run = 0,
       .verbose = 0,
       .segments = 2,
       .threshold = 15,

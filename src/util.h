@@ -21,7 +21,7 @@ typedef size_t usize;
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
   b32 verbose;        /* Turn on verbose output */
-  b32 simulate;       /* TODO Do not save/actually process any files */
+  b32 dry_run;        /* TODO Do not save/actually process any files */
   b32 segments;       /* Number of segments to hash from a video */
   b32 threshold;      /* Threshold of similarity to consider them duplicates */
   b32 hash_algorithm; /* Hashing algorithm to use */

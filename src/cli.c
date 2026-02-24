@@ -46,7 +46,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
 
   printf("\n--- Configuration ---\n");
   printf("Verbose: %s\n", config->verbose ? "YES" : "NO");
-  printf("Dry Run: %s\n", config->simulate ? "YES" : "NO");
+  printf("Dry Run: %s\n", config->dry_run ? "YES" : "NO");
   printf("Detect Black Frames: %s\n",
          config->detect_black_frames ? "YES" : "NO");
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
@@ -147,8 +147,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       {"segments", required_argument, 0, 's'},  /* -s | --segments */
       {"threshold", required_argument, 0, 't'}, /* -t | --threshold */
       /* Long Options */
-      {"version", no_argument, 0, 1001},              /* --version */
-      {"dry-run", no_argument, &config->simulate, 1}, /* --dry-run */
+      {"version", no_argument, 0, 1001},             /* --version */
+      {"dry-run", no_argument, &config->dry_run, 1}, /* --dry-run */
       {"detect-black", no_argument, &config->detect_black_frames, 1},
       {"detect-rotation", no_argument, &config->detect_rotation, 1},
       {"skip-duration", required_argument, 0, 1000},
