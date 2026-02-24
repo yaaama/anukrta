@@ -89,8 +89,17 @@ static const char *video_extensions[] = {
     "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
     "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv"};
 
-static const size_t VIDEO_EXTENSIONS_COUNT =
-    (sizeof(video_extensions) / sizeof(video_extensions[0]));
+static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
+
+bool anu_path_exists (char *path) {
+  struct stat statb;
+  return path && stat(path, &statb) == 0;
+}
+
+bool anu_path_is_dir (char *path) {
+  struct stat statb;
+  return stat(path, &statb) == 0 && S_ISDIR(statb.st_mode);
+}
 
 /* Check extension of filename */
 static int anu_file_ext_supported (char *filename) {
@@ -152,7 +161,51 @@ int anu_open_dir (char *dir_path, DIR **out) {
   return 0;
 }
 
+char *anu_file_basename (char *path) {
+
+  char *start = strrchr(path, '/');
+
+  return start ? (start + 1) : path;
+}
+
 int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
+
+  /* Check if path given actually exists */
+  if (!anu_path_exists(searchp)) {
+    return -1;
+  }
+
+  /* Stat buffer */
+  struct stat statb;
+  /* Return value of calling stat on a file */
+  int stat_return = 0;
+
+  size_t file_len = strlen(searchp);
+
+  /* Check if we have received a path to a FILE with extension we support */
+  if (!anu_path_is_dir(searchp) && anu_file_ext_supported(searchp)) {
+    log_info("Received path for regular video file: %s", searchp);
+
+    errno = 0;
+    stat_return = stat(searchp, &statb);
+    if (stat_return && errno) {
+      perror("Error running 'stat' on file: ");
+      return -1;
+    }
+
+    anu_file file = {0};
+    file.ctime = statb.st_ctime;
+    file.size = statb.st_size;
+
+    memcpy(file.path, searchp, file_len);
+    file.path[file_len] = '\0';
+    char *base_ptr = anu_file_basename(searchp);
+    assert(base_ptr != searchp);
+    file.name = (base_ptr - searchp) > 0 ? (int) (base_ptr - searchp) : 0;
+
+    anu_fileq_enqueue(files_out, &file);
+    return 0;
+  }
 
   /* Initialise first directory we will explore */
   struct anu_dir_job dirjob;
@@ -160,27 +213,20 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
   /* Temp var to hold the directory we are currently in */
   struct anu_dir_job currjob;
 
-  size_t file_len = strlen(searchp);
   memcpy(dirjob.path, searchp, file_len);
   dirjob.path[file_len] = '\0';
 
   /* Stack containing directories to visit */
   anu_stack dirstack;
-  anu_stack_init(&dirstack, 20, sizeof(struct anu_dir_job));
+  anu_stack_init(&dirstack, 10, sizeof(struct anu_dir_job));
   anu_stack_push(&dirstack, &dirjob);
 
   /* Directory stream */
   DIR *dir;
   /* Dir entry */
   struct dirent *dp;
-  /* Stat buffer */
-  struct stat statb;
-  /* Return value of calling stat on a file */
-  int stat_return = 0;
   /* Path of current file */
   char fullpath[ANU_MAX_PATH_LEN] = {0};
-  /* Files found counter */
-  size_t files_found = 0;
   anu_file newfile;
 
   while (anu_stack_pop(&dirstack, &currjob)) {
@@ -198,18 +244,30 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
         continue;
       }
 
+      unsigned long currjob_path_len = strlen(currjob.path);
+
+      /* If dir path ends with trailing slash, lets null terminate it before we combine it with the filename
+       * E.g. without this, then:
+       * etc/directory -> etc/directory//video.mp4 */
+      if (currjob.path[currjob_path_len - 1] == '/') {
+        currjob.path[currjob_path_len - 1] = '\0';
+        --currjob_path_len;
+      }
+
+      /* Combine directory path with filename */
       int path_length = snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s",
                                  (currjob.path), dp->d_name);
 
       if (path_length > ANU_MAX_PATH_LEN) {
-        log_warn("Path length (%d) > max path length (%d)", path_length,
+        log_warn("Path length (%d) exceeds max length: %d", path_length,
                  ANU_MAX_PATH_LEN);
         continue;
       }
 
+      errno = 0;
       stat_return = stat(fullpath, &statb);
       /* Handle stat errors here... */
-      if (stat_return) {
+      if (stat_return && errno) {
         log_warn("Stat failed for `%s`: %s", fullpath, strerror(errno));
         continue;
       }
@@ -217,7 +275,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
       /* If its a directory */
       if (S_ISDIR(statb.st_mode)) {
         /* printf("Directory found: %s\n", fullpath); */
-        strncpy(dirjob.path, fullpath, ANU_MAX_PATH_LEN);
+        strcpy(dirjob.path, fullpath);
         anu_stack_push(&dirstack, &dirjob);
         continue;
       }
@@ -228,8 +286,6 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
         if (!anu_file_ext_supported(fullpath)) {
           continue;
         }
-        /* printf("%s :: %zu\n", fullpath, files_found); */
-        /* printf("%s\n", fullpath); */
 
         /* Prepare newfile for data */
         newfile.size = statb.st_size;
@@ -251,7 +307,6 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
           newfile.name = 0;
         }
         anu_fileq_enqueue(files_out, &newfile);
-        ++files_found;
       }
     }
 
