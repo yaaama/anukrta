@@ -27,7 +27,7 @@ void debug_print_matrix (const float *matrix, int rows, int cols) {
   printf("-------------------------\n");
 }
 
-u32 hamming_distance (uint64_t hash1, uint64_t hash2) {
+i32 hamming_distance (uint64_t hash1, uint64_t hash2) {
 
 #if 0
   uint64_t x =
@@ -44,7 +44,7 @@ u32 hamming_distance (uint64_t hash1, uint64_t hash2) {
   return dist;
 #endif
 
-  return (u32) __builtin_popcountll(hash1 ^ hash2);
+  return __builtin_popcountll(hash1 ^ hash2);
 }
 
 int anu_util_tolower (int c) {

@@ -82,10 +82,10 @@ void bk_tree_search (bk_node *node, uint64_t hash, i32 tolerance,
     return;
   }
 
-  u32 distance = hamming_distance(node->hash, hash);
+  i32 distance = hamming_distance(node->hash, hash);
 
   /* Found a match */
-  if (distance <= (u32)tolerance) {
+  if (distance <= tolerance) {
     for (int k = 0; k < node->exact_dupe_count; k++) {
       size_t next_group_idx = groups_out->file_count;
       uint64_t *match = &groups_out->files[next_group_idx];
@@ -94,8 +94,8 @@ void bk_tree_search (bk_node *node, uint64_t hash, i32 tolerance,
     }
   }
 
-  i32 min_search = (i32)distance - tolerance;
-  i32 max_search = (i32)distance + tolerance;
+  i32 min_search = distance - tolerance;
+  i32 max_search = distance + tolerance;
 
   if (min_search < 0) {
     min_search = 0;

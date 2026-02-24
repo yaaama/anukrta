@@ -80,7 +80,7 @@ typedef struct anukrta_config {
     __builtin_unreachable();                                           \
   } while (0)
 
-u32 hamming_distance(uint64_t hash1, uint64_t hash2);
+i32 hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);
 void anu_util_print_indent(int depth);
 int anu_util_tolower(int c);
