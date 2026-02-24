@@ -1,5 +1,6 @@
 #include "cli.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
@@ -49,6 +50,45 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Segments to hash: %d\n", config->segments);
   printf("Skip videos shorter than: %.1f seconds\n",
          (double) config->skip_duration / (double) ANU_TIME_ONE_SEC_IN_US);
+}
+
+int validate_segments_value (char *endptr, long *out) {
+
+  /* Reset errno to 0 before calling strtol */
+  errno = 0;
+
+  /* Convert string (optarg) to a long integer in base 10 */
+  long val = strtol(optarg, &endptr, 10);
+
+  /* Check for overflow/underflow */
+  if (errno == ERANGE || val > INT_MAX || val < INT_MIN) {
+    fprintf(stderr, "Error: --segments value '%s' is out of range.\n", optarg);
+    return -1;
+  }
+
+  /* Check if the user passed non-numeric gibberish.
+   * If endptr == optarg, they passed something like "abc"
+   * If *endptr != '\0', they passed a mix like "5abc" */
+  if (endptr == optarg || *endptr != '\0') {
+    fprintf(stderr, "Error: --segments requires a valid integer, got '%s'.\n",
+            optarg);
+    return -1;
+  }
+
+  /* logic validation (segments shouldn't be negative or 0) */
+  if (val <= 0) {
+    fprintf(stderr, "Error: --segments must be 1 or greater.\n");
+    return -1;
+  }
+
+  if (errno) {
+    perror("Some error occured during arg parsing: ");
+    return -1;
+  }
+
+  *out = val;
+
+  return 0;
 }
 
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
@@ -119,36 +159,15 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* -s | --segments */
       case 's':
         {
-          char *endptr;
-          /* Reset errno to 0 before calling strtol */
-          errno = 0;
+          char *endptr = NULL;
 
-          /* Convert string (optarg) to a long integer in base 10 */
-          long val = strtol(optarg, &endptr, 10);
+          long val = 0;
 
-          /* Check for overflow/underflow */
-          if (errno == ERANGE || val > INT_MAX || val < INT_MIN) {
-            fprintf(stderr, "Error: --segments value '%s' is out of range.\n",
-                    optarg);
+          if (validate_segments_value(endptr, &val)) {
             return -1;
-          }
+          };
 
-          /* Check if the user passed non-numeric gibberish.
-           * If endptr == optarg, they passed something like "abc"
-           * If *endptr != '\0', they passed a mix like "5abc" */
-          if (endptr == optarg || *endptr != '\0') {
-            fprintf(stderr,
-                    "Error: --segments requires a valid integer, got '%s'.\n",
-                    optarg);
-            return -1;
-          }
-
-          /* logic validation (segments shouldn't be negative or 0) */
-          if (val <= 0) {
-            fprintf(stderr, "Error: --segments must be 1 or greater.\n");
-            return -1;
-          }
-
+          assert(val > 0);
           /* Cast it back to a standard integer */
           segments = (int) val;
           config->segments = segments;
