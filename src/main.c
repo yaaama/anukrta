@@ -1,12 +1,12 @@
 /* Video similarity tool */
 
-#include <libavutil/log.h>
 #ifdef ANU_DEBUG
 #    pragma message "Compilation in DEBUG mode."
 #endif
 
 #include <assert.h>
 #include <inttypes.h>
+#include <libavutil/log.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>

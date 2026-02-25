@@ -82,8 +82,9 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
     printf("\n[+] Group #%zu (%zu items):\n", i + 1, group->count);
     for (size_t j = 0; j < group->count; j++) {
       size_t file_id = group->file_ids[j];
-      char *filename = files->items[file_id].path;
-      printf("\t- %s\n", filename);
+      anu_file *file = &files->items[file_id];
+      printf("\t- %s [size: %zu | ctime: %ld | duration: %zu ]\n", file->path,
+             file->size, file->ctime, file->duration_us);
     }
   }
 }
