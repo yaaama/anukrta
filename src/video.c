@@ -238,11 +238,11 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
   return 0;
 }
 
-double anu_time_microseconds_to_seconds (long microseconds) {
+inline double anu_time_microseconds_to_seconds (long microseconds) {
   return ((double) microseconds / ANU_TIME_ONE_SEC_IN_US);
 }
 
-long anu_time_seconds_to_microseconds (double seconds) {
+inline long anu_time_seconds_to_microseconds (double seconds) {
   return (long) (seconds * (double) ANU_TIME_ONE_SEC_IN_US);
 }
 
