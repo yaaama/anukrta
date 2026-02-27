@@ -65,6 +65,38 @@ static void unite_sets (size_t i, size_t j, size_t *parent) {
   }
 }
 
+const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
+
+char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
+
+  int num_units = sizeof(units_iec) / sizeof(units_iec[0]);
+  int unit_index = 0;
+
+  /* We will use this to keep track of the fractional part */
+  size_t remainder = 0;
+
+  /* >> 10 is equivalent to dividing by 1024 */
+  while (n_bytes >= 1024 && unit_index < num_units - 1) {
+    remainder = n_bytes & 1023; /* Equivalent to: n_bytes % 1024 */
+    n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
+    unit_index++;
+  }
+
+  if (unit_index == 0) {
+    snprintf(buf, buf_size, "%zu %s", n_bytes, units_iec[unit_index]);
+  } else {
+    /* Calculate the 2-digit decimal part using pure integer math.
+     * We multiply the remainder by 100, then divide by 1024 (by shifting).
+     * This gives us a perfectly safe 0-99 value. */
+    size_t decimals = (remainder * 100) >> 10;
+
+    snprintf(buf, buf_size, "%zu.%02zu %s", n_bytes, decimals,
+             units_iec[unit_index]);
+  }
+
+  return buf;
+}
+
 void anu_print_report (anu_report *report, anu_file_q *files) {
   if (report->count == 0) {
     printf("\n=== Report ===\n");
@@ -83,8 +115,10 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
     for (size_t j = 0; j < group->count; j++) {
       size_t file_id = group->file_ids[j];
       anu_file *file = &files->items[file_id];
-      printf("\t- %s [size: %zu | ctime: %ld | duration: %zu ]\n", file->path,
-             file->size, file->ctime, file->duration_us);
+      char human_sizing[10] = {0};
+      get_human_sizing_iec(file->size, 10, human_sizing);
+      printf("\t- %s [size: %s | ctime: %ld | duration: %zu ]\n", file->path,
+             human_sizing, file->ctime, file->duration_us);
     }
   }
 }

@@ -80,6 +80,16 @@ typedef struct anukrta_config {
     __builtin_unreachable();                                           \
   } while (0)
 
+#define KILOBYTE(x) ((x) * 1000ULL)
+#define MEGABYTE(x) (KILOBYTE(x) * 1000ULL)
+#define GIGABYTE(x) (MEGABYTE(x) * 1000ULL)
+#define TERABYTE(x) (GIGABYTE(x) * 1000ULL)
+
+#define KIBIBYTE(x) ((x) * 1024ULL)
+#define MEBIBYTE(x) (KIBIBYTE(x) * 1024ULL)
+#define GIBIBYTE(x) (MEBIBYTE(x) * 1024ULL)
+#define TEBIBYTE(x) (TEBIBYTE(x) * 1024ULL)
+
 i32 hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);
 void anu_util_print_indent(int depth);
