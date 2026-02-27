@@ -176,7 +176,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
   }
 
   /* Stat buffer */
-  struct stat statb;
+  struct stat statb = {0};
   /* Return value of calling stat on a file */
   int stat_return = 0;
 
@@ -195,6 +195,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
 
     anu_file file = {0};
     file.ctime = statb.st_ctime;
+    file.mtime = statb.st_mtime;
     file.size = statb.st_size;
 
     memcpy(file.path, searchp, file_len);
@@ -290,6 +291,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
         /* Prepare newfile for data */
         newfile.size = statb.st_size;
         newfile.ctime = statb.st_ctime;
+        newfile.mtime = statb.st_mtime;
         /* Copy path */
         memcpy(newfile.path, fullpath, path_length);
         newfile.path[path_length] = '\0';

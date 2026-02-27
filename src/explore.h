@@ -16,8 +16,10 @@ typedef struct anu_file {
   int name;
   /* Size in bytes */
   size_t size;
-  /* Creation time */
+  /* File mode change time */
   long ctime;
+  /* File modification time */
+  long mtime;
   long duration_us;
 } anu_file;
 

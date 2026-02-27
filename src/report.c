@@ -5,11 +5,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "explore.h"
 #include "stack.h"
 #include "tree.h"
 #include "util.h"
+#include "video.h"
 
 #ifdef ANU__USE_RECURSIVE_SET_FIND
 #    pragma message("Making use of recursive `find_set` implementation.")
@@ -97,6 +99,18 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
   return buf;
 }
 
+char *get_date_from_epoch (time_t *epoch_time, size_t buf_size, char *buf) {
+  struct tm *timeinfo = localtime(epoch_time);
+
+  if (timeinfo == NULL) {
+    snprintf(buf, buf_size, "Invalid Time");
+    return buf;
+  }
+
+  strftime(buf, buf_size, "%d-%m-%y %H:%M", timeinfo);
+  return buf;
+}
+
 void anu_print_report (anu_report *report, anu_file_q *files) {
   if (report->count == 0) {
     printf("\n=== Report ===\n");
@@ -108,6 +122,7 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
   printf("Found %zu duplicate groups from %zu files\n", report->count,
          files->count);
   printf("----------------------------------------");
+  printf("----------------------------------------\n");
 
   for (size_t i = 0; i < report->count; i++) {
     dupe_group_vector *group = &report->groups[i];
@@ -115,10 +130,16 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
     for (size_t j = 0; j < group->count; j++) {
       size_t file_id = group->file_ids[j];
       anu_file *file = &files->items[file_id];
-      char human_sizing[10] = {0};
-      get_human_sizing_iec(file->size, 10, human_sizing);
-      printf("\t- %s [size: %s | ctime: %ld | duration: %zu ]\n", file->path,
-             human_sizing, file->ctime, file->duration_us);
+      char human_sizing[32] = {0};
+      get_human_sizing_iec(file->size, ANU_ARRAY_SIZE(human_sizing),
+                           human_sizing);
+      /* time_t change_t = file->ctime; */
+      time_t modification_t = file->mtime;
+      char time_str[64] = {0};
+      get_date_from_epoch(&modification_t, ANU_ARRAY_SIZE(time_str), time_str);
+      printf("  %s\n", file->path);
+      printf("\tsize: %-10s | time: %-15s | duration: %-.2fs\n", human_sizing,
+             time_str, anu_time_microseconds_to_seconds(file->duration_us));
     }
   }
 }
