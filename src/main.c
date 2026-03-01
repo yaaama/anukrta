@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <libavutil/log.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -24,6 +25,34 @@
 #include "util.h"
 #include "video.h"
 
+/* callback function for logger */
+void log_lock_callback (bool lock, void *udata) {
+  pthread_mutex_t *mutex = (pthread_mutex_t *) udata;
+  if (lock) {
+    pthread_mutex_lock(mutex);
+  } else {
+    pthread_mutex_unlock(mutex);
+  }
+}
+
+void init_logger (int verbosity, pthread_mutex_t *log_mutex,
+                  void (*lock_cb)(bool, void *)) {
+
+  log_set_lock(lock_cb, log_mutex);
+  log_set_level(LOG_TRACE);
+}
+
+typedef struct {
+  anu_file_q *files;
+  anukrta_config *config;
+  uint64_t *hashes;
+  int *results; /* To store the return value of hash_video */
+  size_t file_count;
+
+  size_t *current_idx;    /* Shared index */
+  pthread_mutex_t *mutex; /* Protects current_idx */
+} worker_args;
+
 static void scan_dirs (anukrta_config *config, anu_file_q *files) {
   /* Scan current directory */
   if (config->scan_curr_dir) {
@@ -40,6 +69,40 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
       log_warn("Error searching for files in '%s'", config->paths[i]);
     }
   }
+}
+
+void *hash_worker_thread (void *arg) {
+  worker_args *targs = (worker_args *) arg;
+
+  while (1) {
+    size_t my_idx;
+
+    /* --- CRITICAL SECTION --- */
+    /* Lock the mutex to safely grab the next file index */
+    pthread_mutex_lock(targs->mutex);
+    my_idx = *(targs->current_idx);
+    if (my_idx < targs->file_count) {
+      *(targs->current_idx) += 1; /* Advance the queue for the next thread */
+    }
+    pthread_mutex_unlock(targs->mutex);
+    /* ------------------------ */
+
+    /* If we've processed all files, exit the thread */
+    if (my_idx >= targs->file_count) {
+      break;
+    }
+
+    /* Get the specific file and hash pointer for this index */
+    anu_file *file = (targs->files->items + my_idx);
+    uint64_t *my_hashes = &targs->hashes[my_idx * targs->config->segments];
+
+    log_debug("Thread %lu processing file index %zu", pthread_self(), my_idx);
+
+    /* Do the hashing */
+    targs->results[my_idx] = hash_video(file, targs->config, my_hashes);
+  }
+
+  return NULL;
 }
 
 int anukrta_driver (anukrta_config *config) {
@@ -64,35 +127,68 @@ int anukrta_driver (anukrta_config *config) {
   /* Array of hashes */
   size_t hash_collection_len = (file_count * config->segments);
   uint64_t *hashes = calloc(hash_collection_len, sizeof(uint64_t));
+  int *results = calloc(file_count, sizeof(int));
 
-  if (!hashes) {
+  if (!hashes || !results) {
+    if (hashes) {
+      free(hashes);
+    }
+    if (results) {
+      free(results);
+    }
     return -1;
   }
+
+  /* THREADING START */
+  pthread_t *threads = calloc(config->thread_count, sizeof(pthread_t));
+  pthread_mutex_t idx_mutex;
+  pthread_mutex_init(&idx_mutex, NULL);
+
+  size_t current_file_idx = 0;
+
+  /* Package the arguments */
+  worker_args args = {.files = &files,
+                      .config = config,
+                      .hashes = hashes,
+                      .results = results,
+                      .file_count = file_count,
+                      .current_idx = &current_file_idx,
+                      .mutex = &idx_mutex};
+
+  log_info("Starting %d hashing threads...", config->thread_count);
+
+  /* Create the threads */
+  for (int i = 0; i < config->thread_count; i++) {
+    if (pthread_create(&threads[i], NULL, hash_worker_thread, &args) != 0) {
+      log_warn("Failed to create thread %d", i);
+    }
+  }
+
+  /* Wait for all threads to finish */
+  for (int i = 0; i < config->thread_count; i++) {
+    pthread_join(threads[i], NULL);
+  }
+
+  /* Clean up threading resources */
+  pthread_mutex_destroy(&idx_mutex);
 
   anu_file *file;
   bk_tree filetree = {0};
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
-
-    int hashing_ret = hash_video(file, config, &hashes[i * config->segments]);
-
-    switch (hashing_ret) {
+    /* Check the result saved by the thread */
+    switch (results[i]) {
       case -1:
-        {
-          log_info("Failed to hash file %s", anu_file_get_filename(file));
-          continue;
-        }
+        log_info("Failed to hash file %s", anu_file_get_filename(file));
+        continue;
       case -2:
-        {
-          /* We skipped this hash so lets move onto the next file. */
-          continue;
-        }
+        /* We skipped this hash so lets move onto the next file. */
+        continue;
       default:
-        {
-          for (int j = 0; j < config->segments; j++) {
-            bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
-          }
+        /* Success! Insert into the BK-tree */
+        for (int j = 0; j < config->segments; j++) {
+          bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
         }
     }
   }
@@ -103,6 +199,8 @@ int anukrta_driver (anukrta_config *config) {
   bk_tree_node_free(filetree.root);
   anu_fileq_destroy(&files);
   free(hashes);
+  free(results);
+  free(threads);
 
   return 0;
 }
@@ -115,20 +213,30 @@ int main (int argc, char **argv) {
       .segments = 2,
       .threshold = 15,
       .hash_algorithm = ANU_HASH_ALGO_DCT,
-      .skip_duration = anu_time_seconds_to_microseconds(1.0)};
+      .skip_duration = anu_time_seconds_to_microseconds(1.0),
+      .thread_count = ANU_DEF_THREAD_COUNT,
+  };
 
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
   if (parsing_return || config._exit_early) {
     return parsing_return;
   }
+
+  /* mutex for logging */
+  pthread_mutex_t log_mutex;
+  pthread_mutex_init(&log_mutex, NULL);
+  int log_lvl = 0;
   if (config.verbose) {
-    log_set_level(LOG_TRACE);
     anu_cli_print_configuration(&config);
+    log_lvl = LOG_DEBUG;
+    av_log_set_level(AV_LOG_INFO);
   } else {
-    log_set_level(LOG_WARN);
-    av_log_set_level(AV_LOG_PANIC);
+    log_lvl = LOG_INFO;
+    av_log_set_level(AV_LOG_FATAL);
   }
+
+  init_logger(log_lvl, &log_mutex, log_lock_callback);
 
   printf("\n--------------------\n");
   printf("Starting...\n");

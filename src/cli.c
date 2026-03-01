@@ -54,6 +54,41 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Maximum Distance Threshold: %d\n", config->threshold);
   printf("Skip videos shorter than: %.1f seconds\n",
          (double) config->skip_duration / (double) ANU_TIME_ONE_SEC_IN_US);
+  printf("Thread Count: %d\n", config->thread_count);
+}
+
+int validate_threads_value (char *endptr, long *out) {
+
+  /* Reset errno to 0 before calling strtol */
+  errno = 0;
+
+  /* Convert string (optarg) to a long integer in base 10 */
+  long val = strtol(optarg, &endptr, 10);
+
+  /* Check for overflow/underflow */
+  if (errno == ERANGE || val > INT_MAX) {
+    fprintf(stderr, "Error: --threads value '%s' is out of range.\n", optarg);
+    return -1;
+  }
+
+  if (endptr == optarg || *endptr != '\0') {
+    fprintf(stderr, "Error: --threads requires a valid integer, got '%s'.\n",
+            optarg);
+    return -1;
+  }
+
+  if (val <= 0) {
+    fprintf(stderr, "Error: --threads must be 1 or greater.\n");
+    return -1;
+  }
+
+  if (errno) {
+    perror("Some error occured during arg parsing: ");
+    return -1;
+  }
+
+  *out = val;
+  return 0;
 }
 
 int validate_segments_value (char *endptr, long *out) {
@@ -91,7 +126,6 @@ int validate_segments_value (char *endptr, long *out) {
   }
 
   *out = val;
-
   return 0;
 }
 
@@ -152,6 +186,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       {"detect-black", no_argument, &config->detect_black_frames, 1},
       {"detect-rotation", no_argument, &config->detect_rotation, 1},
       {"skip-duration", required_argument, 0, 1000},
+      {"threads", required_argument, 0, 999},
       {0, 0, 0, 0}};
 
   /* Short options */
@@ -161,6 +196,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   int option_index = 0;
 
   int opt;
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   while ((opt = getopt_long(argc, argv, options_str, anukrta_opts,
                             &option_index)) != -1) {
     switch (opt) {
@@ -218,7 +254,6 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         {
           char *endptr = NULL;
           long val = 0;
-          assert(val > 0);
           if (validate_threshold_value(endptr, &val)) {
             return -1;
           };
@@ -231,6 +266,18 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
           printf("'anukrta' version: " ANU_VERSION "\n");
           config->_exit_early = 1;
           return 0;
+        }
+
+      /* Threads */
+      case 999:
+        {
+          char *endptr = NULL;
+          long val = 0;
+          if (validate_threads_value(endptr, &val)) {
+            return -1;
+          };
+          config->thread_count = (int) val;
+          break;
         }
       case '?':
         {

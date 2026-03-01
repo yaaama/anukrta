@@ -16,6 +16,8 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t size;
 typedef size_t usize;
 
+/* Default thread count */
+#define ANU_DEF_THREAD_COUNT 8
 #define ANU_MAX_PATH_LEN 512
 
 /* Structure describing the configuration settings to use for this run. */
@@ -30,6 +32,7 @@ typedef struct anukrta_config {
   long skip_duration;      /* Video length shorter than this will be skipped */
   b32 scan_curr_dir;
   b32 _exit_early;
+  i32 thread_count;
   i32 paths_count;
   char **paths;
 } anukrta_config;

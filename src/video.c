@@ -113,6 +113,7 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
 
   /* Video stream */
   AVStream *vid_stream_ptr = anu_video_get_vid_stream(&vreader);
+  char *fname = anu_file_get_filename(file);
 
   /* We want to split the video into this many segments */
   int total_video_segments = config->segments;
@@ -125,8 +126,8 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
   }
 
   if (file->duration_us <= config->skip_duration) {
-    log_info("Skipping File - Duration less than threshold (%.1f < %.1f) ",
-             anu_time_microseconds_to_seconds(file->duration_us),
+    log_info("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
+             fname, anu_time_microseconds_to_seconds(file->duration_us),
              anu_time_microseconds_to_seconds(config->skip_duration));
 
     anu_video_close(&vreader);
@@ -154,13 +155,14 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    log_debug("--- Segment [%d/%d] ---", i + 1, total_video_segments);
-    log_debug("Seeking to PTS %ld (%.1f seconds)", seek_target_sb,
+    log_debug("[%s] --- Segment [%d/%d] ---", fname, i + 1,
+              total_video_segments);
+    log_debug("[%s] Seeking to PTS %ld (%.1f seconds)", fname, seek_target_sb,
               anu_time_microseconds_to_seconds(seek_target_us));
 
     /* Seek to timestamp */
     if (anu_video_seek_to_timestamp_pts(&vreader, seek_target_sb) < 0) {
-      log_warn("Could not seek to segment `%d`", i);
+      log_warn("[%s] Could not seek to segment `%d`", fname, i);
       continue; /* Try next segment */
     }
 
@@ -189,8 +191,8 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
         hashes_out[frames_decoded] =
             hash_decoded_frame(&vreader, config->hash_algorithm);
 
-        log_debug("Frame '%ld' => %lX", vreader.codec_ctx->frame_num,
-                  hashes_out[frames_decoded]);
+        log_debug("[%s] Frame '%ld' => %lX", fname,
+                  vreader.codec_ctx->frame_num, hashes_out[frames_decoded]);
 
         frame_found_for_segment = true;
         frames_decoded++;
@@ -207,7 +209,7 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
 
       /* Decoding error encountered */
       if (decoding_success < 0) {
-        log_warn("Decoding failed.");
+        log_warn("[%s] Decoding failed.", fname);
         av_packet_unref(vreader.packet);
         break;
       }
@@ -215,7 +217,7 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
     }
 
     if (!frame_found_for_segment) {
-      log_warn("No frame decoded for segment `%d`", i);
+      log_warn("[%s] No frame decoded for segment `%d`", fname, i);
     }
   }
 
@@ -232,9 +234,9 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
     hashes[total_len] = ' ';
   }
   hashes[total_len] = '\0';
-  log_debug("Hashed '%s' => {%s}\n", anu_file_get_filename(file), hashes);
+  log_debug("[%s] DONE => {%s}\n", fname, hashes);
 #endif
-  log_trace("DONE. Processed %d frames for %s", frames_decoded, file->path);
+  log_trace("[%s] DONE. Processed %d frames.", fname, frames_decoded);
   return 0;
 }
 

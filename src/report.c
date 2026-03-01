@@ -85,7 +85,7 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
   }
 
   if (unit_index == 0) {
-    snprintf(buf, buf_size, "%zu %s", n_bytes, units_iec[unit_index]);
+    snprintf(buf, buf_size, "%lu %s", n_bytes, units_iec[unit_index]);
   } else {
     /* Calculate the 2-digit decimal part using pure integer math.
      * We multiply the remainder by 100, then divide by 1024 (by shifting).

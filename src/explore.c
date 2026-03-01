@@ -228,7 +228,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
   struct dirent *dp;
   /* Path of current file */
   char fullpath[ANU_MAX_PATH_LEN] = {0};
-  anu_file newfile;
+  anu_file newfile = {0};
 
   while (anu_stack_pop(&dirstack, &currjob)) {
 
