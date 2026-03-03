@@ -35,24 +35,19 @@ static uint64_t hash_decoded_frame (video_io *vreader,
 
   uint64_t hash = 0;
   AVFrame *grey_frame = NULL;
-  log_trace("Trying to alloc grey-frame...");
   grey_frame = av_frame_alloc();
 
   if (!grey_frame) {
     log_fatal("Failed to allocate memory for grey-frame.");
     goto cleanup;
   }
-  log_trace("Allocated grey-frame.");
 
   /* Create an empty grey frame */
   if (anu_video_frame_init(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
                            grey_frame)) {
-    log_fatal("Failed to initialise frame.");
+    log_error("Failed to initialise frame!");
     goto cleanup;
   }
-  log_trace("Video frame initialised with %dx%d dimensions.",
-            ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE);
-
   /* Scale frame down to 32x32 and store in empty grey frame */
   if (anu_video_scale_frame(vreader->frame, ANU_PHASH_INPUT_SIZE,
                             ANU_PHASH_INPUT_SIZE, grey_frame) != 0) {
@@ -75,7 +70,7 @@ static uint64_t hash_decoded_frame (video_io *vreader,
       }
     default:
       {
-        log_warn("Hashing algorithm not specified.");
+        log_error("Hashing algorithm not specified.");
       }
   }
 
@@ -96,10 +91,7 @@ cleanup:
 
 int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
 
-  if (config->segments <= 0) {
-    log_trace("Skipping hash for `%s`\n", file->path);
-    return -2;
-  }
+  assert(config->segments > 0);
   video_io vreader;
 
   /* Setup video reader */
@@ -126,9 +118,9 @@ int hash_video (anu_file *file, anukrta_config *config, uint64_t *hashes_out) {
   }
 
   if (file->duration_us <= config->skip_duration) {
-    log_info("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
-             fname, anu_time_microseconds_to_seconds(file->duration_us),
-             anu_time_microseconds_to_seconds(config->skip_duration));
+    log_debug("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
+              fname, anu_time_microseconds_to_seconds(file->duration_us),
+              anu_time_microseconds_to_seconds(config->skip_duration));
 
     anu_video_close(&vreader);
     return -2;
@@ -463,7 +455,6 @@ int anu_video_decode_packet (video_io *vreader) {
  * @return 0 if success, non-zero for anything else.
  *
  */
-
 int anu_video_open (char *filename, video_io *vreader) {
 
   /* Initialise VideoReader */
@@ -474,7 +465,7 @@ int anu_video_open (char *filename, video_io *vreader) {
   vreader->video_stream_idx = -1;
   vreader->video_duration = 0;
 
-  log_info("Opening `%s`", filename);
+  log_debug("Opening `%s`", filename);
 
   bool got_info = true;
 
@@ -482,9 +473,9 @@ int anu_video_open (char *filename, video_io *vreader) {
   int errcode = 0;
   errcode = avformat_open_input(&vreader->fmt_ctx, filename, NULL, NULL);
   if (errcode < 0) {
-    log_warn("Could not open file (`%s`): `%s`", filename, av_err2str(errcode));
+    log_debug("Could not open file (`%s`): `%s`", filename,
+              av_err2str(errcode));
     return -1;
-    log_debug("Will try to read stream information next...");
   }
 
   /* Will read bytes from file/decode a few frames to fill out context that the
@@ -500,8 +491,6 @@ int anu_video_open (char *filename, video_io *vreader) {
     log_error("Failed to read header/stream for file %s", filename);
     return -1;
   }
-
-  log_trace("Searching container for video stream...");
 
   /* Find Video Stream & Codec */
   bool decoder_found = true;
@@ -616,9 +605,11 @@ long anu_video_get_duration (video_io *vreader) {
   }
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
-    log_warn(
-        "Video stream omitting duration, using container values as fallback");
     duration_in_sb = vreader->fmt_ctx->duration;
+    log_warn(
+        "[%s] Video stream omitting duration, using container values as "
+        "fallback",
+        vreader->fmt_ctx->url);
     return duration_in_sb;
   }
 

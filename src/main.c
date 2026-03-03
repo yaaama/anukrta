@@ -96,7 +96,7 @@ void *hash_worker_thread (void *arg) {
     anu_file *file = (targs->files->items + my_idx);
     uint64_t *my_hashes = &targs->hashes[my_idx * targs->config->segments];
 
-    log_debug("Thread %lu processing file index %zu", pthread_self(), my_idx);
+    log_trace("Thread %lu processing file index %zu", pthread_self(), my_idx);
 
     /* Do the hashing */
     targs->results[my_idx] = hash_video(file, targs->config, my_hashes);
@@ -180,7 +180,7 @@ int anukrta_driver (anukrta_config *config) {
     /* Check the result saved by the thread */
     switch (results[i]) {
       case -1:
-        log_info("Failed to hash file %s", anu_file_get_filename(file));
+        log_debug("Failed to hash file %s", anu_file_get_filename(file));
         continue;
       case -2:
         /* We skipped this hash so lets move onto the next file. */
