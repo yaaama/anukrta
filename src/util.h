@@ -45,6 +45,12 @@ typedef struct anukrta_config {
  */
 #define ANU_TIME_ONE_SEC_IN_US 1000000
 
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
+#define ALWAYS_INLINE __attribute__((always_inline)) inline
+#define HOT_FUNCTION __attribute__((hot))
+
 #define STRINGIFY(s) TOSTRING(s)
 #define TOSTRING(s) #s
 
@@ -53,9 +59,6 @@ typedef struct anukrta_config {
 
 /* Array size macro */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
-
-#define LIKELY(x) __builtin_expect(!!(x), 1)
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 /* Return bigger value */
 #define MAXIMUM(x, y) ((x) > (y) ? (x) : (y))
@@ -96,6 +99,17 @@ typedef struct anukrta_config {
 i32 hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);
 void anu_util_print_indent(int depth);
-int anu_util_tolower(int c);
+
+ALWAYS_INLINE int anu_util_tolower (int c) {
+  return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
+}
+
+ALWAYS_INLINE double anu_time_microseconds_to_seconds (long microseconds) {
+  return ((double) microseconds / ANU_TIME_ONE_SEC_IN_US);
+}
+
+ALWAYS_INLINE long anu_time_seconds_to_microseconds (double seconds) {
+  return (long) (seconds * (double) ANU_TIME_ONE_SEC_IN_US);
+}
 
 #endif  // ANU_UTIL_H
