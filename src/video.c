@@ -560,7 +560,7 @@ int anu_video_open (char *filename, video_io *vreader) {
 
   if (vreader->frame == NULL || vreader->packet == NULL) {
     log_fatal("Failed to allocate memory for packet/frame.");
-    exit(EXIT_FAILURE);
+    return -1;
   }
 
   vreader->video_duration = anu_video_get_duration(vreader);

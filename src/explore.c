@@ -43,7 +43,7 @@ int anu_fileq_enqueue (anu_file_q *q, anu_file *file_in) {
     anu_file *temp = realloc(q->items, (sizeof(anu_file) * q->capacity));
     if (!temp) {
       /* probs out of mem */
-      exit(EXIT_FAILURE);
+      return -1;
     }
     q->items = temp;
     q->head = 0;

@@ -120,7 +120,7 @@ int main (int argc, char **argv) {
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
   if (parsing_return || config._exit_early) {
-    exit(parsing_return);
+    return parsing_return;
   }
   if (config.verbose) {
     log_set_level(LOG_TRACE);
