@@ -38,8 +38,8 @@ void log_lock_callback (bool lock, void *udata) {
 void init_logger (int verbosity, pthread_mutex_t *log_mutex,
                   void (*lock_cb)(bool, void *)) {
 
+  log_set_level(verbosity);
   log_set_lock(lock_cb, log_mutex);
-  log_set_level(LOG_TRACE);
 }
 
 typedef struct {
