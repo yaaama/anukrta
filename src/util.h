@@ -66,8 +66,8 @@ typedef struct anukrta_config {
 
 #define ANU_DIE(msg)                                           \
   do {                                                         \
-    fprintf(stderr, "__FILE__:__LINE__:__func__ %s\n", (msg)); \
-    exit(EXIT_FAILURE);                                        \
+    fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, (msg)); \
+    __builtin_unreachable();                                   \
   } while (0);
 
 #define TODO(message)                                                    \
