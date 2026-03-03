@@ -99,7 +99,7 @@ void *hash_worker_thread (void *arg) {
     log_trace("Thread %lu processing file index %zu", pthread_self(), my_idx);
 
     /* Do the hashing */
-    targs->results[my_idx] = hash_video(file, targs->config, my_hashes);
+    targs->results[my_idx] = anu_video_hash(file, targs->config, my_hashes);
   }
 
   return NULL;
