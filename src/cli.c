@@ -26,7 +26,7 @@ static int extract_program_name (char *arg_zero) {
 
 static void print_help (void) {
 
-  fprintf(stderr, "Usage: %s [OPTIONS] [DIRECTORY]\n", program_name);
+  fprintf(stderr, "Usage: %s [OPTIONS...] [PATH]\n", program_name);
   fprintf(stderr, "\t-h, --help\t\tShow this help message\n");
   fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output\n");
   fprintf(stderr,
@@ -34,6 +34,10 @@ static void print_help (void) {
   fprintf(stderr,
           "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to "
           "64 (0 being the most similar).\n");
+
+  fprintf(stderr,
+          "\t--skip-duration\t\tVideos of this duration will be skipped.\n");
+  fprintf(stderr, "\t--threads\t\tNumber of threads to use.\n");
   fprintf(stderr, "\t--version\t\tPrint version and exit\n");
   fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes\n");
   fprintf(stderr,
@@ -181,12 +185,13 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       {"segments", required_argument, 0, 's'},  /* -s | --segments */
       {"threshold", required_argument, 0, 't'}, /* -t | --threshold */
       /* Long Options */
-      {"version", no_argument, 0, 1001},             /* --version */
+      {"version", no_argument, 0, 1001}, /* --version */
+      {"skip-duration", required_argument, 0, 1000},
+      {"threads", required_argument, 0, 999},
+
       {"dry-run", no_argument, &config->dry_run, 1}, /* --dry-run */
       {"detect-black", no_argument, &config->detect_black_frames, 1},
       {"detect-rotation", no_argument, &config->detect_rotation, 1},
-      {"skip-duration", required_argument, 0, 1000},
-      {"threads", required_argument, 0, 999},
       {0, 0, 0, 0}};
 
   /* Short options */
