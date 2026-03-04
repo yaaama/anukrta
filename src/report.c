@@ -100,14 +100,10 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
 }
 
 char *get_date_from_epoch (time_t *epoch_time, size_t buf_size, char *buf) {
-  struct tm *timeinfo = localtime(epoch_time);
+  struct tm timeinfo = {0};
+  localtime_r(epoch_time, &timeinfo);
 
-  if (timeinfo == NULL) {
-    snprintf(buf, buf_size, "Invalid Time");
-    return buf;
-  }
-
-  strftime(buf, buf_size, "%d-%m-%y %H:%M", timeinfo);
+  strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
   return buf;
 }
 
