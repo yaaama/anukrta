@@ -162,7 +162,7 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
   /* Union-Find to identify the groups */
   size_t *parent = malloc((file_count) * sizeof(size_t));
   if (!parent) {
-    UNREACHABLE("Failed to allocate memory.");
+    ANU_DIE("Failed to allocate memory.");
   }
 
   /* Initially, each file is in its own set */
@@ -195,14 +195,14 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
   report.capacity = 10;
   report.groups = calloc(report.capacity, sizeof(dupe_group_vector));
   if (!report.groups) {
-    UNREACHABLE("Failed to allocate memory.");
+    ANU_DIE("Failed to allocate memory.");
   }
 
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
   anu_vector *buckets = calloc((file_count), sizeof(anu_vector));
   if (!buckets) {
-    UNREACHABLE("Failed to allocate memory.");
+    ANU_DIE("Failed to allocate memory.");
   }
 
   for (size_t i = 0; i < file_count; i++) {
@@ -231,7 +231,7 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
       dupe_group_vector *temp =
           realloc(report.groups, report.capacity * sizeof(dupe_group_vector));
       if (!temp) {
-        UNREACHABLE("Failed to allocate memory.");
+        ANU_DIE("Failed to allocate memory.");
       }
       report.groups = temp;
     }
