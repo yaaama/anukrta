@@ -132,7 +132,7 @@ void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
   s->items = malloc(capacity * elem_size);
   if (!s->items) {
     perror("Memory allocation failed.");
-    exit(EXIT_FAILURE);
+    return;
   }
   s->capacity = capacity;
   s->count = 0;
@@ -147,7 +147,7 @@ void anu_stack_push (anu_stack *s, void *item_ptr) {
 
     if (copied == NULL) {
       perror("Reallocation failed.");
-      exit(EXIT_FAILURE);
+      return;
     }
 
     s->items = copied;

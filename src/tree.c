@@ -14,7 +14,7 @@ bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
   bk_node *node = calloc(1, sizeof(bk_node));
 
   if (!node) {
-    exit(EXIT_FAILURE);
+    return NULL;
   }
   node->exact_dupe_count = 0;
   node->hash = hash;
