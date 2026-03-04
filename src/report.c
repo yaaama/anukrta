@@ -10,8 +10,6 @@
 #include "explore.h"
 #include "stack.h"
 #include "tree.h"
-#include "util.h"
-#include "video.h"
 
 #ifdef ANU__USE_RECURSIVE_SET_FIND
 #    pragma message("Making use of recursive `find_set` implementation.")
@@ -53,7 +51,7 @@ static size_t find_set (size_t i, size_t *parent) {
 
   return root;
 }
-#endif
+#endif  // ANU__USE_RECURSIVE_SET_FIND
 
 /* Merges the sets containing elements 'i' and 'j' */
 static void unite_sets (size_t i, size_t j, size_t *parent) {
@@ -154,15 +152,17 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
                                 anukrta_config *config, bk_tree *tree) {
   size_t file_count = files->count;
   anu_report report = {0};
-  report.count = 0;
+
   if (file_count == 0) {
     return report;
   }
 
+  report.count = 0;
+
   /* Union-Find to identify the groups */
   size_t *parent = malloc((file_count) * sizeof(size_t));
   if (!parent) {
-    exit(EXIT_FAILURE);
+    UNREACHABLE("Failed to allocate memory.");
   }
 
   /* Initially, each file is in its own set */
@@ -175,7 +175,9 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
     anu_dupe_group segment_results = {0};
 
     for (int seg = 0; seg < config->segments; seg++) {
-      uint64_t current_hash = hashes[(i * config->segments) + seg];
+
+      uint64_t current_hash =
+          hashes[(i * (size_t) config->segments) + (size_t) seg];
       bk_tree_search(tree->root, current_hash, config->threshold,
                      &segment_results);
     }
@@ -194,14 +196,14 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
   report.capacity = 10;
   report.groups = calloc(report.capacity, sizeof(dupe_group_vector));
   if (!report.groups) {
-    exit(EXIT_FAILURE);
+    UNREACHABLE("Failed to allocate memory.");
   }
 
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
   anu_vector *buckets = calloc((file_count), sizeof(anu_vector));
   if (!buckets) {
-    exit(EXIT_FAILURE);
+    UNREACHABLE("Failed to allocate memory.");
   }
 
   for (size_t i = 0; i < file_count; i++) {
@@ -230,7 +232,7 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
       dupe_group_vector *temp =
           realloc(report.groups, report.capacity * sizeof(dupe_group_vector));
       if (!temp) {
-        exit(EXIT_FAILURE);
+        UNREACHABLE("Failed to allocate memory.");
       }
       report.groups = temp;
     }
