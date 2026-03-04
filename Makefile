@@ -23,7 +23,7 @@ VENDOR_DIR := lib
 TEST_DIR := tests
 
 # DEFAULT C FLAGS
-CFLAGS := -std=c11
+CFLAGS := -std=gnu11
 CFLAGS += -Wall -Wextra \
 -Wstrict-prototypes -Wmissing-prototypes \
 -Wold-style-definition \
@@ -32,12 +32,13 @@ CFLAGS += -Wall -Wextra \
 -Wmissing-include-dirs \
 -Wnested-externs \
 -Wredundant-decls
+
 # Disable pedantic for now
 # -Wjump-misses-init \
 # -pedantic
 
 # Inject Compiler-specific flags from config.mk
-CFLAGS += $(COMPILER_CFLAGS)
+# CFLAGS += $(COMPILER_CFLAGS)
 LDFLAGS += $(COMPILER_LDFLAGS)
 
 ifeq (${DEBUG}, 1)

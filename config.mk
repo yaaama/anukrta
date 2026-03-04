@@ -27,19 +27,19 @@ CLANG_EXTRA_SANS :=
 
 # Clang
 ifeq (${CC}, clang)
-	COMPILER_CFLAGS += -fextend-variable-liveness -Wno-incompatible-pointer-types-discards-qualifiers -Wthread-safety
-	COMPILER_CFLAGS += -Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum
-	COMPILER_CFLAGS += -D_FORTIFY_SOURCE=3 -flto=thin
+	DEV_FLAGS += -fextend-variable-liveness -Wno-incompatible-pointer-types-discards-qualifiers -Wthread-safety
+	DEV_FLAGS += -Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum
+	DEV_FLAGS += -D_FORTIFY_SOURCE=3 -flto=thin
 	COMPILER_LDFLAGS += -flto=thin
 # Clang extra sanitizers (Applied in Makefile if ASAN=1)
 	CLANG_EXTRA_SANS := -fsanitize=integer,implicit-conversion,local-bounds
 endif
 ifeq (${CC}, gcc)
-	COMPILER_CFLAGS += -Wno-discarded-qualifiers -fanalyzer
-	COMPILER_CFLAGS += --param analyzer-bb-explosion-factor=50
-	COMPILER_CFLAGS += --param analyzer-max-enodes-per-program-point=200
-	COMPILER_CFLAGS += -Wanalyzer-too-complex
-	COMPILER_CFLAGS += -D_FORTIFY_SOURCE=3 -flto
+	DEV_FLAGS += -Wno-discarded-qualifiers -fanalyzer
+	DEV_FLAGS += --param analyzer-bb-explosion-factor=50
+	DEV_FLAGS += --param analyzer-max-enodes-per-program-point=200
+	DEV_FLAGS += -Wanalyzer-too-complex
+	DEV_FLAGS += -D_FORTIFY_SOURCE=3 -flto
 	COMPILER_LDFLAGS += -flto
 endif
 
