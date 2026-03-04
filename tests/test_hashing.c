@@ -58,7 +58,7 @@ Test (hashing, hamming_distances) {
       31,
   };
   int answer_idx = 0;
-  uint64_t distance = 0;
+  int distance = 0;
   for (int i = 0; i < (int)ANU_ARRAY_SIZE(hamming); i += 2) {
     distance = hamming_distance(hamming[i], hamming[i + 1]);
 

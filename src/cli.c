@@ -50,67 +50,69 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Detect Black Frames: %s\n",
          config->detect_black_frames ? "YES" : "NO");
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
-  printf("Segments to hash: %d\n", config->segments);
-  printf("Maximum Distance Threshold: %d\n", config->threshold);
+  printf("Segments to hash: %zu\n", config->segments);
+  printf("Maximum Distance Threshold: %zu\n", config->threshold);
   printf("Skip videos shorter than: %.1f seconds\n",
          (double) config->skip_duration / (double) ANU_TIME_ONE_SEC_IN_US);
-  printf("Thread Count: %d\n", config->thread_count);
+  printf("Thread Count: %zu\n", config->thread_count);
 }
 
-int validate_threads_value (char *endptr, long *out) {
+int validate_threads_value (char *arg_str, size_t *out) {
 
+  char *endptr = NULL;
   /* Reset errno to 0 before calling strtol */
   errno = 0;
 
   /* Convert string (optarg) to a long integer in base 10 */
-  long val = strtol(optarg, &endptr, 10);
+  long val = strtol(arg_str, &endptr, 10);
+
+  int parse_err = errno;
 
   /* Check for overflow/underflow */
-  if (errno == ERANGE || val > INT_MAX) {
-    fprintf(stderr, "Error: --threads value '%s' is out of range.\n", optarg);
+  if (parse_err == ERANGE) {
+    fprintf(stderr, "Error: --threads value '%s' is out of range.\n", arg_str);
     return -1;
   }
 
-  if (endptr == optarg || *endptr != '\0') {
+  if (endptr == arg_str || *endptr != '\0') {
     fprintf(stderr, "Error: --threads requires a valid integer, got '%s'.\n",
             optarg);
     return -1;
   }
 
-  if (val <= 0) {
+  if (val < 0) {
     fprintf(stderr, "Error: --threads must be 1 or greater.\n");
     return -1;
   }
 
-  if (errno) {
-    perror("Some error occured during arg parsing: ");
-    return -1;
-  }
-
-  *out = val;
+  *out = (size_t) val;
   return 0;
 }
 
-int validate_segments_value (char *endptr, long *out) {
+int validate_segments_value (char *arg_str, size_t *out) {
 
-  /* Reset errno to 0 before calling strtol */
+  char *endptr = NULL;
   errno = 0;
 
   /* Convert string (optarg) to a long integer in base 10 */
-  long val = strtol(optarg, &endptr, 10);
+  long val = strtol(arg_str, &endptr, 10);
 
+  int parse_err = errno;
   /* Check for overflow/underflow */
-  if (errno == ERANGE || val > INT_MAX || val < INT_MIN) {
-    fprintf(stderr, "Error: --segments value '%s' is out of range.\n", optarg);
+  if (parse_err == ERANGE) {
+    fprintf(stderr,
+            "Error: --segments value '%s' is out of range. A sensible value "
+            "ranges between 2 to 10.\n",
+            arg_str);
     return -1;
   }
 
   /* Check if the user passed non-numeric gibberish.
    * If endptr == optarg, they passed something like "abc"
    * If *endptr != '\0', they passed a mix like "5abc" */
-  if (endptr == optarg || *endptr != '\0') {
+  if (endptr == arg_str || *endptr != '\0') {
     fprintf(stderr, "Error: --segments requires a valid integer, got '%s'.\n",
-            optarg);
+            arg_str);
     return -1;
   }
 
@@ -120,26 +122,30 @@ int validate_segments_value (char *endptr, long *out) {
     return -1;
   }
 
-  if (errno) {
-    perror("Some error occured during arg parsing: ");
+  if (val > 50) {
+    fprintf(stderr, "Error: Law of diminishing returns.\n");
     return -1;
   }
 
-  *out = val;
+  *out = (size_t) val;
   return 0;
 }
 
-int validate_threshold_value (char *endptr, long *out) {
+int validate_threshold_value (char *arg_str, size_t *out) {
 
-  /* Reset errno to 0 before calling strtol */
+  char *endptr = NULL;
   errno = 0;
 
-  /* Convert string (optarg) to a long integer in base 10 */
-  long val = strtol(optarg, &endptr, 10);
+  /* Convert string to a long integer in base 10 */
+  long val = strtol(arg_str, &endptr, 10);
+  int parse_err = errno;
 
   /* Check for overflow/underflow */
-  if (errno == ERANGE || val > INT_MAX || val < INT_MIN) {
-    fprintf(stderr, "Error: --threshold value '%s' is out of range.\n", optarg);
+  if (parse_err == ERANGE) {
+    fprintf(stderr,
+            "Error: --threshold value '%s' is out of range. Threshold value "
+            "should range from 0 to 64 (0 being exact duplicates).\n",
+            optarg);
     return -1;
   }
 
@@ -158,13 +164,7 @@ int validate_threshold_value (char *endptr, long *out) {
     return -1;
   }
 
-  if (errno) {
-    perror("Some error occured during arg parsing: ");
-    return -1;
-  }
-
-  *out = val;
-
+  *out = (size_t) val;
   return 0;
 }
 
@@ -239,25 +239,23 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* -s | --segments */
       case 's':
         {
-          char *endptr = NULL;
-          long val = 0;
-          if (validate_segments_value(endptr, &val)) {
+          size_t val = 0;
+          if (validate_segments_value(optarg, &val)) {
             return -1;
           };
           assert(val > 0);
-          config->segments = (int) val;
+          config->segments = val;
           break;
         }
 
       /* -t | --threshold */
       case 't':
         {
-          char *endptr = NULL;
-          long val = 0;
-          if (validate_threshold_value(endptr, &val)) {
+          size_t val = 0;
+          if (validate_threshold_value(optarg, &val)) {
             return -1;
           };
-          config->threshold = (int) val;
+          config->threshold = val;
           break;
         }
       /* --version */
@@ -271,12 +269,11 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* Threads */
       case 999:
         {
-          char *endptr = NULL;
-          long val = 0;
-          if (validate_threads_value(endptr, &val)) {
+          size_t val = 0;
+          if (validate_threads_value(optarg, &val)) {
             return -1;
           };
-          config->thread_count = (int) val;
+          config->thread_count = val;
           break;
         }
       case '?':
@@ -296,7 +293,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   if (optind < argc) {
     printf("\n--- Input Directories (%d) ---\n", argc - optind);
-    config->paths_count = argc - optind;
+    config->paths_count = (size_t) (argc - optind);
     config->paths = &argv[optind];
   } else {
 

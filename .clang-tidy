@@ -34,12 +34,14 @@ SystemHeaders: false
 HeaderFilterRegex: "^(src|include)/.*"
 FormatStyle: file
 CheckOptions:
+  - key: concurrency-mt-unsafe.FunctionSet
+    value: glibc
   # Naming conventions (C style)
   - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
 
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
-    value: "log_.*"
+    value: "(log_.*|'^_.*')"
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
   - key: readability-identifier-naming.FunctionCase

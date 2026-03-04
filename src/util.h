@@ -1,11 +1,17 @@
 #ifndef ANU_UTIL_H
 #define ANU_UTIL_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-typedef uint8_t u8;
+#include "hash.h"
+
+/* Boolean 1 byte */
+typedef int8_t b8;
+/* Boolean 4 bytes */
 typedef int32_t b32;
+typedef uint8_t u8;
 typedef int32_t i32;
 typedef uint32_t u32;
 typedef uint64_t u64;
@@ -22,19 +28,19 @@ typedef size_t usize;
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
-  b32 verbose;             /* Turn on verbose output */
+  char **paths;
+  size_t skip_duration; /* Video length shorter than this will be skipped */
+  size_t paths_count;
+  size_t threshold; /* Threshold of similarity to consider them duplicates */
+  size_t segments;  /* Number of segments to hash from a video */
+  size_t thread_count;
+  b32 verbose; /* Turn on verbose output */
+  b32 scan_curr_dir;
+  b32 _exit_early;
   b32 dry_run;             /* TODO Do not save/actually process any files */
   b32 detect_black_frames; /* Detect black frames in video and skip them? */
   b32 detect_rotation;     /* Detect rotation in videos? */
-  int segments;            /* Number of segments to hash from a video */
-  int threshold;      /* Threshold of similarity to consider them duplicates */
-  int hash_algorithm; /* Hashing algorithm to use */
-  long skip_duration; /* Video length shorter than this will be skipped */
-  b32 scan_curr_dir;
-  b32 _exit_early;
-  i32 thread_count;
-  i32 paths_count;
-  char **paths;
+  anu_hash_type hash_algorithm; /* Hashing algorithm to use */
 } anukrta_config;
 
 /**
@@ -96,7 +102,7 @@ typedef struct anukrta_config {
 #define GIBIBYTE(x) (MEBIBYTE(x) * 1024ULL)
 #define TEBIBYTE(x) (TEBIBYTE(x) * 1024ULL)
 
-i32 hamming_distance(uint64_t hash1, uint64_t hash2);
+int hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);
 void anu_util_print_indent(int depth);
 
@@ -104,12 +110,13 @@ ALWAYS_INLINE int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
 
-ALWAYS_INLINE double anu_time_microseconds_to_seconds (long microseconds) {
+ALWAYS_INLINE double anu_time_microseconds_to_seconds (size_t microseconds) {
   return ((double) microseconds / ANU_TIME_ONE_SEC_IN_US);
 }
 
-ALWAYS_INLINE long anu_time_seconds_to_microseconds (double seconds) {
-  return (long) (seconds * (double) ANU_TIME_ONE_SEC_IN_US);
+ALWAYS_INLINE size_t anu_time_seconds_to_microseconds (double seconds) {
+  return (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US) ? (seconds > 0)
+                                                              : 0;
 }
 
 #endif  // ANU_UTIL_H

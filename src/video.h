@@ -25,17 +25,13 @@ typedef struct anu_vreader {
   AVCodecContext *codec_ctx;
   /* Scaling context (cached for performance) */
   SwsContext *sws_ctx;
-
   /* Packet (compressed frame of audio/video) */
   AVPacket *packet;
   /* Decoded packet */
   AVFrame *frame;
-
   /* Index of video stream inside container */
   int video_stream_idx;
-  /* Video duration in microseconds */
-  long video_duration;
-
+  byte padding[4];
 } anu_vreader;
 
 int anu_video_hash(anu_file *file, anukrta_config *config,

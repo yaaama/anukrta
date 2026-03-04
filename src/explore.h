@@ -12,15 +12,16 @@
 typedef struct anu_file {
   /* Path */
   char path[ANU_MAX_PATH_LEN];
-  /* Index for when name starts in path */
-  int name;
   /* Size in bytes */
   size_t size;
+  /* Duration of video file */
+  size_t duration_us;
   /* File mode change time */
   long ctime;
   /* File modification time */
   long mtime;
-  long duration_us;
+  /* Index for when name starts in path */
+  int name;
 } anu_file;
 
 typedef struct anu_file_q {

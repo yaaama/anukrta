@@ -32,7 +32,7 @@ int anu_vector_is_empty(anu_vector *v);
 /* Destroy vector, and all of its items */
 void anu_vector_destroy(anu_vector *v);
 /* Get item in vector at index */
-int anu_vector_get(anu_vector *v, int index, void *out);
+int anu_vector_get(anu_vector *v, size_t index, void *out);
 /* Perform an operation on all items in vector */
 void anu_vector_for_all(anu_vector *v, void (*operation)(void *));
 

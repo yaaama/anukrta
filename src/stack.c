@@ -61,18 +61,18 @@ int anu_vector_append (anu_vector *v, void *item) {
   return (int) v->count;
 }
 
-int anu_vector_get (anu_vector *v, int index, void *out) {
+int anu_vector_get (anu_vector *v, size_t index, void *out) {
 
-  assert(v && index >= 0 && out);
+  assert(v && out);
 
-  if (v->count == 0 || index >= (int) v->count) {
+  if (v->count == 0 || index >= v->count) {
     return -1;
   }
 
   void *item_ptr = (byte *) (v->items) + (index * v->_elem_size);
 
   memcpy(out, item_ptr, v->_elem_size);
-  return index;
+  return 0;
 }
 
 int anu_vector_pop_end (anu_vector *v, void *out) {

@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -150,6 +151,25 @@ static int anu_resolve_tilde (char *path) {
   return 0;
 }
 
+int anu_resolve_relative_path (char *path, char *out) {
+
+  if (!path) {
+    return -1;
+  }
+
+  char output[PATH_MAX];
+  errno = 0;
+  char *ptr = realpath(path, &output[0]);
+  if (ptr == NULL) {
+    perror("Error resolving path: ");
+    return -1;
+  }
+
+  strcpy(out, output);
+
+  return 0;
+}
+
 int anu_open_dir (char *dir_path, DIR **out) {
 
   *out = opendir(dir_path);
@@ -196,7 +216,8 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
     anu_file file = {0};
     file.ctime = statb.st_ctime;
     file.mtime = statb.st_mtime;
-    file.size = statb.st_size;
+    assert(statb.st_size > 0);
+    file.size = (size_t) statb.st_size;
 
     memcpy(file.path, searchp, file_len);
     file.path[file_len] = '\0';
@@ -265,11 +286,10 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
         continue;
       }
 
-      errno = 0;
       stat_return = stat(fullpath, &statb);
       /* Handle stat errors here... */
-      if (stat_return && errno) {
-        log_warn("Stat failed for `%s`: %s", fullpath, strerror(errno));
+      if (stat_return == -1) {
+        perror("Stat failed: ");
         continue;
       }
 
@@ -289,11 +309,13 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
         }
 
         /* Prepare newfile for data */
-        newfile.size = statb.st_size;
+        assert(statb.st_size > 0);
+        newfile.size = (size_t) statb.st_size;
         newfile.ctime = statb.st_ctime;
         newfile.mtime = statb.st_mtime;
         /* Copy path */
-        memcpy(newfile.path, fullpath, path_length);
+        assert(path_length > 0);
+        memcpy(newfile.path, fullpath, (size_t) path_length);
         newfile.path[path_length] = '\0';
 
         /* Find the last slash so we can extract the name */

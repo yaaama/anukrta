@@ -35,7 +35,7 @@ int scale_frame(anu_vreader *vr, size_t width, size_t height,
                 AVFrame *out_frame);
 uint64_t hash_decoded_frame(uint8_t *matrix, anu_hash_type hash_algo);
 int decode_avpacket(anu_vreader *vreader);
-long pts_to_useconds(long pts, AVRational timebase);
+size_t pts_to_useconds(long pts, AVRational timebase);
 double frame_pts_to_seconds(long pts, AVRational timebase);
 void save_gray_frame(unsigned char *buf, int wrap, int xsize, int ysize,
                      char *prefix, long frame_num);
@@ -45,7 +45,7 @@ int grey_frame_init(int width, int height, AVFrame *out_frame);
 int vreader_init(char *f_path, anu_vreader *vreader);
 void vreader_close(anu_vreader *vreader);
 int vreader_seek_pts(anu_vreader *vreader, int64_t target_pts);
-long vreader_get_duration(anu_vreader *vreader);
+size_t vreader_get_duration(anu_vreader *vreader);
 AVStream *vreader_video_stream(anu_vreader *vreader);
 
 int anu_video_hash (anu_file *file, anukrta_config *config,
@@ -57,18 +57,25 @@ int anu_video_hash (anu_file *file, anukrta_config *config,
 
   /* Setup video reader */
   if (vreader_init(file->path, &vreader) < 0) {
-    /* Cleanup partial opens */
     vreader_close(&vreader);
     return -1;
   }
 
+  file->duration_us = vreader_get_duration(&vreader);
+  if (file->duration_us == 0) {
+    vreader_close(&vreader);
+    return -1;
+  }
   char *fname = anu_file_get_filename(file);
 
   /* We want to split the video into this many segments */
-  int total_video_segments = config->segments;
+  size_t total_video_segments = config->segments;
 
-  long video_duration_us = vreader.video_duration;
-  assert(video_duration_us > 0);
+  size_t video_duration_us = file->duration_us;
+  assert(video_duration_us != 0);
+  assert(video_duration_us > total_video_segments);
+  /* As long as this is true we won't break anything when we cast for libav */
+  assert(video_duration_us < INT64_MAX);
 
   if (!file->duration_us) {
     file->duration_us = video_duration_us;
@@ -93,13 +100,13 @@ int anu_video_hash (anu_file *file, anukrta_config *config,
     return -1;
   }
 
-  long frame_step_us = video_duration_us / total_video_segments;
+  size_t frame_step_us = video_duration_us / total_video_segments;
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
   /* Target timestamp in microseconds */
-  long seek_target_us = 0;
+  int64_t seek_target_us = 0;
   /* Target timestamp in streams time base (tick) */
-  long seek_target_sb = 0;
+  int64_t seek_target_sb = 0;
 
   /* Return value of `decode_packet` */
   int decoding_success = 0;
@@ -110,32 +117,33 @@ int anu_video_hash (anu_file *file, anukrta_config *config,
   /* Video stream */
   AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
 
-  for (int i = 0; i < total_video_segments; i++) {
+  for (size_t i = 0; i < total_video_segments; i++) {
 
-    seek_target_us = ((long) i * frame_step_us);
+    seek_target_us = (int64_t) (i * frame_step_us);
+    /* NOTE: * As long as our duration values are positive, all of this casting is fine */
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    log_debug("[%s] --- Segment [%d/%d] ---", fname, i + 1,
+    log_debug("[%s] --- Segment [%zu/%zu] ---", fname, i + 1,
               total_video_segments);
     log_debug("[%s] Seeking to PTS %ld (%.1f seconds)", fname, seek_target_sb,
-              anu_time_microseconds_to_seconds(seek_target_us));
+              anu_time_microseconds_to_seconds((size_t) seek_target_us));
 
     /* Seek to timestamp */
     if (vreader_seek_pts(&vreader, seek_target_sb) < 0) {
-      log_warn("[%s] Could not seek to segment `%d`", fname, i);
+      log_warn("[%s] Could not seek to segment `%zu`", fname, i);
       continue; /* Try next segment */
     }
 
     if (video_reader_grab_frame_at_pts(&vreader, seek_target_sb) != 1) {
-      log_debug("[%s] Could not get frame at PTS %ld, segment [%d]", fname,
+      log_debug("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
                 seek_target_sb, i);
       continue;
     }
 
     if (scale_frame(&vreader, ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
                     gray_frame) != 0) {
-      log_error("[%s] Failed to scale frame for segment `%d`", fname, i);
+      log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
       continue;
     }
 
@@ -191,11 +199,13 @@ uint64_t hash_decoded_frame (uint8_t *matrix, anu_hash_type hash_algo) {
   return hash;
 }
 
-long pts_to_useconds (long pts, AVRational timebase) {
-  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+size_t pts_to_useconds (int64_t pts, AVRational timebase) {
+  assert(pts >= 0);
+  return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
-double frame_pts_to_seconds (long pts, AVRational timebase) {
+double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
+  assert(pts >= 0);
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
 }
 
@@ -220,12 +230,13 @@ void save_gray_frame (unsigned char *buf, int wrap, int xsize, int ysize,
   /* writing line by line */
   int index;
   for (index = 0; index < ysize; index++) {
-    fwrite(buf + ((ptrdiff_t) index * wrap), 1, xsize, fptr);
+    fwrite(buf + ((ptrdiff_t) index * wrap), 1, (unsigned long) xsize, fptr);
   }
   fclose(fptr);
 }
 
 void copy_frame_to_buffer (AVFrame *frame, uint8_t *dest, int width) {
+  assert(width > 0);
   /* Access the raw data pointer for the first plane (Y / Grayscale) */
   uint8_t *src_data = frame->data[0];
   int src_linesize = frame->linesize[0];
@@ -235,7 +246,8 @@ void copy_frame_to_buffer (AVFrame *frame, uint8_t *dest, int width) {
     /* uint8_t *src_row = src_data + (y * src_linesize); */
     /* Calculate the start of the row in the destination buffer */
     /* uint8_t *dest_row = dest + (y * width); */
-    memcpy((dest + (y * width)), (src_data + (y * src_linesize)), width);
+    memcpy((dest + (y * width)), (src_data + (y * src_linesize)),
+           (unsigned long) width);
   }
 }
 
@@ -511,8 +523,6 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
     return -1;
   }
 
-  vreader->video_duration = vreader_get_duration(vreader);
-
   return 0;
 }
 
@@ -549,11 +559,11 @@ void vreader_close (anu_vreader *vreader) {
  * @return Duration of video in microseconds.
  *
  */
-long vreader_get_duration (anu_vreader *vreader) {
+size_t vreader_get_duration (anu_vreader *vreader) {
   AVStream *vid_stream = vreader_video_stream(vreader);
 
   /* duration in stream-base */
-  long duration_in_sb = vid_stream->duration;
+  int64_t duration_in_sb = vid_stream->duration;
   AVRational stream_timebase = vid_stream->time_base;
   log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
             stream_timebase.den);
@@ -563,15 +573,17 @@ long vreader_get_duration (anu_vreader *vreader) {
   }
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
-    duration_in_sb = vreader->fmt_ctx->duration;
+    duration_in_sb =
+        (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
     log_warn(
         "[%s] Video stream omitting duration, using container values as "
-        "fallback",
-        vreader->fmt_ctx->url);
-    return duration_in_sb;
+        "fallback (%.2fs)",
+        vreader->fmt_ctx->url,
+        anu_time_microseconds_to_seconds((size_t) duration_in_sb));
+    return (size_t) duration_in_sb;
   }
 
-  return -1;
+  return 0;
 }
 
 /**

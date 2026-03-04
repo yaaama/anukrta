@@ -64,7 +64,7 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
   }
 
   /* Else we scan paths given */
-  for (int i = 0; i < config->paths_count; i++) {
+  for (size_t i = 0; i < config->paths_count; i++) {
     if (anu_recursive_filewalk(config->paths[i], files)) {
       log_warn("Error searching for files in '%s'", config->paths[i]);
     }
@@ -155,17 +155,17 @@ int anukrta_driver (anukrta_config *config) {
                       .current_idx = &current_file_idx,
                       .mutex = &idx_mutex};
 
-  log_info("Starting %d hashing threads...", config->thread_count);
+  log_info("Starting %zu hashing threads...", config->thread_count);
 
   /* Create the threads */
-  for (int i = 0; i < config->thread_count; i++) {
+  for (size_t i = 0; i < config->thread_count; i++) {
     if (pthread_create(&threads[i], NULL, hash_worker_thread, &args) != 0) {
-      log_warn("Failed to create thread %d", i);
+      log_warn("Failed to create thread %zu", i);
     }
   }
 
   /* Wait for all threads to finish */
-  for (int i = 0; i < config->thread_count; i++) {
+  for (size_t i = 0; i < config->thread_count; i++) {
     pthread_join(threads[i], NULL);
   }
 
@@ -187,7 +187,7 @@ int anukrta_driver (anukrta_config *config) {
         continue;
       default:
         /* Success! Insert into the BK-tree */
-        for (int j = 0; j < config->segments; j++) {
+        for (size_t j = 0; j < config->segments; j++) {
           bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
         }
     }
@@ -213,7 +213,7 @@ int main (int argc, char **argv) {
       .segments = 2,
       .threshold = 15,
       .hash_algorithm = ANU_HASH_ALGO_DCT,
-      .skip_duration = anu_time_seconds_to_microseconds(1.0),
+      .skip_duration = anu_time_seconds_to_microseconds(3.0),
       .thread_count = ANU_DEF_THREAD_COUNT,
   };
 

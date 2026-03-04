@@ -44,7 +44,9 @@ void bk_tree_node_free (bk_node *node) {
 static void bkTree_insert_internal (bk_node *node, uint64_t hash,
                                     uint64_t file_id) {
   // NOLINTEND
-  uint64_t dist = hamming_distance(node->hash, hash);
+  int dist = hamming_distance(node->hash, hash);
+  assert(dist >=
+         0); /* If this is not true, then something horrible has gone wrong. */
 
   if (!dist) {
     /* Exact match (collision). Add data to this node. */
@@ -75,18 +77,23 @@ void bk_tree_insert (bk_tree *tree, uint64_t hash, uint64_t file_id) {
 }
 
 // NOLINTBEGIN (*recursion)
-void bk_tree_search (bk_node *node, uint64_t hash, i32 tolerance,
+void bk_tree_search (bk_node *node, uint64_t hash, size_t tolerance,
                      anu_dupe_group *groups_out) {
   // NOLINTEND
-  if (tolerance < 0) {
-    return;
-  }
 
-  i32 distance = hamming_distance(node->hash, hash);
+  int distance_int = hamming_distance(node->hash, hash);
+  assert(distance_int >= 0 && distance_int <= 64);
+
+  size_t distance = (size_t) distance_int;
 
   /* Found a match */
   if (distance <= tolerance) {
+
     for (int k = 0; k < node->exact_dupe_count; k++) {
+      /* FIXME 2026-03-04
+         We need to check for CAPACITY here.
+         Currently we are just assuming there won't ever be a group with more
+         than the statically allocated array (65) duplicate items.*/
       size_t next_group_idx = groups_out->file_count;
       uint64_t *match = &groups_out->files[next_group_idx];
       *match = node->exact_dupe_file_ids[k];
@@ -94,17 +101,14 @@ void bk_tree_search (bk_node *node, uint64_t hash, i32 tolerance,
     }
   }
 
-  i32 min_search = distance - tolerance;
-  i32 max_search = distance + tolerance;
+  size_t min_search = (distance > tolerance) ? (distance - tolerance) : 0;
+  size_t max_search = distance + tolerance;
 
-  if (min_search < 0) {
-    min_search = 0;
-  }
   if (max_search > 64) {
     max_search = 64;
   }
 
-  for (i32 i = min_search; i <= max_search; i++) {
+  for (size_t i = min_search; i <= max_search; i++) {
     if (node->children[i]) {
       bk_tree_search(node->children[i], hash, tolerance, groups_out);
     }

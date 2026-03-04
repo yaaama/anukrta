@@ -174,10 +174,9 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
     /* Important to zero-initialize */
     anu_dupe_group segment_results = {0};
 
-    for (int seg = 0; seg < config->segments; seg++) {
+    for (size_t seg = 0; seg < config->segments; seg++) {
 
-      uint64_t current_hash =
-          hashes[(i * (size_t) config->segments) + (size_t) seg];
+      uint64_t current_hash = hashes[(i * config->segments) + seg];
       bk_tree_search(tree->root, current_hash, config->threshold,
                      &segment_results);
     }
