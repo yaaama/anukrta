@@ -115,8 +115,8 @@ ALWAYS_INLINE double anu_time_microseconds_to_seconds (size_t microseconds) {
 }
 
 ALWAYS_INLINE size_t anu_time_seconds_to_microseconds (double seconds) {
-  return (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US) ? (seconds > 0)
-                                                              : 0;
+  return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
+                       : 0;
 }
 
 #endif  // ANU_UTIL_H
