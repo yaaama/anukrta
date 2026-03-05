@@ -4,13 +4,14 @@ A tool designed to detect videos that are duplicates/similar to one another.
 
 ## Requirements
 
+- Clang/GCC to compile the project
 - FFmpeg libraries _(libav\*_)
 - Criterion (for unit testing)
 - A \*Nix environment (not tested on Windows).
 
 ## Building
 
-- Run `make` and it'll produce a binary in `build/`.
+- Run `make release` and it'll produce a binary in `build/release`.
 
 ## Usage
 
