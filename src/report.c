@@ -8,6 +8,7 @@
 #include <time.h>
 
 #include "explore.h"
+#include "log.h"
 #include "stack.h"
 #include "tree.h"
 
@@ -155,6 +156,7 @@ anu_report anu_generate_report (anu_file_q *files, uint64_t *hashes,
 
   if (file_count == 0) {
     return report;
+    log_info("File count is 0. Report could not be generated.");
   }
 
   report.count = 0;

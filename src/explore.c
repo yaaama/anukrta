@@ -238,10 +238,12 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
   memcpy(dirjob.path, searchp, file_len);
   dirjob.path[file_len] = '\0';
 
-  /* Stack containing directories to visit */
+  /* Stack containing directories to visit
+   * This lets us go through file hierarchies 'recursively'
+   * without actually using recursion in the implementation */
   anu_stack dirstack;
-  anu_stack_init(&dirstack, 10, sizeof(struct anu_dir_job));
-  anu_stack_push(&dirstack, &dirjob);
+  anu_stack_init(&dirstack, 4, sizeof(struct anu_dir_job)); // Initialise stack to being capacity 4
+  anu_stack_push(&dirstack, &dirjob); // Push the root directory into the stack
 
   /* Directory stream */
   DIR *dir;

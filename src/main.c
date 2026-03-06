@@ -124,7 +124,11 @@ int anukrta_driver (anukrta_config *config) {
 
   log_info("Found `%zu` files", file_count);
 
-  /* Array of hashes */
+  /* Array of hashes
+   * E.g. (N files with 2 segments) would look like this:
+   * [ File1Seg1, File1Seg2, File2Seg1, File2Seg2, ... File N Seg 2 ]
+   * FileNSegN would be the hash created for that segment
+   */
   size_t hash_collection_len = (file_count * config->segments);
   uint64_t *hashes = calloc(hash_collection_len, sizeof(uint64_t));
   int *results = calloc(file_count, sizeof(int));
