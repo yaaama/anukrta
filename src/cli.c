@@ -282,7 +282,9 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         }
       case '?':
         {
-          printf("Try '%s --help' for more information.\n", program_name);
+          fprintf(stderr,
+                  "Try '%s --help' for more information.\n",
+                  program_name);
           return -1;
         }
       default:
