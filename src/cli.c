@@ -11,20 +11,12 @@
 
 #include "util.h"
 
-static char *program_name;
-
-static int extract_program_name (char *arg_zero) {
-  char *prog_name = arg_zero;
-  char *last_slash = strrchr(prog_name, '/');
-  if (!last_slash) {
-    return -1;
-  }
-
-  program_name = last_slash + 1;
-  return 0;
+static const char *get_program_name (const char *arg_zero) {
+  const char *last_slash = strrchr(arg_zero, '/');
+  return last_slash ? last_slash + 1 : arg_zero;
 }
 
-static void print_help (void) {
+static void print_help (const char *program_name) {
 
   fprintf(stderr, "Usage: %s [OPTIONS...] [PATH]\n", program_name);
   fprintf(stderr, "\t-h, --help\t\tShow this help message\n");
@@ -177,7 +169,7 @@ int validate_threshold_value (char *arg_str, size_t *out) {
 
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
-  extract_program_name(argv[0]);
+  const char *program_name = get_program_name(argv[0]);
 
   int segments = 2;
 
@@ -239,7 +231,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* -h | --help */
       case 'h':
         {
-          print_help();
+          print_help(program_name);
           return EXIT_SUCCESS;
         }
       /* -v | --verbose */
@@ -275,7 +267,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* --version */
       case 1001:
         {
-          printf("'anukrta' version: " ANU_VERSION "\n");
+          printf("%s - version: " ANU_VERSION "\n", program_name);
           config->_exit_early = 1;
           return 0;
         }
