@@ -85,11 +85,14 @@ typedef struct anukrta_config {
     __builtin_unreachable();                                             \
   } while (0)
 
-#define UNREACHABLE(message)                                           \
-  do {                                                                 \
-    fprintf(stderr, "Unreachable Code Reached: %s:%d: %s\n", __FILE__, \
-            __LINE__, (message));                                      \
-    __builtin_unreachable();                                           \
+#define UNREACHABLE(message)                         \
+  do {                                               \
+    fprintf(stderr,                                  \
+            "Unreachable Code Reached: %s:%d: %s\n", \
+            __FILE__,                                \
+            __LINE__,                                \
+            (message));                              \
+    __builtin_unreachable();                         \
   } while (0)
 
 #define KILOBYTE(x) ((x) * 1000ULL)

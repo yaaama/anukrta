@@ -1,7 +1,7 @@
 /* Video similarity tool */
 
 #ifdef ANU_DEBUG
-#    pragma message "Compilation in DEBUG mode."
+#  pragma message "Compilation in DEBUG mode."
 #endif
 
 #include <assert.h>
@@ -35,7 +35,8 @@ void log_lock_callback (bool lock, void *udata) {
   }
 }
 
-void init_logger (int verbosity, pthread_mutex_t *log_mutex,
+void init_logger (int verbosity,
+                  pthread_mutex_t *log_mutex,
                   void (*lock_cb)(bool, void *)) {
 
   log_set_level(verbosity);
@@ -212,13 +213,13 @@ int anukrta_driver (anukrta_config *config) {
 int main (int argc, char **argv) {
 
   anukrta_config config = {
-      .dry_run = 0,
-      .verbose = 0,
-      .segments = 2,
-      .threshold = 15,
-      .hash_algorithm = ANU_HASH_ALGO_DCT,
-      .skip_duration = anu_time_seconds_to_microseconds(3.0),
-      .thread_count = ANU_DEF_THREAD_COUNT,
+    .dry_run = 0,
+    .verbose = 0,
+    .segments = 2,
+    .threshold = 15,
+    .hash_algorithm = ANU_HASH_ALGO_DCT,
+    .skip_duration = anu_time_seconds_to_microseconds(3.0),
+    .thread_count = ANU_DEF_THREAD_COUNT,
   };
 
   int parsing_return = anu_cli_parse_options(&config, argc, argv);

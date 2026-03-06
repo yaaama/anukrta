@@ -31,8 +31,8 @@ void debug_print_matrix (const float *matrix, int rows, int cols) {
 int hamming_distance (uint64_t hash1, uint64_t hash2) {
 
   _Static_assert(
-      sizeof(unsigned long long) >= 8,
-      "Unsigned long longs must be 64 bits for this implementation to work.");
+    sizeof(unsigned long long) >= 8,
+    "Unsigned long longs must be 64 bits for this implementation to work.");
 
   return __builtin_popcountll(hash1 ^ hash2);
 }

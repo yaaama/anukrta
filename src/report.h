@@ -23,8 +23,10 @@ typedef struct {
 } anu_report;
 
 void anu_print_report(anu_report *report, anu_file_q *files);
-anu_report anu_generate_report(anu_file_q *files, u64 *hashes,
-                               anukrta_config *config, bk_tree *tree);
+anu_report anu_generate_report(anu_file_q *files,
+                               u64 *hashes,
+                               anukrta_config *config,
+                               bk_tree *tree);
 
 void anu_report_destroy(anu_report *report);
 

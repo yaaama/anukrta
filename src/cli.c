@@ -79,7 +79,8 @@ int validate_threads_value (char *arg_str, size_t *out) {
   }
 
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "Error: --threads requires a valid integer, got '%s'.\n",
+    fprintf(stderr,
+            "Error: --threads requires a valid integer, got '%s'.\n",
             optarg);
     return -1;
   }
@@ -115,7 +116,8 @@ int validate_segments_value (char *arg_str, size_t *out) {
    * If endptr == optarg, they passed something like "abc"
    * If *endptr != '\0', they passed a mix like "5abc" */
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "Error: --segments requires a valid integer, got '%s'.\n",
+    fprintf(stderr,
+            "Error: --segments requires a valid integer, got '%s'.\n",
             arg_str);
     return -1;
   }
@@ -157,7 +159,8 @@ int validate_threshold_value (char *arg_str, size_t *out) {
    * If endptr == optarg, they passed something like "abc"
    * If *endptr != '\0', they passed a mix like "5abc" */
   if (endptr == optarg || *endptr != '\0') {
-    fprintf(stderr, "Error: --threshold requires a valid integer, got '%s'.\n",
+    fprintf(stderr,
+            "Error: --threshold requires a valid integer, got '%s'.\n",
             optarg);
     return -1;
   }
@@ -180,19 +183,19 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   /* name, has_arg, flag, val */
   struct option anukrta_opts[] = {
-      {"help", no_argument, 0, 'h'},            /* -h | --help */
-      {"verbose", no_argument, 0, 'v'},         /* -v | --verbose */
-      {"segments", required_argument, 0, 's'},  /* -s | --segments */
-      {"threshold", required_argument, 0, 't'}, /* -t | --threshold */
-      /* Long Options */
-      {"version", no_argument, 0, 1001}, /* --version */
-      {"skip-duration", required_argument, 0, 1000},
-      {"threads", required_argument, 0, 999},
+    {"help", no_argument, 0, 'h'},            /* -h | --help */
+    {"verbose", no_argument, 0, 'v'},         /* -v | --verbose */
+    {"segments", required_argument, 0, 's'},  /* -s | --segments */
+    {"threshold", required_argument, 0, 't'}, /* -t | --threshold */
+    /* Long Options */
+    {"version", no_argument, 0, 1001}, /* --version */
+    {"skip-duration", required_argument, 0, 1000},
+    {"threads", required_argument, 0, 999},
 
-      {"dry-run", no_argument, &config->dry_run, 1}, /* --dry-run */
-      {"detect-black", no_argument, &config->detect_black_frames, 1},
-      {"detect-rotation", no_argument, &config->detect_rotation, 1},
-      {0, 0, 0, 0}};
+    {"dry-run", no_argument, &config->dry_run, 1}, /* --dry-run */
+    {"detect-black", no_argument, &config->detect_black_frames, 1},
+    {"detect-rotation", no_argument, &config->detect_rotation, 1},
+    {0, 0, 0, 0}};
 
   /* Short options */
   /* Start the optstring with ':' to take manual control of errors. */
@@ -201,18 +204,24 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   int option_index = 0;
 
   int opt;
-  // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  while ((opt = getopt_long(argc, argv, options_str, anukrta_opts,
-                            &option_index)) != -1) {
+
+  // NOLINTBEGIN (concurrency-mt-unsafe)
+  while (
+    (opt = getopt_long(argc, argv, options_str, anukrta_opts, &option_index)) !=
+    -1) {
+    // NOLINTEND
     switch (opt) {
 
       /* When an option expects an argument but does not receive one */
       case ':':
         {
           /* optopt holds the character of the flag that failed (e.g., 's') */
-          fprintf(stderr, "%s: option '-%c' requires an argument.\n",
-                  program_name, optopt);
-          fprintf(stderr, "Try '%s --help' for more information.\n",
+          fprintf(stderr,
+                  "%s: option '-%c' requires an argument.\n",
+                  program_name,
+                  optopt);
+          fprintf(stderr,
+                  "Try '%s --help' for more information.\n",
                   program_name);
           return -1;
         }

@@ -41,7 +41,8 @@ void bk_tree_node_free (bk_node *node) {
 }
 
 // NOLINTBEGIN (*recursion)
-static void bkTree_insert_internal (bk_node *node, uint64_t hash,
+static void bkTree_insert_internal (bk_node *node,
+                                    uint64_t hash,
                                     uint64_t file_id) {
   // NOLINTEND
   int dist = hamming_distance(node->hash, hash);
@@ -77,7 +78,9 @@ void bk_tree_insert (bk_tree *tree, uint64_t hash, uint64_t file_id) {
 }
 
 // NOLINTBEGIN (*recursion)
-void bk_tree_search (bk_node *node, uint64_t hash, size_t tolerance,
+void bk_tree_search (bk_node *node,
+                     uint64_t hash,
+                     size_t tolerance,
                      anu_dupe_group *groups_out) {
   // NOLINTEND
 
@@ -116,7 +119,8 @@ void bk_tree_search (bk_node *node, uint64_t hash, size_t tolerance,
 }
 
 // NOLINTBEGIN (*recursion)
-static void bk_node_print_recursive (bk_node *node, int depth,
+static void bk_node_print_recursive (bk_node *node,
+                                     int depth,
                                      int edge_distance) {
   // NOLINTEND
   if (!node) {

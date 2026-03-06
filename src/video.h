@@ -34,7 +34,8 @@ typedef struct anu_vreader {
   byte padding[4];
 } anu_vreader;
 
-int anu_video_hash(anu_file *file, anukrta_config *config,
+int anu_video_hash(anu_file *file,
+                   anukrta_config *config,
                    uint64_t *hashes_out);
 
 #endif  // ANU_VIDEO_H

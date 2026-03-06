@@ -85,10 +85,10 @@ struct anu_dir_job {
 
 /* Video extensions */
 static const char *video_extensions[] = {
-    "3g2", "3gp",  "amv",  "asf", "avi", "f4a",  "f4b", "f4p", "f4v", "flv",
-    "flv", "gifv", "m4p",  "m4v", "m4v", "mkv",  "mng", "mod", "mov", "mp2",
-    "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
-    "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv"};
+  "3g2", "3gp",  "amv",  "asf", "avi", "f4a",  "f4b", "f4p", "f4v", "flv",
+  "flv", "gifv", "m4p",  "m4v", "m4v", "mkv",  "mng", "mod", "mov", "mp2",
+  "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
+  "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv"};
 
 static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
 
@@ -242,8 +242,11 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
    * This lets us go through file hierarchies 'recursively'
    * without actually using recursion in the implementation */
   anu_stack dirstack;
-  anu_stack_init(&dirstack, 4, sizeof(struct anu_dir_job)); // Initialise stack to being capacity 4
-  anu_stack_push(&dirstack, &dirjob); // Push the root directory into the stack
+  anu_stack_init(
+    &dirstack,
+    4,
+    sizeof(struct anu_dir_job));       // Initialise stack to being capacity 4
+  anu_stack_push(&dirstack, &dirjob);  // Push the root directory into the stack
 
   /* Directory stream */
   DIR *dir;
@@ -279,11 +282,15 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
       }
 
       /* Combine directory path with filename */
-      int path_length = snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s",
-                                 (currjob.path), dp->d_name);
+      int path_length = snprintf(fullpath,
+                                 ANU_MAX_PATH_LEN,
+                                 "%s/%s",
+                                 (currjob.path),
+                                 dp->d_name);
 
       if (path_length > ANU_MAX_PATH_LEN) {
-        log_warn("Path length (%d) exceeds max length: %d", path_length,
+        log_warn("Path length (%d) exceeds max length: %d",
+                 path_length,
                  ANU_MAX_PATH_LEN);
         continue;
       }
