@@ -232,6 +232,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       case 'h':
         {
           print_help(program_name);
+          config->_exit_early = 1;
           return EXIT_SUCCESS;
         }
       /* -v | --verbose */
