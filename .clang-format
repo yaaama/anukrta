@@ -1,15 +1,39 @@
 ---
 BasedOnStyle: Google
 Language: C
+AllowShortIfStatementsOnASingleLine: false
+BreakBeforeTernaryOperators: true
+BreakAdjacentStringLiterals: true
 IndentCaseBlocks: true
 IndentCaseLabels: true
 IndentExternBlock: Indent
+IndentPPDirectives: AfterHash
+IndentWidth: 2
+InsertBraces: true
 KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 1
+PPIndentWidth: 2
+PointerAlignment: Right
+ReflowComments: IndentOnly
+RemoveEmptyLinesInUnwrappedLines: true
+SeparateDefinitionBlocks: Always
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+UseTab: Never
+
+SpacesInLineCommentPrefix:
+  Maximum: -1
+  Minimum: 1
+
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterFunctionDefinitionName: true
+
 # KeepEmptyLines:
 #   AtStartOfBlock: true
 #   AtStartOfFile: true
-BreakBeforeTernaryOperators: true
-InsertBraces: true
 # BreakBeforeBraces: Custom
 
 # NumericLiteralCase:
@@ -22,26 +46,14 @@ InsertBraces: true
 #   AfterEnum: true
 #   AfterStruct: false
 
-IndentPPDirectives: AfterHash
-PPIndentWidth: 4
-ReflowComments: IndentOnly
-RemoveEmptyLinesInUnwrappedLines: true
-SeparateDefinitionBlocks: Always
-SpaceAfterCStyleCast: true
-SpaceAfterLogicalNot: false
-SpaceBeforeAssignmentOperators: true
-SpacesInLineCommentPrefix:
-  Maximum: -1
-  Minimum: 1
-UseTab: Never
-AllowShortIfStatementsOnASingleLine: false
-# ColumnLimit: 80
-IndentWidth: 2
-MaxEmptyLinesToKeep: 1
-# Example of usage:
-SpaceBeforeParens: Custom
-SpaceBeforeParensOptions:
-  AfterControlStatements: true
-  AfterFunctionDefinitionName: true
-PointerAlignment: Right
+BracedInitializerIndentWidth: 2
+# BreakBeforeBinaryOperators: NonAssignment
+BinPackParameters: false
+BinPackArguments: false
+ContinuationIndentWidth: 2
+
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+
 ...
