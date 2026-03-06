@@ -59,7 +59,7 @@ int validate_threads_value (char *arg_str, size_t *out) {
   /* Reset errno to 0 before calling strtol */
   errno = 0;
 
-  /* Convert string (optarg) to a long integer in base 10 */
+  /* Convert string (arg_str) to a long integer in base 10 */
   long val = strtol(arg_str, &endptr, 10);
 
   int parse_err = errno;
@@ -73,7 +73,7 @@ int validate_threads_value (char *arg_str, size_t *out) {
   if (endptr == arg_str || *endptr != '\0') {
     fprintf(stderr,
             "Error: --threads requires a valid integer, got '%s'.\n",
-            optarg);
+            arg_str);
     return -1;
   }
 
@@ -91,7 +91,7 @@ int validate_segments_value (char *arg_str, size_t *out) {
   char *endptr = NULL;
   errno = 0;
 
-  /* Convert string (optarg) to a long integer in base 10 */
+  /* Convert string (arg_str) to a long integer in base 10 */
   long val = strtol(arg_str, &endptr, 10);
 
   int parse_err = errno;
@@ -105,7 +105,7 @@ int validate_segments_value (char *arg_str, size_t *out) {
   }
 
   /* Check if the user passed non-numeric gibberish.
-   * If endptr == optarg, they passed something like "abc"
+   * If endptr == arg_str, they passed something like "abc"
    * If *endptr != '\0', they passed a mix like "5abc" */
   if (endptr == arg_str || *endptr != '\0') {
     fprintf(stderr,
@@ -143,17 +143,14 @@ int validate_threshold_value (char *arg_str, size_t *out) {
     fprintf(stderr,
             "Error: --threshold value '%s' is out of range. Threshold value "
             "should range from 0 to 64 (0 being exact duplicates).\n",
-            optarg);
+            arg_str);
     return -1;
   }
 
-  /* Check if the user passed non-numeric gibberish.
-   * If endptr == optarg, they passed something like "abc"
-   * If *endptr != '\0', they passed a mix like "5abc" */
-  if (endptr == optarg || *endptr != '\0') {
+  if (endptr == arg_str || *endptr != '\0') {
     fprintf(stderr,
             "Error: --threshold requires a valid integer, got '%s'.\n",
-            optarg);
+            arg_str);
     return -1;
   }
 
