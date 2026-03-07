@@ -9,7 +9,7 @@
 #define LOG_H
 
 #ifndef LOG_USE_COLOR
-#    define LOG_USE_COLOR
+#  define LOG_USE_COLOR
 #endif
 
 #include <stdarg.h>
@@ -43,7 +43,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define log_fatal(...) log_log(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
 void log_log(int level, const char *file, int line, const char *fmt, ...)
-    __attribute__((format(__printf__, 4, 5)));
+  __attribute__((format(__printf__, 4, 5)));
 
 const char *log_level_string(int level);
 void log_set_lock(log_lock_fn fn, void *udata);

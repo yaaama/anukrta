@@ -243,8 +243,7 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
    * without actually using recursion in the implementation */
   anu_stack dirstack;
   anu_stack_init(
-    &dirstack,
-    4,
+    &dirstack, 4,
     sizeof(struct anu_dir_job));       // Initialise stack to being capacity 4
   anu_stack_push(&dirstack, &dirjob);  // Push the root directory into the stack
 
@@ -282,15 +281,11 @@ int anu_recursive_filewalk (char *searchp, anu_file_q *files_out) {
       }
 
       /* Combine directory path with filename */
-      int path_length = snprintf(fullpath,
-                                 ANU_MAX_PATH_LEN,
-                                 "%s/%s",
-                                 (currjob.path),
-                                 dp->d_name);
+      int path_length = snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s",
+                                 (currjob.path), dp->d_name);
 
       if (path_length > ANU_MAX_PATH_LEN) {
-        log_warn("Path length (%d) exceeds max length: %d",
-                 path_length,
+        log_warn("Path length (%d) exceeds max length: %d", path_length,
                  ANU_MAX_PATH_LEN);
         continue;
       }

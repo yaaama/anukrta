@@ -91,11 +91,7 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
      * This gives us a perfectly safe 0-99 value. */
     size_t decimals = (remainder * 100) >> 10;
 
-    snprintf(buf,
-             buf_size,
-             "%zu.%02zu %s",
-             n_bytes,
-             decimals,
+    snprintf(buf, buf_size, "%zu.%02zu %s", n_bytes, decimals,
              units_iec[unit_index]);
   }
 
@@ -118,8 +114,7 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
   }
 
   printf("\n=== Duplicate Report: ===\n");
-  printf("Found %zu duplicate groups from %zu files\n",
-         report->count,
+  printf("Found %zu duplicate groups from %zu files\n", report->count,
          files->count);
   printf("----------------------------------------");
   printf("----------------------------------------\n");
@@ -131,18 +126,15 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
       size_t file_id = group->file_ids[j];
       anu_file *file = &files->items[file_id];
       char human_sizing[32] = {0};
-      get_human_sizing_iec(file->size,
-                           ANU_ARRAY_SIZE(human_sizing),
+      get_human_sizing_iec(file->size, ANU_ARRAY_SIZE(human_sizing),
                            human_sizing);
       /* time_t change_t = file->ctime; */
       time_t modification_t = file->mtime;
       char time_str[64] = {0};
       get_date_from_epoch(&modification_t, ANU_ARRAY_SIZE(time_str), time_str);
       printf("  %s\n", file->path);
-      printf("\tsize: %-10s | time: %-15s | duration: %-.2fs\n",
-             human_sizing,
-             time_str,
-             anu_time_microseconds_to_seconds(file->duration_us));
+      printf("\tsize: %-10s | time: %-15s | duration: %-.2fs\n", human_sizing,
+             time_str, anu_time_microseconds_to_seconds(file->duration_us));
     }
   }
 }
@@ -189,9 +181,7 @@ anu_report anu_generate_report (anu_file_q *files,
     for (size_t seg = 0; seg < config->segments; seg++) {
 
       uint64_t current_hash = hashes[(i * config->segments) + seg];
-      bk_tree_search(tree->root,
-                     current_hash,
-                     config->threshold,
+      bk_tree_search(tree->root, current_hash, config->threshold,
                      &segment_results);
     }
 
