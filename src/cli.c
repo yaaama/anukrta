@@ -71,8 +71,7 @@ int validate_threads_value (char *arg_str, size_t *out) {
   }
 
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr,
-            "Error: --threads requires a valid integer, got '%s'.\n",
+    fprintf(stderr, "Error: --threads requires a valid integer, got '%s'.\n",
             arg_str);
     return -1;
   }
@@ -108,8 +107,7 @@ int validate_segments_value (char *arg_str, size_t *out) {
    * If endptr == arg_str, they passed something like "abc"
    * If *endptr != '\0', they passed a mix like "5abc" */
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr,
-            "Error: --segments requires a valid integer, got '%s'.\n",
+    fprintf(stderr, "Error: --segments requires a valid integer, got '%s'.\n",
             arg_str);
     return -1;
   }
@@ -148,8 +146,7 @@ int validate_threshold_value (char *arg_str, size_t *out) {
   }
 
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr,
-            "Error: --threshold requires a valid integer, got '%s'.\n",
+    fprintf(stderr, "Error: --threshold requires a valid integer, got '%s'.\n",
             arg_str);
     return -1;
   }
@@ -164,87 +161,143 @@ int validate_threshold_value (char *arg_str, size_t *out) {
   return 0;
 }
 
+/* Helper to reverse-lookup long option names */
+static const char *get_long_opt_name (int val, const struct option *opts) {
+  for (int i = 0; opts[i].name != NULL; i++) {
+    if (opts[i].val == val) {
+      return opts[i].name;
+    }
+  }
+  return NULL;
+}
+
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   const char *program_name = get_program_name(argv[0]);
 
-  int segments = 2;
+  enum anu_options {  // NOLINT (*enum-initial-value)
+    AUTO_HANDLE = 0,
+    CMD_HELP = 'h',
+    FLAG_VERBOSE = 'v',
+    ARG_SEGMENTS = 's',
+    ARG_THRESHOLD = 't',
+
+    /* Auto-incrementing long-only options */
+    CMD_VERSION = 1000,
+    ARG_THREADS,
+    ARG_SKIP_DURATION,
+  };
 
   /* name, has_arg, flag, val */
-  struct option anukrta_opts[] = {
-    {"help", no_argument, 0, 'h'},            /* -h | --help */
-    {"verbose", no_argument, 0, 'v'},         /* -v | --verbose */
-    {"segments", required_argument, 0, 's'},  /* -s | --segments */
-    {"threshold", required_argument, 0, 't'}, /* -t | --threshold */
-    /* Long Options */
-    {"version", no_argument, 0, 1001}, /* --version */
-    {"skip-duration", required_argument, 0, 1000},
-    {"threads", required_argument, 0, 999},
+  const struct option anukrta_opts[] = {
+    /* # Commands */
+    {"help", no_argument, NULL, CMD_HELP},       /* -h | --help */
+    {"version", no_argument, NULL, CMD_VERSION}, /* --version */
 
+    /* # Configuration */
+    /* --skip-duration */
+    {"skip-duration", required_argument, NULL, ARG_SKIP_DURATION},
+    /* -t | --threshold */
+    {"threshold", required_argument, NULL, ARG_THRESHOLD},
+    /* --threads */
+    {"threads", required_argument, NULL, ARG_THREADS},
+    /* -s | --segments */
+    {"segments", required_argument, NULL, ARG_SEGMENTS},
+
+    /* # Flags (Automatically Handled) */
+    {"verbose", no_argument, &config->verbose, 1}, /* -v | --verbose */
     {"dry-run", no_argument, &config->dry_run, 1}, /* --dry-run */
     {"detect-black", no_argument, &config->detect_black_frames, 1},
     {"detect-rotation", no_argument, &config->detect_rotation, 1},
     {0, 0, 0, 0}};
 
   /* Short options */
-  /* Start the optstring with ':' to take manual control of errors. */
-  char *options_str = ":hvs:";
+  /* Start the opt string with ':' to take manual control of errors. */
+  char *options_str = ":hvs:t:";
 
   int option_index = 0;
-
   int opt;
 
-  // NOLINTBEGIN (concurrency-mt-unsafe)
-  while (
-    (opt = getopt_long(argc, argv, options_str, anukrta_opts, &option_index)) !=
-    -1) {
+  while (1) {
+    // NOLINTBEGIN (concurrency-mt-unsafe)
+    opt = getopt_long(argc, argv, options_str, anukrta_opts, &option_index);
     // NOLINTEND
+
+    if (opt == -1) {
+      break;
+    }
+
     switch (opt) {
+
+      /* Matches for flags that are handled automatically (--dry-run for example) */
+      case AUTO_HANDLE:
+        {
+          break;
+        }
 
       /* When an option expects an argument but does not receive one */
       case ':':
         {
-          /* optopt holds the character of the flag that failed (e.g., 's') */
-          fprintf(stderr,
-                  "%s: option '-%c' requires an argument.\n",
-                  program_name,
-                  optopt);
-          fprintf(stderr,
-                  "Try '%s --help' for more information.\n",
+          const char *long_name = get_long_opt_name(optopt, anukrta_opts);
+
+          if (long_name) {
+            /* It was a long option (e.g., --threads) */
+            fprintf(stderr, "%s: Option '--%s' requires an argument.\n",
+                    program_name, long_name);
+          } else {
+            /* It was a short option (e.g., -t) */
+            fprintf(stderr, "%s: Option '-%c' requires an argument.\n",
+                    program_name, optopt);
+          }
+
+          fprintf(stderr, "Try '%s --help' for more information.\n",
                   program_name);
+          config->_exit_early = 1;
           return -1;
         }
-      case 0:
+      case '?':
         {
-          /* This triggers if a flag was set automatically (like --dry-run).
-           * We don't necessarily need to do anything here, but we can print info. */
-          if (anukrta_opts[option_index].flag != 0) {
-            printf("Automatic flag set: --%s\n",
-                   anukrta_opts[option_index].name);
+          if (optopt) {
+            const char *long_name = get_long_opt_name(optopt, anukrta_opts);
+            if (long_name) {
+              fprintf(stderr, "%s: Unrecognized option '--%s'.\n", program_name,
+                      long_name);
+            } else {
+              fprintf(stderr, "%s: Unrecognized option '-%c'.\n", program_name,
+                      optopt);
+            }
+          } else {
+            /* optopt is sometimes 0 for unrecognized long options in certain libc implementations */
+            fprintf(stderr, "%s: Unrecognized option.\n", program_name);
           }
-          break;
+
+          fprintf(stderr, "Try '%s --help' for more information.\n",
+                  program_name);
+          config->_exit_early = 1;
+          return -1;
         }
 
       /* -h | --help */
-      case 'h':
+      case CMD_HELP:
         {
           print_help(program_name);
           config->_exit_early = 1;
-          return EXIT_SUCCESS;
+          return 0;
         }
-      /* -v | --verbose */
-      case 'v':
+      /* --version */
+      case CMD_VERSION:
         {
-          config->verbose = 1;
-          printf("verbose mode...\n");
-          break;
+          printf("%s - version: " ANU_VERSION "\n", program_name);
+          config->_exit_early = 1;
+          return 0;
         }
 
       /* -s | --segments */
-      case 's':
+      case ARG_SEGMENTS:
         {
           size_t val = 0;
           if (validate_segments_value(optarg, &val)) {
+            config->_exit_early = 1;
             return -1;
           };
           assert(val > 0);
@@ -253,43 +306,45 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         }
 
       /* -t | --threshold */
-      case 't':
+      case ARG_THRESHOLD:
         {
           size_t val = 0;
           if (validate_threshold_value(optarg, &val)) {
+
+            config->_exit_early = 1;
             return -1;
           };
           config->threshold = val;
           break;
         }
-      /* --version */
-      case 1001:
-        {
-          printf("%s - version: " ANU_VERSION "\n", program_name);
-          config->_exit_early = 1;
-          return 0;
-        }
-
-      /* Threads */
-      case 999:
+      /* --threads */
+      case ARG_THREADS:
         {
           size_t val = 0;
           if (validate_threads_value(optarg, &val)) {
+            config->_exit_early = 1;
             return -1;
           };
           config->thread_count = val;
           break;
         }
-      case '?':
+
+      /* TODO Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
+      case FLAG_VERBOSE: /* -v | --verbose */
         {
-          fprintf(stderr,
-                  "Try '%s --help' for more information.\n",
-                  program_name);
-          return -1;
+          config->verbose = 1;
+          break;
         }
+
+        /* TODO Implement this. */
+      case ARG_SKIP_DURATION:
+        {
+          TODO("Not yet implemented skip duration.");
+        }
+
       default:
         {
-          UNREACHABLE("CLI Parsing Error");
+          UNREACHABLE("anukrta: Internal CLI Parsing Error");
         }
     }
   }
@@ -298,6 +353,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   int temp_optind = optind;
 
   if (optind < argc) {
+    assert((argc - optind) > 0);
     printf("\n--- Input Directories (%d) ---\n", argc - optind);
     config->paths_count = (size_t) (argc - optind);
     config->paths = &argv[optind];
@@ -306,9 +362,11 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     printf("\n--- Scanning Current Directory ---\n");
     config->scan_curr_dir = 1;
     config->paths_count = 1;
+    config->paths = NULL;
   }
   while (temp_optind < argc) {
-    printf("%s\n", argv[temp_optind++]);
+    printf("%s\n", argv[temp_optind]);
+    ++temp_optind;
   }
   return 0;
 }
