@@ -47,9 +47,8 @@ SpaceBeforeParensOptions:
 #   AfterStruct: false
 
 BracedInitializerIndentWidth: 2
-# BreakBeforeBinaryOperators: NonAssignment
 BinPackParameters: false
-BinPackArguments: false
+BinPackArguments: true
 ContinuationIndentWidth: 2
 
 AllowAllArgumentsOnNextLine: false
