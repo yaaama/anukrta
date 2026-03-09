@@ -193,12 +193,16 @@ clean:
 	@rm -rf $(BUILD_ROOT)
 	@rm -f etc/asan.log.*
 
+clean-debug:
+	@echo "Cleaning up debug build..."
+	@rm -rf $(BUILD_ROOT)/debug
+
 bear:
 	@mkdir -p $(BUILD_ROOT)/debug
 	@echo "Generating compile_commands.json..."
 	$(Q)bear -- $(MAKE) -B debug
 
-analyze: clean
+analyze: clean-debug
 	scan-build --use-cc=clang -o $(BUILD_DIR)/scan-reports $(MAKE)
 
 check:
@@ -206,7 +210,7 @@ check:
 	@cppcheck --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
 	--suppress=missingIncludeSystem \
 	--template='{file}:{line}:{column}: {severity}: {message} [{id}]' \
-	-i $(VENDOR_DIR) $(SRC_DIR)
+	-I $(VENDOR_DIR) -i $(VENDOR_DIR) $(SRC_DIR)
 
 format:
 	@echo "Running clang-format"
