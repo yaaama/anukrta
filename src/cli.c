@@ -92,7 +92,9 @@ static int parse_numeric_arg_sizet (const char *arg_name,
   return 0;
 }
 
-int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
+int anu_cli_parse_options (anukrta_config *config,
+                           int argc,
+                           char *const argv[]) {
 
   const char *program_name = get_program_name(argv[0]);
 
