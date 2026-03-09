@@ -11,6 +11,8 @@
 
 #include "util.h"
 
+#define CLI_NAME "anukrta"
+
 static const char *get_program_name (const char *arg_zero) {
   const char *last_slash = strrchr(arg_zero, '/');
   return last_slash ? last_slash + 1 : arg_zero;
@@ -18,24 +20,19 @@ static const char *get_program_name (const char *arg_zero) {
 
 static void print_help (const char *program_name) {
 
+  /* clang-format off */
   fprintf(stderr, "Usage: %s [OPTIONS...] [PATH]\n", program_name);
   fprintf(stderr, "\t-h, --help\t\tShow this help message\n");
   fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output\n");
-  fprintf(stderr,
-          "\t-s, --segments\t\tNumber of segments to hash for each video\n");
-  fprintf(stderr,
-          "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to "
-          "64 (0 being the most similar).\n");
-
-  fprintf(stderr,
-          "\t--skip-duration\t\tVideos of this duration will be skipped.\n");
+  fprintf(stderr, "\t-s, --segments\t\tNumber of segments to hash for each video\n");
+  fprintf(stderr, "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to 64 (0 being the most similar).\n");
+  fprintf(stderr, "\t--skip-duration\t\tVideos of this duration will be skipped.\n");
   fprintf(stderr, "\t--threads\t\tNumber of threads to use.\n");
-  fprintf(stderr, "\t--version\t\tPrint version and exit\n");
-  fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes\n");
-  fprintf(stderr,
-          "\t--detect-black\t\tDetect black frames and skip over them "
-          "(NOOP)\n");
-  fprintf(stderr, "\t--detect-rotation\t\tDetect rotated videos\n");
+  fprintf(stderr, "\t--version\t\tPrint version and exit.\n");
+  fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes. \n");
+  fprintf(stderr, "\t--detect-black\t\tDetect black frames and skip over them.\n");
+  fprintf(stderr, "\t--detect-rotation\t\tDetect rotated videos.\n");
+  /* clang-format on */
 }
 
 void anu_cli_print_configuration (anukrta_config *config) {
@@ -53,114 +50,6 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Thread Count: %zu\n", config->thread_count);
 }
 
-int validate_threads_value (char *arg_str, size_t *out) {
-
-  char *endptr = NULL;
-  /* Reset errno to 0 before calling strtol */
-  errno = 0;
-
-  /* Convert string (arg_str) to a long integer in base 10 */
-  long val = strtol(arg_str, &endptr, 10);
-
-  int parse_err = errno;
-
-  /* Check for overflow/underflow */
-  if (parse_err == ERANGE) {
-    fprintf(stderr, "Error: --threads value '%s' is out of range.\n", arg_str);
-    return -1;
-  }
-
-  if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "Error: --threads requires a valid integer, got '%s'.\n",
-            arg_str);
-    return -1;
-  }
-
-  if (val < 0) {
-    fprintf(stderr, "Error: --threads must be 1 or greater.\n");
-    return -1;
-  }
-
-  *out = (size_t) val;
-  return 0;
-}
-
-int validate_segments_value (char *arg_str, size_t *out) {
-
-  char *endptr = NULL;
-  errno = 0;
-
-  /* Convert string (arg_str) to a long integer in base 10 */
-  long val = strtol(arg_str, &endptr, 10);
-
-  int parse_err = errno;
-  /* Check for overflow/underflow */
-  if (parse_err == ERANGE) {
-    fprintf(stderr,
-            "Error: --segments value '%s' is out of range. A sensible value "
-            "ranges between 2 to 10.\n",
-            arg_str);
-    return -1;
-  }
-
-  /* Check if the user passed non-numeric gibberish.
-   * If endptr == arg_str, they passed something like "abc"
-   * If *endptr != '\0', they passed a mix like "5abc" */
-  if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "Error: --segments requires a valid integer, got '%s'.\n",
-            arg_str);
-    return -1;
-  }
-
-  /* logic validation (segments shouldn't be negative or 0) */
-  if (val <= 0) {
-    fprintf(stderr, "Error: --segments must be 1 or greater.\n");
-    return -1;
-  }
-
-  if (val > 50) {
-    fprintf(stderr, "Error: Law of diminishing returns.\n");
-    return -1;
-  }
-
-  *out = (size_t) val;
-  return 0;
-}
-
-int validate_threshold_value (char *arg_str, size_t *out) {
-
-  char *endptr = NULL;
-  errno = 0;
-
-  /* Convert string to a long integer in base 10 */
-  long val = strtol(arg_str, &endptr, 10);
-  int parse_err = errno;
-
-  /* Check for overflow/underflow */
-  if (parse_err == ERANGE) {
-    fprintf(stderr,
-            "Error: --threshold value '%s' is out of range. Threshold value "
-            "should range from 0 to 64 (0 being exact duplicates).\n",
-            arg_str);
-    return -1;
-  }
-
-  if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "Error: --threshold requires a valid integer, got '%s'.\n",
-            arg_str);
-    return -1;
-  }
-
-  /* logic validation, similarity threshold shouldn't be negative or above 64 */
-  if (val < 0 || val > 64) {
-    fprintf(stderr, "Error: --threshold must range between 0 and 64.\n");
-    return -1;
-  }
-
-  *out = (size_t) val;
-  return 0;
-}
-
 /* Helper to reverse-lookup long option names */
 static const char *get_long_opt_name (int val, const struct option *opts) {
   for (int i = 0; opts[i].name != NULL; i++) {
@@ -169,6 +58,38 @@ static const char *get_long_opt_name (int val, const struct option *opts) {
     }
   }
   return NULL;
+}
+
+/* Parses a string to a long, assigns out param (size_t) */
+static int parse_numeric_arg_sizet (const char *arg_name,
+                                    const char *arg_str,
+                                    long min,
+                                    long max,
+                                    size_t *out) {
+  char *endptr = NULL;
+  errno = 0;
+
+  long val = strtol(arg_str, &endptr, 10);
+
+  if (errno == ERANGE || val < min || val > max) {
+    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME,
+            arg_name, arg_str);
+    if (max == LONG_MAX) {
+      fprintf(stderr, "  Value must be %ld or greater.\n", min);
+    } else {
+      fprintf(stderr, "  Valid range is %ld to %ld.\n", min, max);
+    }
+    return -1;
+  }
+
+  if (endptr == arg_str || *endptr != '\0') {
+    fprintf(stderr, "[%s] Error: %s requires a valid integer, got '%s'.\n",
+            CLI_NAME, arg_name, arg_str);
+    return -1;
+  }
+
+  *out = (size_t) val;
+  return 0;
 }
 
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
@@ -188,28 +109,34 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     ARG_SKIP_DURATION,
   };
 
+  /* clang-format off */
   /* name, has_arg, flag, val */
   const struct option anukrta_opts[] = {
-    /* # Commands */
-    {"help", no_argument, NULL, CMD_HELP},       /* -h | --help */
-    {"version", no_argument, NULL, CMD_VERSION}, /* --version */
+/*
+ * COMMANDS:
+ * These will cause the program to exit early.
+ */
+    {"help",            no_argument,       NULL,                         CMD_HELP},          // -h | --help
+    {"version",         no_argument,       NULL,                         CMD_VERSION},       // --version
+/*
+ * RUNTIME CONFIG:
+ * Options to customise how the program does things.
+ */
+    {"threshold",       required_argument, NULL,                         ARG_THRESHOLD},     // -t | --threshold
+    {"segments",        required_argument, NULL,                         ARG_SEGMENTS},      // -s | --segments
+    {"threads",         required_argument, NULL,                         ARG_THREADS},       // --threads
+    {"skip-duration",   required_argument, NULL,                         ARG_SKIP_DURATION}, // --skip-duration
+/*
+ * FLAGS
+ */
+    /* TODO Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
+    {"verbose",         no_argument,       NULL,                         FLAG_VERBOSE},                 // -v | --verbose
+    {"dry-run",         no_argument,       &config->dry_run,             1},                 // --dry-run
+    {"detect-black",    no_argument,       &config->detect_black_frames, 1},                 // TODO
+    {"detect-rotation", no_argument,       &config->detect_rotation,     1},                 // TODO
 
-    /* # Configuration */
-    /* --skip-duration */
-    {"skip-duration", required_argument, NULL, ARG_SKIP_DURATION},
-    /* -t | --threshold */
-    {"threshold", required_argument, NULL, ARG_THRESHOLD},
-    /* --threads */
-    {"threads", required_argument, NULL, ARG_THREADS},
-    /* -s | --segments */
-    {"segments", required_argument, NULL, ARG_SEGMENTS},
-
-    /* # Flags (Automatically Handled) */
-    {"verbose", no_argument, &config->verbose, 1}, /* -v | --verbose */
-    {"dry-run", no_argument, &config->dry_run, 1}, /* --dry-run */
-    {"detect-black", no_argument, &config->detect_black_frames, 1},
-    {"detect-rotation", no_argument, &config->detect_rotation, 1},
-    {0, 0, 0, 0}};
+    {0,                 0,                 0,                            0}};                // END
+  /* clang-format on */
 
   /* Short options */
   /* Start the opt string with ':' to take manual control of errors. */
@@ -218,13 +145,25 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   int option_index = 0;
   int opt;
 
+  int ret = 0;
+
   while (1) {
+    option_index = -1;
+
     // NOLINTBEGIN (concurrency-mt-unsafe)
     opt = getopt_long(argc, argv, options_str, anukrta_opts, &option_index);
     // NOLINTEND
 
     if (opt == -1) {
       break;
+    }
+
+    char arg_invoked[64];
+    if (option_index != -1) {
+      snprintf(arg_invoked, sizeof(arg_invoked), "--%s",
+               anukrta_opts[option_index].name);
+    } else {
+      snprintf(arg_invoked, sizeof(arg_invoked), "-%c", opt);
     }
 
     switch (opt) {
@@ -252,8 +191,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
           fprintf(stderr, "Try '%s --help' for more information.\n",
                   program_name);
-          config->_exit_early = 1;
-          return -1;
+          goto exit_error;
         }
       case '?':
         {
@@ -273,69 +211,58 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
           fprintf(stderr, "Try '%s --help' for more information.\n",
                   program_name);
-          config->_exit_early = 1;
-          return -1;
+          goto exit_error;
         }
 
       /* -h | --help */
       case CMD_HELP:
         {
           print_help(program_name);
-          config->_exit_early = 1;
-          return 0;
+          goto exit_early;
         }
       /* --version */
       case CMD_VERSION:
         {
           printf("%s - version: " ANU_VERSION "\n", program_name);
-          config->_exit_early = 1;
-          return 0;
-        }
-
-      /* -s | --segments */
-      case ARG_SEGMENTS:
-        {
-          size_t val = 0;
-          if (validate_segments_value(optarg, &val)) {
-            config->_exit_early = 1;
-            return -1;
-          };
-          assert(val > 0);
-          config->segments = val;
+          goto exit_early;
           break;
         }
 
-      /* -t | --threshold */
-      case ARG_THRESHOLD:
-        {
-          size_t val = 0;
-          if (validate_threshold_value(optarg, &val)) {
-
-            config->_exit_early = 1;
-            return -1;
-          };
-          config->threshold = val;
-          break;
-        }
-      /* --threads */
-      case ARG_THREADS:
-        {
-          size_t val = 0;
-          if (validate_threads_value(optarg, &val)) {
-            config->_exit_early = 1;
-            return -1;
-          };
-          config->thread_count = val;
-          break;
-        }
-
-      /* TODO Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
-      case FLAG_VERBOSE: /* -v | --verbose */
+      /* -v | --verbose */
+      case FLAG_VERBOSE:
         {
           config->verbose = 1;
           break;
         }
 
+        /* -s | --segments */
+      case ARG_SEGMENTS:
+        {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, 50,
+                                      &config->segments) != 0) {
+            goto exit_error;
+          }
+          break;
+        }
+      /* -t | --threshold */
+      case ARG_THRESHOLD:
+        {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, 64,
+                                      &config->threshold) != 0) {
+            goto exit_error;
+          }
+          break;
+        }
+
+        /* --threads */
+      case ARG_THREADS:
+        {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, LONG_MAX,
+                                      &config->thread_count) != 0) {
+            goto exit_error;
+          }
+          break;
+        }
         /* TODO Implement this. */
       case ARG_SKIP_DURATION:
         {
@@ -350,23 +277,36 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   }
 
   /* Process remaining positional arguments */
-  int temp_optind = optind;
-
   if (optind < argc) {
-    assert((argc - optind) > 0);
-    printf("\n--- Input Directories (%d) ---\n", argc - optind);
-    config->paths_count = (size_t) (argc - optind);
-    config->paths = &argv[optind];
-  } else {
+    int positional_arg_count = argc - optind;
+    printf("\n--- Input Directories (%d) ---\n", positional_arg_count);
 
+    config->paths_count = (size_t) positional_arg_count;
+    config->paths = &argv[optind];
+
+    for (int i = optind; i < argc; i++) {
+      printf("  %s\n", argv[i]);
+    }
+
+  } else {
     printf("\n--- Scanning Current Directory ---\n");
     config->scan_curr_dir = 1;
     config->paths_count = 1;
     config->paths = NULL;
   }
-  while (temp_optind < argc) {
-    printf("%s\n", argv[temp_optind]);
-    ++temp_optind;
+
+  return ret;
+
+exit_error:
+  {
+    config->_exit_early = 1;
+    ret = 22;
+    return ret;
   }
-  return 0;
+
+exit_early:
+  {
+    config->_exit_early = 1;
+    return ret;
+  }
 }

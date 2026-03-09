@@ -210,7 +210,7 @@ int anukrta_driver (anukrta_config *config) {
   return 0;
 }
 
-int main (int argc, char **argv) {
+int main (int argc, char *const argv[]) {
 
   anukrta_config config = {
     .dry_run = 0,
