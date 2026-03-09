@@ -1,4 +1,5 @@
 #include <criterion/criterion.h>
+#include <criterion/new/assert.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -24,17 +25,17 @@ Test (hashing, dct_flat_values) {
   memset(onehundred_value, 100, IMG_MATRIX_LEN);
   uint64_t onehundred_hash_result = dct_hash(onehundred_value);
 
-  cr_assert_eq(zero_hash_result, 0,
+  cr_assert(eq(u64, zero_hash_result, 0,
                "Matrix of all '0's should return 0. Returned: %lx instead: ",
-               zero_hash_result);
+               zero_hash_result));
 
-  cr_assert_eq(one_hash_result, 0,
+  cr_assert(eq(u64,one_hash_result, 0,
                "Matrix of all '1's should return 0. Returned: %lx instead.",
-               one_hash_result);
+               one_hash_result));
 
-  cr_assert_eq(onehundred_hash_result, 0,
+  cr_assert(eq(u64,onehundred_hash_result, 0,
                "Matrix of all '100's should return 0. Returned: %lx instead.",
-               onehundred_hash_result);
+               onehundred_hash_result));
 }
 
 Test (hashing, hamming_distances) {
@@ -62,9 +63,9 @@ Test (hashing, hamming_distances) {
   for (int i = 0; i < (int)ANU_ARRAY_SIZE(hamming); i += 2) {
     distance = hamming_distance(hamming[i], hamming[i + 1]);
 
-    cr_assert_eq(distance, hamming_answers[answer_idx],
+    cr_assert(eq(u64, distance, hamming_answers[answer_idx],
                  "Distance should be 1 for hash %lx and %lx.", hamming[i],
-                 hamming[i + 1]);
+                 hamming[i + 1]));
     ++answer_idx;
   }
 }

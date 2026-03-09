@@ -1,4 +1,5 @@
 #include <criterion/criterion.h>
+#include <criterion/new/assert.h>
 #include <stdint.h>
 
 #include "../src/stack.h"
@@ -19,16 +20,16 @@ Test (vector, init_and_destroy) {
   /* Init with capacity 0 */
   anu_vector_init(&v, 0, sizeof(int));
 
-  cr_assert_not_null(v.items, "Items pointer should not be NULL after init");
-  cr_assert_eq(v.count, 0, "Initial count should be 0");
-  cr_assert_geq(v.capacity, 4, "Capacity should default to at least 4");
-  cr_assert_eq(anu_vector_is_empty(&v), 1, "Vector should report as empty");
+  cr_assert(v.items != NULL, "Items pointer should not be NULL after init");
+  cr_assert(v.count == 0, "Initial count should be 0");
+  cr_assert(v.capacity >= 4, "Capacity should default to at least 4");
+  cr_assert(anu_vector_is_empty(&v), "Vector should report as empty");
 
   anu_vector_destroy(&v);
-  cr_assert_null(
-      v.items,
+  cr_assert(
+      v.items == NULL,
       "Items pointer should be NULL after destroy (if you set it to NULL)");
-  cr_assert_eq(v.capacity, 0, "Capacity should be 0 after destroy");
+  cr_assert(v.capacity == 0, "Capacity should be 0 after destroy");
 }
 
 /*
@@ -45,17 +46,17 @@ Test (vector, int_operations) {
   anu_vector_append(&v, &nums[1]);
   anu_vector_append(&v, &nums[2]);
 
-  cr_assert_eq(anu_vector_count(&v), 3, "Count should be 3");
+  cr_assert(anu_vector_count(&v) == 3, "Count should be 3");
 
   int val;
 
   /* Check Index 0 */
   anu_vector_get(&v, 0, &val);
-  cr_assert_eq(val, 10, "Index 0 should be 10");
+  cr_assert(val == 10, "Index 0 should be 10");
 
   /* Check Index 2 */
   anu_vector_get(&v, 2, &val);
-  cr_assert_eq(val, 30, "Index 2 should be 30");
+  cr_assert(val == 30, "Index 2 should be 30");
 
   anu_vector_destroy(&v);
 }
@@ -76,9 +77,9 @@ Test (vector, struct_operations) {
   test_item out;
   anu_vector_get(&v, 1, &out);
 
-  cr_assert_eq(out.id, 99);
-  cr_assert_float_eq(out.weight, 0.5F, 0.001);
-  cr_assert_eq(out.code, 'Z');
+  cr_assert(out.id == 99);
+  cr_assert(eq(flt,out.weight, 0.5F, 0.001));
+  cr_assert(out.code == 'Z');
 
   anu_vector_destroy(&v);
 }
@@ -96,9 +97,9 @@ Test (vector, automatic_resize) {
     anu_vector_append(&v, &i);
   }
 
-  cr_assert_eq(anu_vector_count(&v), limit);
+  cr_assert(anu_vector_count(&v) == limit);
   /* Capacity should have kept doubling all the way to 128 */
-  cr_assert_eq(v.capacity, 128);
+  cr_assert(v.capacity == 128);
 
   /* Verify data integrity didn't break during realloc */
   int first;
@@ -108,9 +109,9 @@ Test (vector, automatic_resize) {
   anu_vector_get(&v, 50, &mid);
   anu_vector_get(&v, 99, &last);
 
-  cr_assert_eq(first, 0);
-  cr_assert_eq(mid, 50);
-  cr_assert_eq(last, 99);
+  cr_assert(first== 0);
+  cr_assert(mid== 50);
+  cr_assert(last== 99);
 
   anu_vector_destroy(&v);
 }
@@ -134,16 +135,16 @@ Test (vector, pop_operations) {
 
   /* Pop 200 */
   anu_vector_pop_end(&v, &popped);
-  cr_assert_eq(popped, 200, "Should have popped last item (200)");
-  cr_assert_eq(anu_vector_count(&v), 1, "Count should decrease to 1");
+  cr_assert(popped== 200, "Should have popped last item (200)");
+  cr_assert(anu_vector_count(&v)== 1 ,"Count should decrease to 1");
 
   /* Pop 100 */
   anu_vector_pop_end(&v, NULL);
-  cr_assert_eq(anu_vector_count(&v), 0, "Count should be 0");
+  cr_assert(anu_vector_count(&v) == 0, "Count should be 0");
 
   /* Pop empty */
   int res = anu_vector_pop_end(&v, &popped);
-  cr_assert_eq(res, 0, "Popping empty vector should return 0/fail code");
+  cr_assert(res == 0, "Popping empty vector should return 0/fail code");
 
   anu_vector_destroy(&v);
 }
@@ -165,7 +166,7 @@ Test (vector, out_of_bounds) {
   /* Try to get index 1 (doesn't exist) */
   result = anu_vector_get(&v, 1, &out);
 
-  cr_assert_eq(result, -1, "Should indicate failure for out of bounds access");
+  cr_assert(result == -1, "Should indicate failure for out of bounds access");
 
   anu_vector_destroy(&v);
 }
