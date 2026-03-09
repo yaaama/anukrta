@@ -146,6 +146,10 @@ int anukrta_driver (anukrta_config *config) {
 
   /* THREADING START */
   pthread_t *threads = calloc(config->thread_count, sizeof(pthread_t));
+  if (!threads) {
+    ANU_DIE("Failed to allocate memory for threads");
+  }
+
   pthread_mutex_t idx_mutex;
   pthread_mutex_init(&idx_mutex, NULL);
 
