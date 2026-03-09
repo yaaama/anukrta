@@ -21,7 +21,6 @@ Diagnostics:
     # Add: [bugprone-*, performance-*, readability-*, misc-*, clang-analyzer-*]
     FastCheckFilter: Loose
   Includes:
-    # IgnoreHeader: ["criterion*"]
     AnalyzeAngledIncludes: false
   UnusedIncludes: Strict
 
@@ -40,3 +39,13 @@ Documentation:
 Index:
   StandardLibrary: true
   Background: Build
+
+---
+
+If:
+  PathMatch: [tests/.*\.h, tests/.*\.c]
+
+Diagnostics:
+  Includes:
+    IgnoreHeader: ["criterion*"]
+  UnusedIncludes: None
