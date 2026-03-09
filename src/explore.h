@@ -36,8 +36,14 @@ void anu_fileq_init(anu_file_q *q, size_t init_capacity);
 void anu_fileq_destroy(anu_file_q *q);
 int anu_fileq_enqueue(anu_file_q *q, anu_file *file_in);
 int anu_fileq_dequeue(anu_file_q *q, anu_file *file_out);
-int anu_open_dir(char *dir_path, DIR **out);
-int anu_recursive_filewalk(char *searchp, anu_file_q *files_out);
 
+int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
+int anu_file_opendir(char *dir_path, DIR **out);
+int anu_file_ext_supported(char *filename);
 char *anu_file_get_filename(anu_file *f);
+bool anu_file_path_is_dir(char *path);
+bool anu_file_path_exists(char *path);
+int anu_file_resolve_relative_path(char *path, char *out);
+char *anu_file_basename(char *path);
+char *anu_file_basename_stem(char *path, char *out, size_t out_size);
 #endif  // ANU_EXPLORE_H

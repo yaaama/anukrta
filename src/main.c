@@ -58,7 +58,7 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
   /* Scan current directory */
   if (config->scan_curr_dir) {
     log_info("Scanning current directory");
-    if (anu_recursive_filewalk(".", files)) {
+    if (anu_file_recursive_filewalk(".", files)) {
       log_warn("Error searching for files in current directory.");
     }
     return;
@@ -66,7 +66,7 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
 
   /* Else we scan paths given */
   for (size_t i = 0; i < config->paths_count; i++) {
-    if (anu_recursive_filewalk(config->paths[i], files)) {
+    if (anu_file_recursive_filewalk(config->paths[i], files)) {
       log_warn("Error searching for files in '%s'", config->paths[i]);
     }
   }
