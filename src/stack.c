@@ -46,6 +46,7 @@ int anu_vector_append (anu_vector *v, void *item) {
 
   if (vector_is_full(v)) {
     size_t new_capacity = v->capacity * 2;
+    assert(new_capacity > 0);
     void *temp = realloc(v->items, v->_elem_size * new_capacity);
     if (!temp) {
       perror("Reallocation failed.");

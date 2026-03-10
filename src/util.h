@@ -73,23 +73,24 @@ typedef struct anukrta_config {
 /* Range constraint macro to ensure value is between min and max */
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM(_val, _max), _min)
 
-#define ANU_DIE(message)                                           \
-  do {                                                             \
-    fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, (message)); \
-    abort();                                                       \
+#define ANU_DIE(message)                                                  \
+  do {                                                                    \
+    (void) fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, (message)); \
+    abort();                                                              \
   } while (0);
 
-#define TODO(message)                                                    \
-  do {                                                                   \
-    fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, (message)); \
-    abort();                                                             \
+#define TODO(message)                                               \
+  do {                                                              \
+    (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
+                   (message));                                      \
+    abort();                                                        \
   } while (0)
 
-#define UNREACHABLE(message)                                        \
-  do {                                                              \
-    fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, \
-            (message));                                             \
-    abort();                                                        \
+#define UNREACHABLE(message)                                               \
+  do {                                                                     \
+    (void) fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, \
+                   (message));                                             \
+    abort();                                                               \
   } while (0)
 
 #define KILOBYTE(x) ((x) * 1000ULL)

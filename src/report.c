@@ -74,19 +74,20 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
     n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
     unit_index++;
   }
-
+  int c = -1;
   if (unit_index == 0) {
-    snprintf(buf, buf_size, "%lu %s", n_bytes, units_iec[unit_index]);
+    c = snprintf(buf, buf_size, "%lu %s", n_bytes, units_iec[unit_index]);
   } else {
     /* Calculate the 2-digit decimal part using pure integer math.
      * We multiply the remainder by 100, then divide by 1024 (by shifting).
      * This gives us a perfectly safe 0-99 value. */
     size_t decimals = (remainder * 100) >> 10;
 
-    snprintf(buf, buf_size, "%zu.%02" PRIu64 " %s", n_bytes, decimals,
-             units_iec[unit_index]);
+    c = snprintf(buf, buf_size, "%zu.%02" PRIu64 " %s", n_bytes, decimals,
+                 units_iec[unit_index]);
   }
 
+  assert(c < 0);
   return buf;
 }
 
@@ -94,7 +95,8 @@ char *get_date_from_epoch (time_t *epoch_time, size_t buf_size, char *buf) {
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
-  strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
+  size_t ret = strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
+  assert(ret == buf_size);
   return buf;
 }
 
