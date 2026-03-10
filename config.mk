@@ -18,7 +18,12 @@ DEV_FLAGS := -ggdb3 -Og \
 -fno-omit-frame-pointer -fno-optimize-sibling-calls \
 -Wnull-dereference \
 -Wstack-protector -fstack-protector-strong \
--fstack-clash-protection -fcf-protection
+-fstack-clash-protection -fcf-protection \
+-Wuninitialized -Winit-self \
+-Wmisleading-indentation \
+-fstrict-aliasing -Wstrict-aliasing \
+-Wstrict-overflow -Winline -Wparentheses
+
 
 # Compiler Specific
 COMPILER_CFLAGS :=

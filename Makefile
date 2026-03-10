@@ -1,4 +1,4 @@
-MAKEFLAGS += --no-print-directory
+MAKEFLAGS += --no-print-directory -j
 
 VARIANT ?= debug
 SANITIZER ?= none
@@ -114,7 +114,19 @@ FILES := $(shell find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/
 #   Build Rules
 # ==========================================
 
+# Determine which targets to build
+TARGETS_TO_BUILD := $(BUILD_DIR)/$(TARGET_NAME)
+
+# Skip building tests for sanitizer builds
+ifeq ($(SANITIZER), none)
+    TARGETS_TO_BUILD += $(BUILD_DIR)/$(TEST_TARGET_NAME)
+endif
+
+
 .PHONY: all run clean test run lint check release release-debug debug format memcheck analyze
+
+.DEFAULT_GOAL := debug
+
 # ALL
 all: debug asan tsan
 
@@ -138,7 +150,7 @@ release:
 	@echo "=== Building Release Variant ==="
 	$(Q)$(MAKE) -s VARIANT=release SANITIZER=none DEBUG=0 PROFILE=0 build-variant 2>/dev/null
 
-build-variant: $(BUILD_DIR)/$(TARGET_NAME) $(BUILD_DIR)/$(TEST_TARGET_NAME)
+build-variant: $(TARGETS_TO_BUILD)
 
 $(BUILD_DIR)/$(TARGET_NAME): $(OBJECTS)
 	@mkdir -p $(dir $@)
@@ -159,9 +171,7 @@ $(OBJ_DIR)/%.o: %.c
 
 # Helpers so we don't have to type out variable names to test specific builds
 run-asan:  ; $(MAKE) VARIANT=asan SANITIZER=asan run
-test-asan: ; $(MAKE) VARIANT=asan SANITIZER=asan test
 run-tsan:  ; $(MAKE) VARIANT=tsan SANITIZER=tsan run
-test-tsan: ; $(MAKE) VARIANT=tsan SANITIZER=tsan test
 
 run: build-variant
 ifneq ($(filter asan tsan, $(SANITIZER)),)
@@ -178,13 +188,7 @@ endif
 
 test: build-variant
 	@echo "--- Testing [$(VARIANT)] ---"
-ifneq ($(filter asan tsan, $(SANITIZER)),)
-	@env ASAN_OPTIONS="$(DEFAULT_ASAN_OPTIONS)" \
-		TSAN_OPTIONS="$(DEFAULT_TSAN_OPTIONS)" \
-		./$(BUILD_DIR)/$(TEST_TARGET_NAME)
-else
-	@./$(BUILD_DIR)/$(TEST_TARGET_NAME)
-endif
+	./$(BUILD_DIR)/$(TEST_TARGET_NAME) -j$(shell nproc)
 
 .PHONY: clean bear analyze check format lint memcheck
 # Clean
@@ -203,9 +207,9 @@ bear:
 	$(Q)bear -- $(MAKE) -B debug
 
 analyze: clean-debug
-	scan-build --use-cc=clang -o $(BUILD_DIR)/scan-reports $(MAKE)
+	scan-build --force-analyze-debug-code -analyze-headers --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE)
 
-check:
+cppcheck:
 	@echo "Running cppcheck..."
 	@cppcheck --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
 	--suppress=missingIncludeSystem \
@@ -218,7 +222,7 @@ format:
 
 lint:
 	@echo "Running clang-tidy"
-	@clang-tidy $(FILES)
+	@clang-tidy -q $(FILES)
 
 memcheck: debug
 	@echo "Running Valgrind on Debug variant..."
