@@ -114,7 +114,7 @@ uint64_t dct_hash (uint8_t *input_pixels) {
   }
 
   /* We treat values smaller than this precision to be NOISE. */
-  float epsilon = 0.001F;
+  const float epsilon = 0.001F;
   /* Sum up the pixels to calculate the average */
 
   float sum_pixels = 0.0F;
