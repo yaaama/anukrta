@@ -31,10 +31,7 @@
 #define ANU_EAGAIN 11
 
 int video_reader_grab_frame_at_pts(anu_vreader *vreader, long target_pts);
-int scale_frame(anu_vreader *vr,
-                size_t width,
-                size_t height,
-                AVFrame *out_frame);
+int scale_frame(anu_vreader *vr, AVFrame *out_frame);
 uint64_t hash_decoded_frame(uint8_t *matrix, anu_hash_type hash_algo);
 int decode_avpacket(anu_vreader *vreader);
 size_t pts_to_useconds(long pts, AVRational timebase);
@@ -148,8 +145,7 @@ int anu_video_hash (anu_file *file,
       continue;
     }
 
-    if (scale_frame(&vreader, ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
-                    gray_frame) != 0) {
+    if (scale_frame(&vreader, gray_frame) != 0) {
       log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
       continue;
     }
@@ -297,10 +293,7 @@ int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
   return 0;
 }
 
-int scale_frame (anu_vreader *vr,
-                 size_t width,
-                 size_t height,
-                 AVFrame *out_frame) {
+int scale_frame (anu_vreader *vr, AVFrame *out_frame) {
 
   enum AVPixelFormat input_fmt = vr->frame->format;
 
