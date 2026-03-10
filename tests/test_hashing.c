@@ -53,7 +53,7 @@ Test (hashing, hamming_distances) {
       0x2e4d99e444b1bf0e,
       0x68141b6d97eeb979,
   };
-  uint64_t hamming_answers[] = {
+  int hamming_answers[] = {
       0,
       1,
       31,
@@ -63,7 +63,7 @@ Test (hashing, hamming_distances) {
   for (int i = 0; i < (int)ANU_ARRAY_SIZE(hamming); i += 2) {
     distance = hamming_distance(hamming[i], hamming[i + 1]);
 
-    cr_assert(eq(u64, distance, hamming_answers[answer_idx],
+    cr_assert(eq(int, distance, hamming_answers[answer_idx],
                  "Distance should be 1 for hash %lx and %lx.", hamming[i],
                  hamming[i + 1]));
     ++answer_idx;
