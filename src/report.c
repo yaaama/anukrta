@@ -26,15 +26,6 @@ static size_t find_set (size_t i, size_t *parent) {
   return parent[i] = find_set(parent[i], parent);
 }
 #else
-static size_t find_set_halving (size_t i, size_t *parent) {
-  while (parent[i] != i) {
-    // Make the node point to its grandparent
-    parent[i] = parent[parent[i]];
-    i = parent[i];
-  }
-  return i;
-}
-
 static size_t find_set (size_t i, size_t *parent) {
   size_t root = i;
 
