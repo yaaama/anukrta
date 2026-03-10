@@ -44,54 +44,31 @@ typedef struct anukrta_config {
 } anukrta_config;
 
 /**
- * @brief
- * One second in microseconds
+ * @brief One second (s) in microseconds (us)
  *
  * This is useful as FFmpeg uses microseconds for their timebase
- */
+ **/
 #define ANU_TIME_ONE_SEC_IN_US 1000000
 
-#define LIKELY(x) __builtin_expect(!!(x), 1)
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
-
-#define ALWAYS_INLINE __attribute__((always_inline)) inline
-#define HOT_FUNCTION __attribute__((hot))
-
-#define STRINGIFY(s) TOSTRING(s)
-#define TOSTRING(s) #s
-
-#define GLUE(a, b) a##b
-#define JOIN(a, b) GLUE(a, b)
-
-/* Array size macro */
+/**
+ * @brief Array size macro
+ **/
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
-/* Return bigger value */
+/**
+ *  @brief Return larger value
+ **/
 #define MAXIMUM(x, y) ((x) > (y) ? (x) : (y))
-/* Return smaller value */
+
+/**
+ * @brief Return smaller value
+ **/
 #define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
-/* Range constraint macro to ensure value is between min and max */
+
+/**
+ * @brief Range constraint macro to ensure value is between min and max
+ **/
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM(_val, _max), _min)
-
-#define ANU_DIE(message)                                                  \
-  do {                                                                    \
-    (void) fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, (message)); \
-    abort();                                                              \
-  } while (0);
-
-#define TODO(message)                                               \
-  do {                                                              \
-    (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
-                   (message));                                      \
-    abort();                                                        \
-  } while (0)
-
-#define UNREACHABLE(message)                                               \
-  do {                                                                     \
-    (void) fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, \
-                   (message));                                             \
-    abort();                                                               \
-  } while (0)
 
 #define KILOBYTE(x) ((x) * 1000ULL)
 #define MEGABYTE(x) (KILOBYTE(x) * 1000ULL)
@@ -119,5 +96,91 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
   return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
                        : 0;
 }
+
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
+#define ALWAYS_INLINE __attribute__((always_inline)) inline
+#define HOT_FUNCTION __attribute__((hot))
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define MAYBE_UNUSED __attribute__((unused))
+#else
+#  define MAYBE_UNUSED
+#endif
+
+#define STRINGIFY(s) TOSTRING(s)
+#define TOSTRING(s) #s
+
+#define GLUE(a, b) a##b
+#define JOIN(a, b) GLUE(a, b)
+
+/**
+ *  @brief Print panic message and abort the program as our code is broken.
+ *
+ * To be used only when there is some logical issue in our code.
+ **/
+#define ANU_PANIC(message)                                             \
+  do {                                                                 \
+    (void) fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, \
+                   (message));                                         \
+    abort();                                                           \
+  } while (0)
+
+/**
+ *  @brief Print message and exit as we have encountered external error.
+ *
+ *  Used when we encounter issues such as memory allocation failure.
+ **/
+#define ANU_DIE(message)                                               \
+  do {                                                                 \
+    (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, \
+                   (message));                                         \
+    fflush(stderr);                                                    \
+    exit(1);                                                           \
+  } while (0)
+
+/**
+ *  @brief Print message and exit, as this section of code is not implemented yet.
+ **/
+#define TODO(message)                                               \
+  do {                                                              \
+    (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
+                   (message));                                      \
+    fflush(stderr);                                                 \
+    exit(1);                                                        \
+  } while (0)
+
+#ifdef NDEBUG  // UNREACHABLE
+/* Optimise unreachable code away when in release builds. */
+#  define UNREACHABLE(message) __builtin_unreachable()
+
+/* Tell compiler our assumptions are TRUE and optimise out anything contrary. */
+#  define ASSUME(cond) \
+    do {               \
+      if (!(cond))     \
+        UNREACHABLE(); \
+    } while (0)
+
+#else
+/* Debug builds should crash when reaching unreachable code. */
+#  define UNREACHABLE(message)                                           \
+    do {                                                                 \
+      (void) fprintf(stderr, "Unreachable code reached at: %s:%d: %s\n", \
+                     __FILE__, __LINE__, (message));                     \
+      abort();                                                           \
+    } while (0)
+
+/* Assumption crashes when false. */
+#  define ASSUME(cond)                                                   \
+    do {                                                                 \
+      if (!(cond)) {                                                     \
+        (void) fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", \
+                       STRINGIFY(cond), __FILE__, __LINE__);             \
+        abort();                                                         \
+      }                                                                  \
+    } while (0)
+
+#endif  // UNREACHABLE
 
 #endif  // ANU_UTIL_H
