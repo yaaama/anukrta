@@ -107,15 +107,15 @@ int hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);
 void anu_util_print_indent(int depth);
 
-ALWAYS_INLINE int anu_util_tolower (int c) {
+static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
 
-ALWAYS_INLINE double anu_time_microseconds_to_seconds (size_t microseconds) {
+static inline double anu_time_microseconds_to_seconds (size_t microseconds) {
   return ((double) microseconds / ANU_TIME_ONE_SEC_IN_US);
 }
 
-ALWAYS_INLINE size_t anu_time_seconds_to_microseconds (double seconds) {
+static inline size_t anu_time_seconds_to_microseconds (double seconds) {
   return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
                        : 0;
 }
