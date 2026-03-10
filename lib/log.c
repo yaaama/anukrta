@@ -121,7 +121,7 @@ static void init_event (log_event *ev, void *udata) {
   ev->udata = udata;
 }
 
-void log_log (int level, const char *file, int line, const char *fmt, ...) {
+__attribute__((format(__printf__, 4, 5))) void log_log (int level, const char *file, int line, const char *fmt, ...) {
   log_event ev = {
       .fmt = fmt,
       .file = file,
