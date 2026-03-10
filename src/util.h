@@ -28,7 +28,7 @@ typedef size_t usize;
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
-  char **paths;
+  const char **paths;
   size_t skip_duration; /* Video length shorter than this will be skipped */
   size_t paths_count;   /* Number of paths we parsed from cli args */
   size_t threshold;     /* Similarity threshold */
