@@ -19,21 +19,22 @@ int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
     capacity = 4;
   }
 
+  v->capacity = capacity;
+  v->count = 0;
+  v->_elem_size = elem_size;
+
   v->items = malloc(capacity * elem_size);
+
   if (!v->items) {
     perror("Memory allocation failed.");
     return EXIT_FAILURE;
   }
-
-  v->capacity = capacity;
-  v->count = 0;
-  v->_elem_size = elem_size;
   return EXIT_SUCCESS;
 }
 
 int vector_is_full (anu_vector *v) {
   assert(v);
-  return (v->capacity == v->count);
+  return (v->capacity == v->count) ? 1 : 0;
 }
 
 int anu_vector_is_empty (anu_vector *v) {
@@ -126,21 +127,26 @@ void anu_vector_destroy (anu_vector *v) {
 void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
 
   assert(elem_size);
+
+  size_t init_cap = capacity;
+
   if (capacity == 0) {
-    capacity = 4;
+    init_cap = 4;
   }
 
-  s->items = malloc(capacity * elem_size);
+  s->capacity = capacity;
+  s->count = 0;
+  s->elem_size = elem_size;
+
+  s->items = malloc(init_cap * elem_size);
   if (!s->items) {
     perror("Memory allocation failed.");
     return;
   }
-  s->capacity = capacity;
-  s->count = 0;
-  s->elem_size = elem_size;
 }
 
 void anu_stack_push (anu_stack *s, void *item_ptr) {
+  assert(s && s->capacity > 0);
 
   if (s->count == s->capacity) {
     size_t new_capacity = (s->capacity * 2);
