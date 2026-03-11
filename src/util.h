@@ -5,9 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Boolean 1 byte */
+/* 1 byte (8 bits) boolean type */
 typedef int8_t b8;
-/* Boolean 4 bytes */
+/* 4 byte (32 bits) boolean type */
 typedef int32_t b32;
 typedef uint8_t u8;
 typedef int32_t i32;

@@ -293,8 +293,8 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
    * without actually using recursion in the implementation */
   anu_stack dirstack;
   anu_stack_init(
-    &dirstack, 4,
-    sizeof(struct anu_dir_job));       // Initialise stack to being capacity 4
+      &dirstack, 4,
+      sizeof(struct anu_dir_job));     // Initialise stack to being capacity 4
   anu_stack_push(&dirstack, &dirjob);  // Push the root directory into the stack
 
   /* Directory stream */

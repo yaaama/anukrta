@@ -126,7 +126,7 @@ int anu_video_hash (anu_file *file,
     seek_target_us = (int64_t) (i * frame_step_us);
     /* NOTE: * As long as our duration values are positive, all of this casting is fine */
     seek_target_sb =
-      av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
+        av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
     log_debug("[%s] --- Segment [%zu/%zu] ---", fname, i + 1,
               total_video_segments);
@@ -153,7 +153,7 @@ int anu_video_hash (anu_file *file,
     copy_frame_to_buffer(gray_frame, matrix, ANU_PHASH_INPUT_SIZE);
 
     hashes_out[frames_decoded] =
-      hash_decoded_frame(&matrix[0], config->hash_algorithm);
+        hash_decoded_frame(&matrix[0], config->hash_algorithm);
 
     log_debug("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
               hashes_out[frames_decoded]);
@@ -322,8 +322,8 @@ int scale_frame (anu_vreader *vr, AVFrame *out_frame) {
   AVFrame *src = vr->frame;
 
   vr->sws_ctx = sws_getCachedContext(
-    vr->sws_ctx, src->width, src->height, input_fmt, out_frame->width,
-    out_frame->height, out_frame->format, SWS_AREA, NULL, NULL, NULL);
+      vr->sws_ctx, src->width, src->height, input_fmt, out_frame->width,
+      out_frame->height, out_frame->format, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("Failed to create scaling context.");
@@ -475,7 +475,7 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
 
   /* Finds best stream that matches our specifications */
   vreader->video_stream_idx = av_find_best_stream(
-    vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
+      vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
   if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
     log_error("No decoder found for stream.");
@@ -580,12 +580,12 @@ size_t vreader_get_duration (anu_vreader *vreader) {
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
     duration_in_sb =
-      (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
+        (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
     log_warn(
-      "[%s] Video stream omitting duration, using container values as "
-      "fallback (%.2fs)",
-      vreader->fmt_ctx->url,
-      anu_time_microseconds_to_seconds((size_t) duration_in_sb));
+        "[%s] Video stream omitting duration, using container values as "
+        "fallback (%.2fs)",
+        vreader->fmt_ctx->url,
+        anu_time_microseconds_to_seconds((size_t) duration_in_sb));
     return (size_t) duration_in_sb;
   }
 

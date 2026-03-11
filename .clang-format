@@ -49,7 +49,7 @@ SpaceBeforeParensOptions:
 BracedInitializerIndentWidth: 2
 BinPackParameters: false
 BinPackArguments: true
-ContinuationIndentWidth: 2
+ContinuationIndentWidth: 4
 
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false

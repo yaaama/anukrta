@@ -33,5 +33,5 @@ Test (FileUtilities, basename) {
   char *directory = "/etc/directory/directory2/";
   anu_file_basename_stem(directory, &buffer[0], 100);
   cr_log_info("%s Basename -> %s\n", directory, buffer);
-  cr_assert(zero(str,buffer));
+  cr_assert(zero(str, buffer));
 }

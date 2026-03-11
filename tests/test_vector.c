@@ -78,7 +78,7 @@ Test (vector, struct_operations) {
   anu_vector_get(&v, 1, &out);
 
   cr_assert(out.id == 99);
-  cr_assert(eq(flt,out.weight, 0.5F, 0.001));
+  cr_assert(eq(flt, out.weight, 0.5F, 0.001));
   cr_assert(out.code == 'Z');
 
   anu_vector_destroy(&v);
@@ -109,9 +109,9 @@ Test (vector, automatic_resize) {
   anu_vector_get(&v, 50, &mid);
   anu_vector_get(&v, 99, &last);
 
-  cr_assert(first== 0);
-  cr_assert(mid== 50);
-  cr_assert(last== 99);
+  cr_assert(first == 0);
+  cr_assert(mid == 50);
+  cr_assert(last == 99);
 
   anu_vector_destroy(&v);
 }
@@ -135,8 +135,8 @@ Test (vector, pop_operations) {
 
   /* Pop 200 */
   anu_vector_pop_end(&v, &popped);
-  cr_assert(popped== 200, "Should have popped last item (200)");
-  cr_assert(anu_vector_count(&v)== 1 ,"Count should decrease to 1");
+  cr_assert(popped == 200, "Should have popped last item (200)");
+  cr_assert(anu_vector_count(&v) == 1, "Count should decrease to 1");
 
   /* Pop 100 */
   anu_vector_pop_end(&v, NULL);
