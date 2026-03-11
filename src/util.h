@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "hash.h"
-
 /* Boolean 1 byte */
 typedef int8_t b8;
 /* Boolean 4 bytes */
@@ -26,9 +24,14 @@ typedef size_t usize;
 #define ANU_DEF_THREAD_COUNT 8
 #define ANU_MAX_PATH_LEN 512
 
+typedef enum anu_hash_type {
+  ANU_HASH_ALGO_AVERAGE = 0,
+  ANU_HASH_ALGO_DCT = 1,
+} anu_hash_type;
+
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
-  const char **paths;
+  char **paths;
   size_t skip_duration; /* Video length shorter than this will be skipped */
   size_t paths_count;   /* Number of paths we parsed from cli args */
   size_t threshold;     /* Similarity threshold */
@@ -66,9 +69,9 @@ typedef struct anukrta_config {
 #define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
 
 /**
- * @brief Range constraint macro to ensure value is between min and max
+ * @brief Range constraint macro to ensure value is between min and max.
  **/
-#define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM(_val, _max), _min)
+#define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM((_val), (_max)), (_min))
 
 #define KILOBYTE(x) ((x) * 1000ULL)
 #define MEGABYTE(x) (KILOBYTE(x) * 1000ULL)
@@ -137,7 +140,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
     (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, \
                    (message));                                         \
     fflush(stderr);                                                    \
-    exit(1);                                                           \
+    abort();                                                           \
   } while (0)
 
 /**
@@ -148,7 +151,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
     (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
                    (message));                                      \
     fflush(stderr);                                                 \
-    exit(1);                                                        \
+    abort();                                                        \
   } while (0)
 
 #ifdef NDEBUG  // UNREACHABLE

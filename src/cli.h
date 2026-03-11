@@ -5,6 +5,6 @@
 
 #define ANU_VERSION "0.0.1"
 
-int anu_cli_parse_options(anukrta_config *config, int argc, char *const argv[]);
+int anu_cli_parse_options(anukrta_config *config, int argc, char **argv);
 void anu_cli_print_configuration(anukrta_config *config);
 #endif  // ANU_CLI_H
