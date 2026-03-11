@@ -206,7 +206,7 @@ anu_report anu_generate_report (anu_file_q *files,
   for (size_t i = 0; i < file_count; i++) {
     size_t root = find_set(i, parent);
     /* Should never happen if logic is correct */
-    assert(root < file_count);
+    ASSUME(root < file_count);
     if (!buckets[root].items) {
       anu_vector_init(&buckets[root], 4, sizeof(uint64_t));
     }
@@ -227,14 +227,15 @@ anu_report anu_generate_report (anu_file_q *files,
     if (report.count == report.capacity) {
       report.capacity *= 2;
       dupe_group_vector *temp =
-        realloc(report.groups, report.capacity * sizeof(dupe_group_vector));
+          realloc(report.groups, report.capacity * sizeof(dupe_group_vector));
       if (!temp) {
         ANU_DIE("Failed to allocate memory.");
       }
       report.groups = temp;
     }
 
-    dupe_group_vector *new_group = &report.groups[report.count++];
+    dupe_group_vector *new_group = &report.groups[report.count];
+    ++report.count;
     new_group->count = buckets[i].count;
     /* Steal the memory from the stack */
     new_group->file_ids = buckets[i].items;
