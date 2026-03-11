@@ -139,7 +139,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
   do {                                                                 \
     (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, \
                    (message));                                         \
-    fflush(stderr);                                                    \
+    (void) fflush(stderr);                                             \
     abort();                                                           \
   } while (0)
 
@@ -150,7 +150,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
   do {                                                              \
     (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
                    (message));                                      \
-    fflush(stderr);                                                 \
+    (void) fflush(stderr);                                          \
     abort();                                                        \
   } while (0)
 
