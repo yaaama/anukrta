@@ -87,7 +87,7 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
                  units_iec[unit_index]);
   }
 
-  assert(c < 0);
+  assert(c > 0);
   return buf;
 }
 
@@ -96,7 +96,7 @@ char *get_date_from_epoch (time_t *epoch_time, size_t buf_size, char *buf) {
   localtime_r(epoch_time, &timeinfo);
 
   size_t ret = strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
-  assert(ret == buf_size);
+  assert(ret > 0);
   return buf;
 }
 
