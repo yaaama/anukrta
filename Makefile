@@ -218,7 +218,7 @@ cppcheck:
 
 format:
 	@echo "Running clang-format"
-	@clang-format -n -i $(FILES)
+	@clang-format -i $(FILES)
 
 lint:
 	@echo "Running clang-tidy"
