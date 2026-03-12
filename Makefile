@@ -114,12 +114,16 @@ FILES := $(shell find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/
 #   Build Rules
 # ==========================================
 
+# Skip building tests when refactoring etc
+SKIP_TESTS ?= 0
 # Determine which targets to build
 TARGETS_TO_BUILD := $(BUILD_DIR)/$(TARGET_NAME)
 
 # Skip building tests for sanitizer builds
 ifeq ($(SANITIZER), none)
-    TARGETS_TO_BUILD += $(BUILD_DIR)/$(TEST_TARGET_NAME)
+	ifneq ($(SKIP_TESTS), 1)
+		TARGETS_TO_BUILD += $(BUILD_DIR)/$(TEST_TARGET_NAME)
+	endif
 endif
 
 
