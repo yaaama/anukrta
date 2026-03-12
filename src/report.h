@@ -22,7 +22,10 @@ typedef struct {
   usize capacity;
 } anu_report;
 
-void anu_print_report(anu_report *report, anu_file_q *files);
+void anu_print_report(anukrta_config *config,
+                      anu_report *report,
+                      anu_file_q *files,
+                      u64 *hashes);
 anu_report anu_generate_report(anu_file_q *files,
                                u64 *hashes,
                                anukrta_config *config,

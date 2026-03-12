@@ -83,7 +83,7 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
      * This gives us a perfectly safe 0-99 value. */
     size_t decimals = (remainder * 100) >> 10;
 
-    c = snprintf(buf, buf_size, "%zu.%02" PRIu64 " %s", n_bytes, decimals,
+    c = snprintf(buf, buf_size, "%zu.%02" PRIX64 " %s", n_bytes, decimals,
                  units_iec[unit_index]);
   }
 
@@ -100,7 +100,11 @@ char *get_date_from_epoch (time_t *epoch_time, size_t buf_size, char *buf) {
   return buf;
 }
 
-void anu_print_report (anu_report *report, anu_file_q *files) {
+void anu_print_report (anukrta_config *config,
+                       anu_report *report,
+                       anu_file_q *files,
+                       u64 *hashes) {
+
   if (report->count == 0) {
     printf("\n=== Report ===\n");
     printf("No duplicate groups found.\n");
@@ -126,9 +130,22 @@ void anu_print_report (anu_report *report, anu_file_q *files) {
       time_t modification_t = file->mtime;
       char time_str[64] = {0};
       get_date_from_epoch(&modification_t, ANU_ARRAY_SIZE(time_str), time_str);
-      printf("  %s\n", file->path);
-      printf("\tsize: %-10s | time: %-15s | duration: %-.2fs\n", human_sizing,
-             time_str, anu_time_microseconds_to_seconds(file->duration_us));
+      printf("  %s", file->path);
+      printf("\n");
+
+      printf("\t-> [%zu] | size: %-10s | time: %-15s | duration: %-.2fs\n",
+             file_id, human_sizing, time_str,
+             anu_time_microseconds_to_seconds(file->duration_us));
+
+      printf("\t-> Hashes: [ ");
+      for (size_t seg = 0; seg < config->segments; seg++) {
+        /* Calculate the exact index in the flat array */
+        uint64_t hash_val = hashes[(file_id * config->segments) + seg];
+
+        /* Print as zero-padded 16-character uppercase Hex */
+        printf("%" PRIX64 " ", hash_val);
+      }
+      printf("]\n");
     }
   }
 }

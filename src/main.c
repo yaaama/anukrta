@@ -203,7 +203,7 @@ int anukrta_driver (anukrta_config *config) {
   }
 
   anu_report report = anu_generate_report(&files, hashes, config, &filetree);
-  anu_print_report(&report, &files);
+  anu_print_report(config, &report, &files, hashes);
   anu_report_destroy(&report);
   bk_tree_node_free(filetree.root);
   anu_fileq_destroy(&files);
