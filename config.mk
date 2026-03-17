@@ -12,17 +12,18 @@ CC ?= clang
 
 # --- C Flags ---
 # Development
-DEV_FLAGS := -ggdb3 -Og \
+DEV_FLAGS := -Og -ggdb3 \
 -Wformat=2 \
 -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-missing-prototypes \
 -fno-omit-frame-pointer -fno-optimize-sibling-calls \
 -Wnull-dereference \
 -Wstack-protector -fstack-protector-strong \
 -fstack-clash-protection -fcf-protection \
--Wuninitialized -Winit-self \
+-Winit-self \
 -Wmisleading-indentation \
 -fstrict-aliasing -Wstrict-aliasing \
--Wstrict-overflow -Winline -Wparentheses
+-Wstrict-overflow -Winline -Wparentheses \
+-Wuninitialized -fexceptions
 
 
 # Compiler Specific

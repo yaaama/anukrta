@@ -6,7 +6,7 @@ DEBUG ?= 1
 PROFILE ?= 0
 
 LDFLAGS ?=
--include config.mk
+include config.mk
 
 # ==========================================
 #   Project Settings
@@ -80,7 +80,6 @@ ifneq ($(filter asan tsan, $(SANITIZER)),)
 
 	CFLAGS += $(SAN_FLAGS) -fno-omit-frame-pointer
 	LDFLAGS += $(SAN_FLAGS)
-
 # Runtime Options
 	ASAN_LOG_FILE := etc/asan.log
 	DEFAULT_ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
