@@ -31,7 +31,10 @@
 #define ANU_EAGAIN 11
 
 int video_reader_grab_frame_at_pts(anu_vreader *vreader, long target_pts);
-int scale_frame(anu_vreader *vr, AVFrame *out_frame);
+int scale_frame(anu_vreader *vr,
+                uint8_t *matrix,
+                int matrix_size,
+                b32 crop_black);
 uint64_t hash_decoded_frame(uint8_t *matrix, anu_hash_type hash_algo);
 int decode_avpacket(anu_vreader *vreader);
 size_t pts_to_useconds(long pts, AVRational timebase);
@@ -42,14 +45,94 @@ void save_gray_frame(unsigned char *buf,
                      int ysize,
                      char *prefix,
                      long frame_num);
-void copy_frame_to_buffer(AVFrame *frame, uint8_t *dest, int width);
 int normalise_sws_colourspace(AVFrame *frame, SwsContext *context);
-int grey_frame_init(int width, int height, AVFrame *out_frame);
 int vreader_init(char *f_path, anu_vreader *vreader);
 void vreader_close(anu_vreader *vreader);
 int vreader_seek_pts(anu_vreader *vreader, int64_t target_pts);
 size_t vreader_get_duration(anu_vreader *vreader);
 AVStream *vreader_video_stream(anu_vreader *vreader);
+
+/* Helper to check if a row contains non-black pixels */
+static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
+                                         int width,
+                                         int threshold) {
+  for (int x = 0; x < width; x++) {
+    if (row[x] > threshold) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* Detects the bounding box of non-black pixels */
+bool anu_detect_black_borders (AVFrame *frame,
+                               int threshold,
+                               int *out_x,
+                               int *out_y,
+                               int *out_w,
+                               int *out_h) {
+
+  int w = frame->width;
+  int h = frame->height;
+  int linesize = frame->linesize[0];
+  uint8_t *y_plane = frame->data[0];
+
+  int top = 0;
+  int bottom = h - 1;
+  int left = 0;
+  int right = w - 1;
+
+  while ((top < h) /* Top bound */
+         && !(row_has_video(y_plane + ((ptrdiff_t) (top * linesize)), w,
+                            threshold))) {
+    ++top;
+  }
+
+  /* Return false if frame is completely black */
+  if (top == h) {
+    return false;
+  }
+
+  /* Find bottom bound */
+  while ((bottom > top) &&
+         !(row_has_video(y_plane + ((ptrdiff_t) bottom * linesize), w,
+                         threshold))) {
+    --bottom;
+  }
+
+  for (int y = top; y <= bottom; y++) {
+    const uint8_t *row = y_plane + ((ptrdiff_t) y * linesize);
+
+    /* Find the first non-black pixel from the left */
+    /* Optimization: We only need to check up to our current known 'left' */
+    for (int x = 0; x < left; x++) {
+      if (row[x] > threshold) {
+        left = x;
+        break;
+      }
+    }
+
+    /* Find the first non-black pixel from the right */
+    /* Optimization: We only need to check down to our current known 'right' */
+    for (int x = w - 1; x > right; x--) {
+      if (row[x] > threshold) {
+        right = x;
+        break;
+      }
+    }
+
+    /* Optimization: Early exit if we hit the absolute edges of the frame */
+    if (left == 0 && right == w - 1) {
+      break;
+    }
+  }
+
+  *out_x = left;
+  *out_y = top;
+  *out_w = (right - left) + 1;
+  *out_h = (bottom - top) + 1;
+  return true;
+}
 
 int anu_video_hash (anu_file *file,
                     anukrta_config *config,
@@ -96,15 +179,6 @@ int anu_video_hash (anu_file *file,
     return -2;
   }
 
-  AVFrame *gray_frame = av_frame_alloc();
-  if (!gray_frame || grey_frame_init(ANU_PHASH_INPUT_SIZE, ANU_PHASH_INPUT_SIZE,
-                                     gray_frame) != 0) {
-    log_fatal("[%s] Failed to allocate grey frame.", fname);
-    av_frame_free(&gray_frame);
-    vreader_close(&vreader);
-    return -1;
-  }
-
   size_t frame_step_us = video_duration_us / total_video_segments;
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
@@ -146,15 +220,14 @@ int anu_video_hash (anu_file *file,
       continue;
     }
 
-    if (scale_frame(&vreader, gray_frame) != 0) {
+    if (scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
+                    config->detect_bars) != 0) {
       log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
       continue;
     }
 
-    copy_frame_to_buffer(gray_frame, matrix, ANU_PHASH_INPUT_SIZE);
-
     hashes_out[frames_decoded] =
-        hash_decoded_frame(&matrix[0], config->hash_algorithm);
+        hash_decoded_frame(matrix, config->hash_algorithm);
 
     log_debug("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
               hashes_out[frames_decoded]);
@@ -162,11 +235,9 @@ int anu_video_hash (anu_file *file,
   }
 
   /* Cleanup */
-  av_frame_free(&gray_frame);
   vreader_close(&vreader);
 
 #ifdef ANU_DEBUG
-
   char hashes[1024];
   int total_len = 0;
   for (int i = 0; i < frames_decoded; i++) {
@@ -243,22 +314,6 @@ void save_gray_frame (unsigned char *buf,
   fclose(fptr);
 }
 
-void copy_frame_to_buffer (AVFrame *frame, uint8_t *dest, int width) {
-  assert(width > 0);
-  /* Access the raw data pointer for the first plane (Y / Grayscale) */
-  uint8_t *src_data = frame->data[0];
-  int src_linesize = frame->linesize[0];
-
-  for (long y = 0; y < width; y++) {
-    /* Calculate the start of the row in the source frame */
-    /* uint8_t *src_row = src_data + (y * src_linesize); */
-    /* Calculate the start of the row in the destination buffer */
-    /* uint8_t *dest_row = dest + (y * width); */
-    memcpy((dest + (y * width)), (src_data + (y * src_linesize)),
-           (unsigned long) width);
-  }
-}
-
 int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
 
   int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
@@ -275,7 +330,7 @@ int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
   int dummy_cont;
   int dummy_sat;
 
-  // Get default values
+  /* Get default values */
   if (sws_getColorspaceDetails(context, (&inv_table), &dummy_src, (&table),
                                &dummy_dst, &dummy_bright, &dummy_cont,
                                &dummy_sat) < 0) {
@@ -294,37 +349,33 @@ int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
   return 0;
 }
 
-int scale_frame (anu_vreader *vr, AVFrame *out_frame) {
+int scale_frame (anu_vreader *vr,
+                 uint8_t *matrix,
+                 int matrix_size,
+                 b32 crop_black) {
 
-  enum AVPixelFormat input_fmt = vr->frame->format;
+  AVFrame *src = vr->frame;
 
-  switch (input_fmt) {
-    case AV_PIX_FMT_YUVJ420P:
-      {
-        input_fmt = AV_PIX_FMT_YUV420P;
-        break;
-      }
-    case AV_PIX_FMT_YUVJ422P:
-      {
-        input_fmt = AV_PIX_FMT_YUV422P;
-        break;
-      }
-    case AV_PIX_FMT_YUVJ444P:
-      {
-        input_fmt = AV_PIX_FMT_YUV444P;
-        break;
-      }
-    default:
-      break;
+  int crop_x = 0;
+  int crop_y = 0;
+  int crop_w = src->width;
+  int crop_h = src->height;
+
+  if (crop_black) {
+    /* 24 is a safe threshold for limited-range YUV "black" */
+    bool workable_frame =
+        anu_detect_black_borders(src, 24, &crop_x, &crop_y, &crop_w, &crop_h);
+    /* If returning false, then we have a fully black frame */
+    if (!workable_frame) {
+      return 1;
+    }
   }
 
   /* Initialize the Scaler (SwsContext) */
   /* Convert from Source Format -> Gray8 @ 8x8 */
-  AVFrame *src = vr->frame;
-
   vr->sws_ctx = sws_getCachedContext(
-      vr->sws_ctx, src->width, src->height, input_fmt, out_frame->width,
-      out_frame->height, out_frame->format, SWS_AREA, NULL, NULL, NULL);
+      vr->sws_ctx, crop_w, crop_h, AV_PIX_FMT_GRAY8, matrix_size, matrix_size,
+      AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("Failed to create scaling context.");
@@ -337,25 +388,24 @@ int scale_frame (anu_vreader *vr, AVFrame *out_frame) {
     return 1;
   }
 
-  int scaling_ret = sws_scale_frame(vr->sws_ctx, out_frame, vr->frame);
+  /* Setup source pointers using pointer math to crop without copying */
+  const uint8_t *src_slices[4] = {NULL};
+  int src_linesizes[4] = {0};
+
+  /* Advance Y-plane pointer to the crop's top-left origin */
+  src_slices[0] =
+      src->data[0] + ((ptrdiff_t) crop_y * src->linesize[0]) + crop_x;
+  src_linesizes[0] = src->linesize[0];
+
+  /* Setup destination pointers to write DIRECTLY into your flat matrix */
+  uint8_t *dst_slices[4] = {matrix, NULL, NULL, NULL};
+  int dst_linesizes[4] = {matrix_size, 0, 0, 0};
+
+  int scaling_ret = sws_scale(vr->sws_ctx, src_slices, src_linesizes, 0, crop_h,
+                              dst_slices, dst_linesizes);
+
   if (scaling_ret <= 0) {
     log_error("Scaling FAILED: `%s`", av_err2str(scaling_ret));
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
- * @brief Initialise a grayscale frame of specified width and height.
- **/
-int grey_frame_init (int width, int height, AVFrame *out_frame) {
-  out_frame->height = height;
-  out_frame->width = width;
-  out_frame->format = AV_PIX_FMT_GRAY8;
-
-  if (av_frame_get_buffer(out_frame, 0) != 0) {
-    log_error("Could not initialise grayscale frame buffer.");
     return 1;
   }
 

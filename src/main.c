@@ -224,6 +224,8 @@ int main (int argc, char *argv[]) {
     .hash_algorithm = ANU_HASH_ALGO_DCT,
     .skip_duration = anu_time_seconds_to_microseconds(3.0),
     .thread_count = ANU_DEF_THREAD_COUNT,
+    .detect_bars = 1,
+    .detect_black_frames = 1,
   };
 
   int parsing_return = anu_cli_parse_options(&config, argc, argv);

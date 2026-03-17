@@ -40,6 +40,8 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("\n--- Configuration ---\n");
   printf("Verbose: %s\n", config->verbose ? "YES" : "NO");
   printf("Dry Run: %s\n", config->dry_run ? "YES" : "NO");
+  printf("Detect Bars (Letterboxing | Windowboxing | Pillarboxing): %s\n",
+         config->detect_bars ? "YES" : "NO");
   printf("Detect Black Frames: %s\n",
          config->detect_black_frames ? "YES" : "NO");
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");

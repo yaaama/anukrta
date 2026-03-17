@@ -41,8 +41,9 @@ typedef struct anukrta_config {
   b32 scan_curr_dir;    /* Only scan current directory */
   b32 _exit_early;      /* Exit quickly (set when we parse '-h' for example) */
   b32 dry_run;          /* TODO Do not save/actually process any files */
-  b32 detect_black_frames; /* Detect black frames in video and skip them? */
-  b32 detect_rotation;     /* Detect rotation in videos? */
+  b32 detect_black_frames; /* TODO Detect black frames in video and skip them? */
+  b32 detect_rotation;     /* TODO Detect rotation in videos? */
+  b32 detect_bars;         /* Detect windowboxing/letterboxing/pillarboxing */
   anu_hash_type hash_algorithm; /* Hashing algorithm to use */
 } anukrta_config;
 
