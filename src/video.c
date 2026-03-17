@@ -463,7 +463,7 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
     got_info = false;
   }
 
-  if (got_info == false) {
+  if (!got_info) {
     log_error("Failed to read header/stream for file %s", f_path);
     return -1;
   }
