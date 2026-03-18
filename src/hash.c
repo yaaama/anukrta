@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "util.h"
-
 /* Size of row/col len of DCT hash */
 #define ANU_PHASH_DCT_SIZE 8
 

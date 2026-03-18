@@ -76,10 +76,11 @@ int anu_video_hash (anu_file *file,
   size_t total_video_segments = config->segments;
 
   size_t video_duration_us = file->duration_us;
+  /* TODO Make this check earlier on in the pipeline */
   assert(video_duration_us != 0);
   assert(video_duration_us > total_video_segments);
   /* As long as this is true we won't break anything when we cast for libav */
-  assert(video_duration_us < INT64_MAX);
+  ASSUME(video_duration_us < INT64_MAX);
 
   if (!file->duration_us) {
     file->duration_us = video_duration_us;
@@ -124,7 +125,7 @@ int anu_video_hash (anu_file *file,
   for (size_t i = 0; i < total_video_segments; i++) {
 
     seek_target_us = (int64_t) (i * frame_step_us);
-    /* NOTE: * As long as our duration values are positive, all of this casting is fine */
+    /* NOTE: As long as our duration values are positive, all of this casting is fine */
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
