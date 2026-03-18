@@ -225,7 +225,7 @@ format:
 
 lint:
 	@echo "Running clang-tidy"
-	@clang-tidy -q $(FILES)
+	@clang-tidy --quiet $(FILES)
 
 memcheck: debug
 	@echo "Running Valgrind on Debug variant..."
