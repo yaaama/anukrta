@@ -30,27 +30,29 @@
 /* Hardcode this so I don't have to include another header */
 #define ANU_EAGAIN 11
 
-int video_reader_grab_frame_at_pts(anu_vreader *vreader, long target_pts);
-int scale_frame(anu_vreader *vr,
-                uint8_t *matrix,
-                int matrix_size,
-                b32 crop_black);
-uint64_t hash_decoded_frame(uint8_t *matrix, anu_hash_type hash_algo);
-int decode_avpacket(anu_vreader *vreader);
-size_t pts_to_useconds(long pts, AVRational timebase);
-double frame_pts_to_seconds(long pts, AVRational timebase);
-void save_gray_frame(unsigned char *buf,
-                     int wrap,
-                     int xsize,
-                     int ysize,
-                     char *prefix,
-                     long frame_num);
-int normalise_sws_colourspace(AVFrame *frame, SwsContext *context);
-int vreader_init(char *f_path, anu_vreader *vreader);
-void vreader_close(anu_vreader *vreader);
-int vreader_seek_pts(anu_vreader *vreader, int64_t target_pts);
-size_t vreader_get_duration(anu_vreader *vreader);
-AVStream *vreader_video_stream(anu_vreader *vreader);
+static int video_reader_grab_frame_at_pts(anu_vreader *vreader,
+                                          long target_pts);
+static int scale_frame(anu_vreader *vr,
+                       uint8_t *matrix,
+                       int matrix_size,
+                       b32 crop_black);
+static uint64_t hash_decoded_frame(uint8_t *matrix, anu_hash_type hash_algo);
+static int decode_avpacket(anu_vreader *vreader);
+static void save_gray_frame(unsigned char *buf,
+                            int wrap,
+                            int xsize,
+                            int ysize,
+                            char *prefix,
+                            long frame_num);
+static int normalise_sws_colourspace(AVFrame *frame, SwsContext *context);
+static int vreader_init(char *f_path, anu_vreader *vreader);
+static void vreader_close(anu_vreader *vreader);
+static int vreader_seek_pts(anu_vreader *vreader, int64_t target_pts);
+
+static ALWAYS_INLINE size_t pts_to_useconds(long pts, AVRational timebase);
+static ALWAYS_INLINE double frame_pts_to_seconds(long pts, AVRational timebase);
+static ALWAYS_INLINE size_t vreader_get_duration(anu_vreader *vreader);
+static ALWAYS_INLINE AVStream *vreader_video_stream(anu_vreader *vreader);
 
 /* Helper to check if a row contains non-black pixels */
 static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
@@ -65,12 +67,12 @@ static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
 }
 
 /* Detects the bounding box of non-black pixels */
-bool anu_detect_black_borders (AVFrame *frame,
-                               int threshold,
-                               int *out_x,
-                               int *out_y,
-                               int *out_w,
-                               int *out_h) {
+static bool anu_detect_black_borders (AVFrame *frame,
+                                      int threshold,
+                                      int *out_x,
+                                      int *out_y,
+                                      int *out_w,
+                                      int *out_h) {
 
   int w = frame->width;
   int h = frame->height;
@@ -274,12 +276,12 @@ uint64_t hash_decoded_frame (uint8_t *matrix, anu_hash_type hash_algo) {
   return hash;
 }
 
-size_t pts_to_useconds (int64_t pts, AVRational timebase) {
+ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
   assert(pts >= 0);
   return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
-double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
+ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
   assert(pts >= 0);
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
 }
