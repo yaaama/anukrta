@@ -265,7 +265,7 @@ uint64_t hash_decoded_frame (uint8_t *matrix, anu_hash_type hash_algo) {
       }
     default:
       {
-        log_error("Hashing algorithm not specified.");
+        UNREACHABLE("Hashing algorithm not specified.");
       }
   }
 
@@ -277,12 +277,12 @@ uint64_t hash_decoded_frame (uint8_t *matrix, anu_hash_type hash_algo) {
 }
 
 ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
-  assert(pts >= 0);
+  ASSUME(pts >= 0);
   return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
 ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
-  assert(pts >= 0);
+  ASSUME(pts >= 0);
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
 }
 

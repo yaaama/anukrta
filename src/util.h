@@ -155,7 +155,8 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
     abort();                                                        \
   } while (0)
 
-#ifdef NDEBUG  // UNREACHABLE
+#ifdef NDEBUG  // If its in RELEASE MODE
+
 /* Optimise unreachable code away when in release builds. */
 #  define UNREACHABLE(message) __builtin_unreachable()
 
@@ -166,6 +167,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
         UNREACHABLE(); \
     } while (0)
 
+/* ------------------------------------------------------------------------ */
 #else
 /* Debug builds should crash when reaching unreachable code. */
 #  define UNREACHABLE(message)                                           \
