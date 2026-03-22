@@ -84,7 +84,7 @@ static const float DCT_WEIGHTS[256] = {
   0.200801909F,  0.249698862F,  0.185237750F,  0.036682554F,  -0.128525749F,
   -0.235386044F};
 
-uint64_t dct_hash (uint8_t *input_pixels) {
+uint64_t dct_hash (uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
 
   /* Intermediate storage */
   float row_result[DCT_INTERMEDIATE_BUF_LEN];

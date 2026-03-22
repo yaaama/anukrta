@@ -69,10 +69,10 @@ static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
 /* Detects the bounding box of non-black pixels */
 static bool anu_detect_black_borders (AVFrame *frame,
                                       int threshold,
-                                      int *out_x,
-                                      int *out_y,
-                                      int *out_w,
-                                      int *out_h) {
+                                      int *restrict out_x,
+                                      int *restrict out_y,
+                                      int *restrict out_w,
+                                      int *restrict out_h) {
 
   int w = frame->width;
   int h = frame->height;
@@ -194,7 +194,7 @@ int anu_video_hash (anu_file *file,
   /* Loop will turn this true when we have decoded a frame for the segment */
   bool frame_found_for_segment = false;
   long current_pts = 0;
-  uint8_t matrix[ANU_PHASH_INPUT_SIZE * ANU_PHASH_INPUT_SIZE] = {0};
+  uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
   /* Video stream */
   AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
 
@@ -255,7 +255,8 @@ int anu_video_hash (anu_file *file,
 }
 
 /* This is the function called ONLY when a valid frame is fully decoded */
-uint64_t hash_decoded_frame (uint8_t *matrix, anu_hash_type hash_algo) {
+uint64_t hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
+                             anu_hash_type hash_algo) {
   uint64_t hash = 0;
   switch (hash_algo) {
     case ANU_HASH_ALGO_DCT:
@@ -352,7 +353,7 @@ int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
 }
 
 int scale_frame (anu_vreader *vr,
-                 uint8_t *matrix,
+                 uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
                  int matrix_size,
                  b32 crop_black) {
 
