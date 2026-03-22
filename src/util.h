@@ -101,6 +101,9 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
                        : 0;
 }
 
+#define ZERO_MEMORY(pointer, count, type) \
+  memset((pointer), 0, (count) * sizeof(type));
+
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
