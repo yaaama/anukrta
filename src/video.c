@@ -106,7 +106,7 @@ static bool anu_detect_black_borders (AVFrame *frame,
     const uint8_t *row = y_plane + ((ptrdiff_t) y * linesize);
 
     /* Find the first non-black pixel from the left */
-    /* Optimization: We only need to check up to our current known 'left' */
+    /* We only need to check up to our current known 'left' */
     for (int x = 0; x < left; x++) {
       if (row[x] > threshold) {
         left = x;
@@ -115,7 +115,7 @@ static bool anu_detect_black_borders (AVFrame *frame,
     }
 
     /* Find the first non-black pixel from the right */
-    /* Optimization: We only need to check down to our current known 'right' */
+    /* We only need to check down to our current known 'right' */
     for (int x = w - 1; x > right; x--) {
       if (row[x] > threshold) {
         right = x;
@@ -123,7 +123,7 @@ static bool anu_detect_black_borders (AVFrame *frame,
       }
     }
 
-    /* Optimization: Early exit if we hit the absolute edges of the frame */
+    /* Early exit if we hit the absolute edges of the frame */
     if (left == 0 && right == w - 1) {
       break;
     }

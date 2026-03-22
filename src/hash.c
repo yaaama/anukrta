@@ -5,15 +5,21 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Size of row/col len of DCT hash */
+/**
+ * Size of row/col len of DCT hash
+ */
 #define ANU_PHASH_DCT_SIZE 8
 
-/* Intermediate buffer length for DCT calculation */
-#define DCT_INTERMEDIATE_BUF_LEN \
-  (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE) /* 256 */
+/** Intermediate buffer length for DCT calculation
+ * (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE)
+ */
+#define DCT_INTERMEDIATE_BUF_LEN 256
 
-/* Final DCT digest */
-#define DCT_DIGEST_LEN (ANU_PHASH_DCT_SIZE * ANU_PHASH_DCT_SIZE) /* 64 */
+/**
+ * Final DCT digest
+ * (ANU_PHASH_DCT_SIZE)**2
+ */
+#define DCT_DIGEST_LEN 64
 
 /* PI in floating point format */
 #define ANU_PI_F 3.14159265358979323846f
