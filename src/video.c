@@ -12,6 +12,7 @@
 #include <libavutil/frame.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/mem.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 #include <libswscale/swscale.h>
@@ -391,16 +392,25 @@ int scale_frame (anu_vreader *vr,
     return 1;
   }
 
-  /* Setup source pointers using pointer math to crop without copying */
+  const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(src->format);
+
+  if (!desc) {
+    log_error("%s has no pixel format description.", vr->fmt_ctx->url);
+    return 1;
+  }
+
+  /* Number of bytes/bits per pixel */
+  int bytes_per_pixel = desc->comp[0].step;
+
   const uint8_t *src_slices[4] = {NULL};
   int src_linesizes[4] = {0};
 
-  /* Advance Y-plane pointer to the crop's top-left origin */
-  src_slices[0] =
-      src->data[0] + ((ptrdiff_t) crop_y * src->linesize[0]) + crop_x;
+  /* Advance Y-plane safely based on bytes per pixel */
+  src_slices[0] = src->data[0] + ((ptrdiff_t) crop_y * src->linesize[0]) +
+                  ((ptrdiff_t) crop_x * bytes_per_pixel);
   src_linesizes[0] = src->linesize[0];
 
-  /* Setup destination pointers to write DIRECTLY into your flat matrix */
+  /* Setup destination pointers to write DIRECTLY into flat matrix */
   uint8_t *dst_slices[4] = {matrix, NULL, NULL, NULL};
   int dst_linesizes[4] = {matrix_size, 0, 0, 0};
 
