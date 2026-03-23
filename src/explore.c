@@ -240,6 +240,37 @@ char *anu_file_basename_stem (char *path, char *out, size_t out_size) {
 }
 
 /**
+ * @brief Handle when 'path' is a file with extension we support.
+ *
+ * Adds the file pointed to by 'path' to the 'files_out' struct.
+ **/
+static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
+  errno = 0;
+
+  struct stat statb = {0};
+  int stat_return = 0;
+  stat_return = stat(path, &statb);
+  if (stat_return && errno) {
+    perror("Error running 'stat' on file: ");
+    return -1;
+  }
+
+  anu_file file = {0};
+  file.ctime = statb.st_ctime;
+  file.mtime = statb.st_mtime;
+  assert(statb.st_size > 0);
+  file.size = (size_t) statb.st_size;
+
+  file.path = realpath(path, NULL);
+  char *base_ptr = anu_file_basename(path);
+  assert(base_ptr != path);
+  file.name = (base_ptr - path) > 0 ? (int) (base_ptr - path) : 0;
+
+  anu_fileq_enqueue(files_out, &file);
+  return 0;
+}
+
+/**
  * @brief Recursively search path and return files found.
  **/
 int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
@@ -259,27 +290,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
   /* Check if we have received a path to a FILE with extension we support */
   if (!anu_file_path_is_dir(path) && anu_file_ext_supported(path)) {
     log_info("Received path for regular video file: %s", path);
-
-    errno = 0;
-    stat_return = stat(path, &statb);
-    if (stat_return && errno) {
-      perror("Error running 'stat' on file: ");
-      return -1;
-    }
-
-    anu_file file = {0};
-    file.ctime = statb.st_ctime;
-    file.mtime = statb.st_mtime;
-    assert(statb.st_size > 0);
-    file.size = (size_t) statb.st_size;
-
-    file.path = realpath(path, NULL);
-    char *base_ptr = anu_file_basename(path);
-    assert(base_ptr != path);
-    file.name = (base_ptr - path) > 0 ? (int) (base_ptr - path) : 0;
-
-    anu_fileq_enqueue(files_out, &file);
-    return 0;
+    return handle_path_pointing_to_file(path, files_out);
   }
 
   /* Initialise first directory we will explore */
