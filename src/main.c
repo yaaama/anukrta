@@ -148,6 +148,9 @@ static int anukrta_driver (anukrta_config *config) {
   }
 
   /* THREADING START */
+
+  /* NOTE: Thread count should not exceed file count or it is a waste of resources */
+  config->thread_count = MINIMUM(config->thread_count, file_count);
   pthread_t *threads = calloc(config->thread_count, sizeof(pthread_t));
   if (!threads) {
     ANU_DIE("Failed to allocate memory for threads");

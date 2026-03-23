@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "util.h"
 
@@ -16,6 +17,17 @@
 static const char *get_program_name (const char *arg_zero) {
   const char *last_slash = strrchr(arg_zero, '/');
   return last_slash ? last_slash + 1 : arg_zero;
+}
+
+static long get_available_threads (void) {
+  errno = 0;
+  long cores = sysconf(_SC_NPROCESSORS_ONLN);
+
+  if (cores < 1 && errno) {
+    perror("Error encountered whilst getting available cores.");
+  }
+
+  return MAXIMUM(cores, 1);
 }
 
 static void print_help (const char *program_name) {
@@ -149,6 +161,9 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   int ret = 0;
 
+  size_t available_threads = (size_t) get_available_threads();
+  bool explicit_thread_count = false;
+
   while (1) {
     option_index = -1;
 
@@ -263,6 +278,15 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
                                       &config->thread_count) != 0) {
             goto exit_error;
           }
+          explicit_thread_count = true;
+          if (config->thread_count > available_threads) {
+            fprintf(stderr,
+                    "%s: Ignoring option for threads (%d) since only '%d' "
+                    "cores are available.\n",
+                    CLI_NAME, config->thread_count, available_threads);
+            config->thread_count = available_threads;
+          }
+
           break;
         }
         /* TODO Implement this. */
@@ -295,6 +319,11 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     config->scan_curr_dir = 1;
     config->paths_count = 1;
     config->paths = NULL;
+  }
+
+  /* If thread is not explicitly stated, then assign default value (use all available threads) */
+  if (!explicit_thread_count) {
+    config->thread_count = (size_t) get_available_threads();
   }
 
   return ret;
