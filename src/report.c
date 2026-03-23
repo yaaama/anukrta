@@ -167,9 +167,8 @@ anu_report anu_generate_report (anu_file_q *files,
   size_t file_count = files->count;
   anu_report report = {0};
 
-  if (file_count == 0) {
+  if (file_count == 0 || tree == NULL) {
     return report;
-    log_info("File count is 0. Report could not be generated.");
   }
 
   report.count = 0;

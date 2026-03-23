@@ -83,6 +83,9 @@ void bk_tree_search (bk_node *node,
                      size_t tolerance,
                      anu_dupe_group *groups_out) {
   // NOLINTEND
+  if (!node) {
+    return;
+  }
 
   int distance_int = hamming_distance(node->hash, hash);
   assert(distance_int >= 0 && distance_int <= 64);
