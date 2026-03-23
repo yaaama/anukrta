@@ -162,7 +162,7 @@ static int anu_resolve_tilde (char *path) {
  * @param out[out] Buffer to place resolved path in.
  * @return Returns 0 on success, anything else on failure.
  **/
-int anu_file_resolve_relative_path (char *path, char *out) {
+int anu_file_resolve_relative_path (char *restrict path, char *restrict out) {
 
   if (!path) {
     return -1;
