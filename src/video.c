@@ -34,10 +34,12 @@
 static int video_reader_grab_frame_at_pts(anu_vreader *vreader,
                                           long target_pts);
 static int scale_frame(anu_vreader *vr,
-                       uint8_t *matrix,
+                       uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
                        int matrix_size,
                        b32 crop_black);
-static uint64_t hash_decoded_frame(uint8_t *matrix, anu_hash_type hash_algo);
+static uint64_t hash_decoded_frame(
+    uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
+    anu_hash_type hash_algo);
 static int decode_avpacket(anu_vreader *vreader);
 static void save_gray_frame(unsigned char *buf,
                             int wrap,
