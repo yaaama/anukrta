@@ -38,7 +38,7 @@ static void print_help (const char *program_name) {
   fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output\n");
   fprintf(stderr, "\t-s, --segments\t\tNumber of segments to hash for each video\n");
   fprintf(stderr, "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to 64 (0 being the most similar).\n");
-  fprintf(stderr, "\t--skip-duration\t\tVideos of this duration will be skipped.\n");
+  fprintf(stderr, "\t--skip-duration\t\tSkip videos shorter than N seconds.\n");
   fprintf(stderr, "\t--threads\t\tNumber of threads to use.\n");
   fprintf(stderr, "\t--version\t\tPrint version and exit.\n");
   fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes. \n");
@@ -59,8 +59,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
   printf("Segments to hash: %zu\n", config->segments);
   printf("Maximum Distance Threshold: %zu\n", config->threshold);
-  printf("Skip videos shorter than: %.1f seconds\n",
-         (double) config->skip_duration / (double) ANU_TIME_ONE_SEC_IN_US);
+  printf("Skip videos shorter than: %f seconds\n", config->skip_duration);
   printf("Thread Count: %zu\n", config->thread_count);
 }
 
@@ -289,10 +288,13 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
           break;
         }
-        /* TODO Implement this. */
-      case ARG_SKIP_DURATION:
+      case ARG_SKIP_DURATION:  // --skip-duration
         {
-          TODO("Not yet implemented skip duration.");
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, INT_MAX,
+                                      &config->skip_duration) != 0) {
+            goto exit_error;
+          }
+          break;
         }
 
       default:

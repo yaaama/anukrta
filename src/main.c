@@ -229,7 +229,7 @@ int main (int argc, char *argv[]) {
     .segments = 2,
     .threshold = 15,
     .hash_algorithm = ANU_HASH_ALGO_DCT,
-    .skip_duration = anu_time_seconds_to_microseconds(3.0),
+    .skip_duration = 3,
     .thread_count = ANU_DEF_THREAD_COUNT,
     .detect_bars = 1,
     .detect_black_frames = 1,

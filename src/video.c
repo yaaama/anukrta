@@ -175,7 +175,8 @@ int anu_video_hash (anu_file *file,
   }
 
   /* Check if file duration is longer than the skip threshold */
-  if (file->duration_us <= config->skip_duration) {
+  if (file->duration_us <=
+      (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
     log_debug("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
               fname, anu_time_microseconds_to_seconds(file->duration_us),
               anu_time_microseconds_to_seconds(config->skip_duration));
