@@ -21,7 +21,7 @@ static const char *get_program_name (const char *arg_zero) {
 static void print_help (const char *program_name) {
 
   /* clang-format off */
-  fprintf(stderr, "Usage: %s [OPTIONS...] [PATH]\n", program_name);
+  fprintf(stderr, "\nUsage: %s [OPTIONS...] [PATH]\n", program_name);
   fprintf(stderr, "\t-h, --help\t\tShow this help message\n");
   fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output\n");
   fprintf(stderr, "\t-s, --segments\t\tNumber of segments to hash for each video\n");

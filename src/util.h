@@ -22,7 +22,6 @@ typedef size_t usize;
 
 /* Default thread count */
 #define ANU_DEF_THREAD_COUNT 8
-#define ANU_MAX_PATH_LEN 512
 
 typedef enum anu_hash_type {
   ANU_HASH_ALGO_AVERAGE = 0,
@@ -50,7 +49,7 @@ typedef struct anukrta_config {
 /**
  * @brief One second (s) in microseconds (us)
  *
- * This is useful as FFmpeg uses microseconds for their timebase
+ * This is useful as FFmpeg uses microseconds for their internal timebase.
  **/
 #define ANU_TIME_ONE_SEC_IN_US 1000000
 
@@ -158,20 +157,8 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
     abort();                                                        \
   } while (0)
 
-#ifdef NDEBUG  // If its in RELEASE MODE
+#ifdef ANU_DEBUG  // If its in DEBUG MODE
 
-/* Optimise unreachable code away when in release builds. */
-#  define UNREACHABLE(message) __builtin_unreachable()
-
-/* Tell compiler our assumptions are TRUE and optimise out anything contrary. */
-#  define ASSUME(cond) \
-    do {               \
-      if (!(cond))     \
-        UNREACHABLE(); \
-    } while (0)
-
-/* ------------------------------------------------------------------------ */
-#else
 /* Debug builds should crash when reaching unreachable code. */
 #  define UNREACHABLE(message)                                           \
     do {                                                                 \
@@ -188,6 +175,18 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
                        STRINGIFY(cond), __FILE__, __LINE__);             \
         abort();                                                         \
       }                                                                  \
+    } while (0)
+
+/* ------------------------------------------------------------------------ */
+#else
+/* Optimise unreachable code away when in release builds. */
+#  define UNREACHABLE(message) __builtin_unreachable()
+
+/* Tell compiler our assumptions are TRUE and optimise out anything contrary. */
+#  define ASSUME(cond) \
+    do {               \
+      if (!(cond))     \
+        UNREACHABLE(); \
     } while (0)
 
 #endif  // UNREACHABLE

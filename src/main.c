@@ -2,7 +2,9 @@
 
 #ifdef ANU_DEBUG
 #  pragma message "Compilation in DEBUG mode."
-#  undef NDEBUG
+#  ifdef NDEBUG
+#    undef NDEBUG
+#  endif
 #endif
 
 #include <assert.h>
@@ -31,7 +33,6 @@ typedef struct {
   uint64_t *hashes;
   int *results; /* To store the return value of hash_video */
   size_t file_count;
-
   size_t *current_idx;    /* Shared index */
   pthread_mutex_t *mutex; /* Protects current_idx */
 } worker_args;
