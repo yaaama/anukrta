@@ -84,7 +84,7 @@ void anu_fileq_destroy (anu_file_q *q) {
 }
 
 struct anu_dir_job {
-  char path[512];
+  char path[PATH_MAX];
 };
 
 /* Video extensions */
@@ -334,29 +334,17 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
         continue;
       }
 
-      unsigned long currjob_path_len = strlen(currjob.path);
+      /* Combine directory path with filename and store in 'fullpath' */
+      int path_length = sprintf(fullpath, "%s/%s", (currjob.path), dp->d_name);
 
-      /* If dir path ends with trailing slash, lets null terminate it before we combine it with the filename
-       * E.g. without this, then:
-       * etc/directory -> etc/directory//video.mp4 */
-      if (currjob.path[currjob_path_len - 1] == '/') {
-        currjob.path[currjob_path_len - 1] = '\0';
-        --currjob_path_len;
-      }
-
-      /* Combine directory path with filename */
-      int path_length = snprintf(fullpath, ANU_MAX_PATH_LEN, "%s/%s",
-                                 (currjob.path), dp->d_name);
-
-      if (path_length > ANU_MAX_PATH_LEN) {
+      if (UNLIKELY(path_length > PATH_MAX)) {
         log_warn("Path length (%d) exceeds max length: %d", path_length,
-                 ANU_MAX_PATH_LEN);
+                 PATH_MAX);
         continue;
       }
 
-      stat_return = stat(fullpath, &statb);
       /* Handle stat errors here... */
-      if (stat_return == -1) {
+      if (stat(fullpath, &statb) == -1) {
         perror("Stat failed: ");
         continue;
       }
@@ -364,41 +352,42 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
       /* If its a directory */
       if (S_ISDIR(statb.st_mode)) {
         /* printf("Directory found: %s\n", fullpath); */
-        strcpy(dirjob.path, fullpath);
+        memcpy(dirjob.path, fullpath, (size_t) path_length);
+        dirjob.path[path_length] = '\0';
         anu_stack_push(&dirstack, &dirjob);
         continue;
       }
 
-      /* Else if its a regular file */
-      if (S_ISREG(statb.st_mode)) {
-
-        if (!anu_file_ext_supported(fullpath)) {
-          continue;
-        }
-
-        /* Prepare newfile for data */
-        assert(statb.st_size > 0);
-        newfile.size = (size_t) statb.st_size;
-        newfile.ctime = statb.st_ctime;
-        newfile.mtime = statb.st_mtime;
-        /* Copy path */
-        assert(path_length > 0);
-        newfile.path = realpath(fullpath, NULL);
-
-        /* Find the last slash so we can extract the name */
-        char *last_slash = strrchr(newfile.path, '/');
-
-        if (last_slash) {
-          /* last_slash points to '/'. */
-          /* We want the character AFTER the slash. */
-          /* Subtract pointers: (End Address) - (Start Address) = Index */
-          newfile.name = (int) ((last_slash + 1) - newfile.path);
-        } else {
-          /* No slash, default to index 0. */
-          newfile.name = 0;
-        }
-        anu_fileq_enqueue(files_out, &newfile);
+      if (!S_ISREG(statb.st_mode)) {
+        continue;
       }
+      if (!anu_file_ext_supported(fullpath)) {
+        continue;
+      }
+
+      /* Prepare newfile for data */
+      assert(statb.st_size > 0);
+      newfile.size = (size_t) statb.st_size;
+      newfile.ctime = statb.st_ctime;
+      newfile.mtime = statb.st_mtime;
+      /* Copy path */
+      assert(path_length > 0);
+      newfile.path = realpath(fullpath, NULL);
+
+      /* Find the last slash so we can extract the name */
+      char *last_slash = strrchr(newfile.path, '/');
+
+      if (last_slash) {
+        /* last_slash points to '/'. */
+        /* We want the character AFTER the slash. */
+        /* Subtract pointers: (End Address) - (Start Address) = Index */
+        newfile.name = (int) ((last_slash + 1) - newfile.path);
+      } else {
+        /* No slash, default to index 0. */
+        newfile.name = 0;
+      }
+
+      anu_fileq_enqueue(files_out, &newfile);
     }
 
     closedir(dir);
