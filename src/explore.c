@@ -76,6 +76,10 @@ void anu_fileq_destroy (anu_file_q *q) {
     return;
   }
 
+  for (size_t i = 0; i < q->count; i++) {
+    anu_file *item = &q->items[i];
+    free(item->path);
+  }
   free(q->items);
 }
 
@@ -269,8 +273,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
     assert(statb.st_size > 0);
     file.size = (size_t) statb.st_size;
 
-    memcpy(file.path, path, file_len);
-    file.path[file_len] = '\0';
+    file.path = realpath(path, NULL);
     char *base_ptr = anu_file_basename(path);
     assert(base_ptr != path);
     file.name = (base_ptr - path) > 0 ? (int) (base_ptr - path) : 0;
@@ -302,7 +305,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
   /* Dir entry */
   struct dirent *dp;
   /* Path of current file */
-  char fullpath[ANU_MAX_PATH_LEN] = {0};
+  char fullpath[PATH_MAX] = {0};
   anu_file newfile = {0};
 
   while (anu_stack_pop(&dirstack, &currjob)) {
@@ -369,8 +372,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
         newfile.mtime = statb.st_mtime;
         /* Copy path */
         assert(path_length > 0);
-        memcpy(newfile.path, fullpath, (size_t) path_length);
-        newfile.path[path_length] = '\0';
+        newfile.path = realpath(fullpath, NULL);
 
         /* Find the last slash so we can extract the name */
         char *last_slash = strrchr(newfile.path, '/');

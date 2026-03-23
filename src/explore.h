@@ -11,7 +11,7 @@
 
 typedef struct anu_file {
   /* Path */
-  char path[ANU_MAX_PATH_LEN];
+  char *path;
   /* Size in bytes */
   size_t size;
   /* Duration of video file */
