@@ -130,8 +130,10 @@ static int anukrta_driver (anukrta_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   size_t hash_collection_len = (file_count * config->segments);
-  uint64_t *hashes = calloc(hash_collection_len, sizeof(uint64_t));
-  int *results = calloc(file_count, sizeof(int));
+  uint64_t *hashes;
+  hashes = calloc(hash_collection_len, sizeof(*hashes));
+  int *results;
+  results = calloc(file_count, sizeof(*results));
 
   if (!hashes || !results) {
     if (hashes) {
@@ -215,6 +217,7 @@ static int anukrta_driver (anukrta_config *config) {
 
 int main (int argc, char *argv[]) {
 
+  /* Default configuration */
   anukrta_config config = {
     .dry_run = 0,
     .verbose = 0,
@@ -227,32 +230,36 @@ int main (int argc, char *argv[]) {
     .detect_black_frames = 1,
   };
 
+  /* Option parsing return value */
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
+  /* Exit if non zero or if config has exit_early flag set */
   if (parsing_return || config._exit_early) {
     return parsing_return;
   }
 
-  /* mutex for logging */
+  /* Logging Setup */
   pthread_mutex_t log_mutex;
   pthread_mutex_init(&log_mutex, NULL);
+
   int log_lvl = 0;
+  int libav_log_lvl = 0;
   if (config.verbose) {
     anu_cli_print_configuration(&config);
     log_lvl = LOG_DEBUG;
-    av_log_set_level(AV_LOG_INFO);
+    libav_log_lvl = AV_LOG_INFO;
   } else {
-    log_lvl = LOG_INFO;
-    av_log_set_level(AV_LOG_FATAL);
+    log_lvl = LOG_ERROR;
+    libav_log_lvl = AV_LOG_FATAL;
   }
-
+  av_log_set_level(libav_log_lvl);
   init_logger(log_lvl, &log_mutex, log_lock_callback);
 
-  printf("\n--------------------\n");
-  printf("Starting...\n");
-  printf("--------------------\n");
+  /* Start of program */
+  printf("\n\n--------------------\n");
 
   log_info("%s now running...", argv[0]);
+
   int driver_ret = anukrta_driver(&config);
 
   return driver_ret;

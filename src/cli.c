@@ -63,8 +63,8 @@ static const char *get_long_opt_name (int val, const struct option *opts) {
 }
 
 /* Parses a string to a long, assigns out param (size_t) */
-static int parse_numeric_arg_sizet (const char *arg_name,
-                                    const char *arg_str,
+static int parse_numeric_arg_sizet (const char *restrict arg_name,
+                                    const char *restrict arg_str,
                                     long min,
                                     long max,
                                     size_t *out) {
@@ -132,7 +132,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
  * FLAGS
  */
     /* TODO Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
-    {"verbose",         no_argument,       NULL,                         FLAG_VERBOSE},                 // -v | --verbose
+    {"verbose",         no_argument,       NULL,                         FLAG_VERBOSE},      // -v | --verbose
     {"dry-run",         no_argument,       &config->dry_run,             1},                 // --dry-run
     {"detect-black",    no_argument,       &config->detect_black_frames, 1},                 // TODO
     {"detect-rotation", no_argument,       &config->detect_rotation,     1},                 // TODO
@@ -273,7 +273,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
       default:
         {
-          UNREACHABLE("anukrta: Internal CLI Parsing Error");
+          UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
         }
     }
   }
