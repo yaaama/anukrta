@@ -2,6 +2,7 @@
 
 #ifdef ANU_DEBUG
 #  pragma message "Compilation in DEBUG mode."
+#  undef NDEBUG
 #endif
 
 #include <assert.h>
