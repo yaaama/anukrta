@@ -94,12 +94,12 @@ static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
 
 bool anu_file_path_exists (char *path) {
   struct stat statb;
-  return path && stat(path, &statb) == 0;
+  return (path && stat(path, &statb) == 0) != 0;
 }
 
 bool anu_file_path_is_dir (char *path) {
   struct stat statb;
-  return stat(path, &statb) == 0 && S_ISDIR(statb.st_mode);
+  return (path && stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 }
 
 /* Check extension of filename */
