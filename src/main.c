@@ -18,30 +18,11 @@
 
 #include "cli.h"
 #include "explore.h"
-#include "hash.h"
 #include "log.h"
 #include "report.h"
 #include "tree.h"
 #include "util.h"
 #include "video.h"
-
-/* callback function for logger */
-void log_lock_callback (bool lock, void *udata) {
-  pthread_mutex_t *mutex = (pthread_mutex_t *) udata;
-  if (lock) {
-    pthread_mutex_lock(mutex);
-  } else {
-    pthread_mutex_unlock(mutex);
-  }
-}
-
-void init_logger (int verbosity,
-                  pthread_mutex_t *log_mutex,
-                  void (*lock_cb)(bool, void *)) {
-
-  log_set_level(verbosity);
-  log_set_lock(lock_cb, log_mutex);
-}
 
 typedef struct {
   anu_file_q *files;
@@ -53,6 +34,24 @@ typedef struct {
   size_t *current_idx;    /* Shared index */
   pthread_mutex_t *mutex; /* Protects current_idx */
 } worker_args;
+
+/* callback function for logger */
+static void log_lock_callback (bool lock, void *udata) {
+  pthread_mutex_t *mutex = (pthread_mutex_t *) udata;
+  if (lock) {
+    pthread_mutex_lock(mutex);
+  } else {
+    pthread_mutex_unlock(mutex);
+  }
+}
+
+static void init_logger (int verbosity,
+                         pthread_mutex_t *log_mutex,
+                         void (*lock_cb)(bool, void *)) {
+
+  log_set_level(verbosity);
+  log_set_lock(lock_cb, log_mutex);
+}
 
 static void scan_dirs (anukrta_config *config, anu_file_q *files) {
   /* Scan current directory */
@@ -72,7 +71,7 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
   }
 }
 
-void *hash_worker_thread (void *arg) {
+static void *hash_worker_thread (void *arg) {
   worker_args *targs = (worker_args *) arg;
 
   while (1) {
@@ -106,7 +105,7 @@ void *hash_worker_thread (void *arg) {
   return NULL;
 }
 
-int anukrta_driver (anukrta_config *config) {
+static int anukrta_driver (anukrta_config *config) {
 
   /* Store the files we find in the path */
   anu_file_q files;
