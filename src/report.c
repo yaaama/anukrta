@@ -83,7 +83,7 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
      * This gives us a perfectly safe 0-99 value. */
     size_t decimals = (remainder * 100) >> 10;
 
-    c = snprintf(buf, buf_size, "%zu.%02" PRIX64 " %s", n_bytes, decimals,
+    c = snprintf(buf, buf_size, "%zu.%.02zu %s", n_bytes, decimals,
                  units_iec[unit_index]);
   }
 
