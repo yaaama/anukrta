@@ -9,7 +9,6 @@
 #include <time.h>
 
 #include "explore.h"
-#include "log.h"
 #include "stack.h"
 #include "tree.h"
 
@@ -58,7 +57,7 @@ static void unite_sets (size_t i, size_t j, size_t *parent) {
   }
 }
 
-const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
+static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
 
 char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
 
@@ -91,7 +90,9 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
   return buf;
 }
 
-char *get_date_from_epoch (time_t *epoch_time, size_t buf_size, char *buf) {
+static char *get_date_from_epoch (time_t *epoch_time,
+                                  size_t buf_size,
+                                  char *buf) {
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
@@ -174,7 +175,7 @@ anu_report anu_generate_report (anu_file_q *files,
   report.count = 0;
 
   /* Union-Find to identify the groups */
-  size_t *parent = malloc((file_count) * sizeof(size_t));
+  size_t *parent = malloc(file_count * sizeof(size_t));
   if (!parent) {
     ANU_DIE("Failed to allocate memory.");
   }
@@ -214,7 +215,7 @@ anu_report anu_generate_report (anu_file_q *files,
 
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
-  anu_vector *buckets = calloc((file_count), sizeof(anu_vector));
+  anu_vector *buckets = calloc(file_count, sizeof(anu_vector));
   if (!buckets) {
     ANU_DIE("Failed to allocate memory.");
   }
