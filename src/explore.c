@@ -270,6 +270,20 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
   return 0;
 }
 
+static ptrdiff_t filename_index (char *path) {
+
+  char *last_slash = strrchr(path, '/');
+
+  if (!last_slash) {
+    return 0;
+  }
+
+  /* last_slash points to '/'. */
+  /* We want the character AFTER the slash. */
+  /* Subtract pointers: (End Address) - (Start Address) = Index */
+  return ((last_slash + 1) - path);
+}
+
 /**
  * @brief Recursively search path and return files found.
  **/
@@ -372,20 +386,12 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
       newfile.mtime = statb.st_mtime;
       /* Copy path */
       assert(path_length > 0);
+
+      /* Resolve the path */
       newfile.path = realpath(fullpath, NULL);
 
-      /* Find the last slash so we can extract the name */
-      char *last_slash = strrchr(newfile.path, '/');
-
-      if (last_slash) {
-        /* last_slash points to '/'. */
-        /* We want the character AFTER the slash. */
-        /* Subtract pointers: (End Address) - (Start Address) = Index */
-        newfile.name = (int) ((last_slash + 1) - newfile.path);
-      } else {
-        /* No slash, default to index 0. */
-        newfile.name = 0;
-      }
+      /* Get index for when filename starts */
+      newfile.name = filename_index(newfile.path);
 
       anu_fileq_enqueue(files_out, &newfile);
     }
@@ -396,5 +402,3 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
   anu_stack_destroy(&dirstack);
   return 0;
 }
-
-char *anu_file_get_filename (anu_file *f) { return f->path + f->name; }

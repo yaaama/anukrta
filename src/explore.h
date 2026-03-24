@@ -21,7 +21,7 @@ typedef struct anu_file {
   /* File modification time */
   long mtime;
   /* Index for when name starts in path */
-  int name;
+  ptrdiff_t name;
 } anu_file;
 
 typedef struct anu_file_q {
@@ -40,7 +40,11 @@ int anu_fileq_dequeue(anu_file_q *q, anu_file *file_out);
 int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
 int anu_file_opendir(char *dir_path, DIR **out);
 int anu_file_ext_supported(char *filename);
-char *anu_file_get_filename(anu_file *f);
+
+static inline char *anu_file_get_filename (anu_file *f) {
+  return f->path + f->name;
+}
+
 bool anu_file_path_is_dir(char *path);
 bool anu_file_path_exists(char *path);
 int anu_file_resolve_relative_path(char *path, char *out);
