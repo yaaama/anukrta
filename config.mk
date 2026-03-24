@@ -23,7 +23,8 @@ DEV_FLAGS := -Og -ggdb3 \
 -Wmisleading-indentation \
 -fstrict-aliasing -Wstrict-aliasing \
 -Wstrict-overflow -Winline -Wparentheses \
--Wuninitialized -fexceptions
+-Wuninitialized -fexceptions \
+-Warray-parameter
 
 
 # Compiler Specific
@@ -34,7 +35,7 @@ CLANG_EXTRA_SANS :=
 # Clang
 ifeq (${CC}, clang)
 	DEV_FLAGS += -fextend-variable-liveness -Wno-incompatible-pointer-types-discards-qualifiers -Wthread-safety
-	DEV_FLAGS += -Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum
+	DEV_FLAGS += -Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
 	DEV_FLAGS += -D_FORTIFY_SOURCE=3 -flto=thin
 	COMPILER_LDFLAGS += -flto=thin
 # Clang extra sanitizers (Applied in Makefile if ASAN=1)
@@ -50,7 +51,7 @@ ifeq (${CC}, gcc)
 endif
 
 # Release Build
-RELEASE_FLAGS := -O2 -Wmissing-prototypes
+RELEASE_FLAGS := -O2 -Wmissing-prototypes -ffast-math
 # Profile Build
 PROFILE_FLAGS := -O2 -g3 -fno-omit-frame-pointer -fno-optimize-sibling-calls
 
@@ -68,6 +69,7 @@ ifeq ($(USE_RECURSIVE_FIND_SET), 1)
     PREPROC_DEFS += -DANU__USE_RECURSIVE_SET_FIND
 endif
 
+# ANU_DEBUG
 ifeq (${DEBUG}, 1)
 	PREPROC_DEFS += -DANU_DEBUG
 endif
