@@ -41,7 +41,7 @@ int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
 int anu_file_opendir(char *dir_path, DIR **out);
 int anu_file_ext_supported(char *filename);
 
-static inline char *anu_file_get_filename (anu_file *f) {
+static ALWAYS_INLINE char *anu_file_get_filename (anu_file *f) {
   return f->path + f->name;
 }
 
