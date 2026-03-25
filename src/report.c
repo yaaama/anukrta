@@ -12,7 +12,7 @@
 #include "stack.h"
 #include "tree.h"
 
-#ifdef ANU__USE_RECURSIVE_SET_FIND
+#ifdef ANU__USE_RECURSIVE_SET_FIND  // Recursive 'find_set' implementation
 #  pragma message("Making use of recursive `find_set` implementation.")
 
 /* Finds the representative (or "root") of the set containing element 'i'
@@ -47,7 +47,6 @@ static size_t find_set (size_t i, size_t *parent) {
 
 /* Merges the sets containing elements 'i' and 'j' */
 static void unite_sets (size_t i, size_t j, size_t *parent) {
-  /* Recursive implementation */
   size_t root_i = find_set(i, parent);
   size_t root_j = find_set(j, parent);
 
@@ -61,29 +60,28 @@ static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
 
 char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
 
-  int num_units = sizeof(units_iec) / sizeof(units_iec[0]);
+  const int num_units = ANU_ARRAY_SIZE(units_iec);
   int unit_index = 0;
-
   /* We will use this to keep track of the fractional part */
   size_t remainder = 0;
 
   /* >> 10 is equivalent to dividing by 1024 */
-  while (n_bytes >= 1024 && unit_index < num_units - 1) {
+  while ((n_bytes >= 1024) && (unit_index < (num_units - 1))) {
     remainder = n_bytes & 1023; /* Equivalent to: n_bytes % 1024 */
     n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
-    unit_index++;
+    ++unit_index;
   }
-  int c = -1;
+  int c;
   if (unit_index == 0) {
-    c = snprintf(buf, buf_size, "%lu %s", n_bytes, units_iec[unit_index]);
+    c = sprintf(buf, "%" PRIu64 " %s", n_bytes, units_iec[unit_index]);
   } else {
     /* Calculate the 2-digit decimal part using pure integer math.
      * We multiply the remainder by 100, then divide by 1024 (by shifting).
      * This gives us a perfectly safe 0-99 value. */
     size_t decimals = (remainder * 100) >> 10;
 
-    c = snprintf(buf, buf_size, "%zu.%.02zu %s", n_bytes, decimals,
-                 units_iec[unit_index]);
+    c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals,
+                units_iec[unit_index]);
   }
 
   assert(c > 0);
@@ -106,13 +104,12 @@ void anu_print_report (anukrta_config *config,
                        anu_file_q *files,
                        u64 *hashes) {
 
+  printf("\n=== Duplicate Report: ===\n");
   if (report->count == 0) {
-    printf("\n=== Report ===\n");
     printf("No duplicate groups found.\n");
     return;
   }
 
-  printf("\n=== Duplicate Report: ===\n");
   printf("Found %zu duplicate groups from %zu files\n", report->count,
          files->count);
   printf("----------------------------------------");
@@ -120,17 +117,17 @@ void anu_print_report (anukrta_config *config,
 
   for (size_t i = 0; i < report->count; i++) {
     dupe_group_vector *group = &report->groups[i];
+
     printf("\n[+] Group #%zu (%zu items):\n", i + 1, group->count);
     for (size_t j = 0; j < group->count; j++) {
       size_t file_id = group->file_ids[j];
       anu_file *file = &files->items[file_id];
       char human_sizing[32] = {0};
-      get_human_sizing_iec(file->size, ANU_ARRAY_SIZE(human_sizing),
-                           human_sizing);
+      get_human_sizing_iec(file->size, sizeof(human_sizing), human_sizing);
       /* time_t change_t = file->ctime; */
       time_t modification_t = file->mtime;
       char time_str[64] = {0};
-      get_date_from_epoch(&modification_t, ANU_ARRAY_SIZE(time_str), time_str);
+      get_date_from_epoch(&modification_t, sizeof(time_str), time_str);
       printf("  %s", file->path);
       printf("\n");
 
@@ -144,7 +141,7 @@ void anu_print_report (anukrta_config *config,
         uint64_t hash_val = hashes[(file_id * config->segments) + seg];
 
         /* Print as zero-padded 16-character uppercase Hex */
-        printf("%" PRIX64 " ", hash_val);
+        printf("%016" PRIX64 " ", hash_val);
       }
       printf("]\n");
     }
@@ -185,11 +182,12 @@ anu_report anu_generate_report (anu_file_q *files,
     parent[i] = i;
   }
 
+  /* Important to zero-initialize */
+  anu_dupe_group segment_results = {0};
   for (size_t i = 0; i < file_count; i++) {
-    /* Important to zero-initialize */
-    anu_dupe_group segment_results = {0};
 
     for (size_t seg = 0; seg < config->segments; seg++) {
+      segment_results.file_count = 0;
 
       uint64_t current_hash = hashes[(i * config->segments) + seg];
       bk_tree_search(tree->root, current_hash, config->threshold,
