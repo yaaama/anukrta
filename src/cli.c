@@ -59,7 +59,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
   printf("Segments to hash: %zu\n", config->segments);
   printf("Maximum Distance Threshold: %zu\n", config->threshold);
-  printf("Skip videos shorter than: %f seconds\n", config->skip_duration);
+  printf("Skip videos shorter than: %zu seconds\n", config->skip_duration);
   printf("Thread Count: %zu\n", config->thread_count);
 }
 
@@ -280,7 +280,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
           explicit_thread_count = true;
           if (config->thread_count > available_threads) {
             fprintf(stderr,
-                    "%s: Ignoring option for threads (%d) since only '%d' "
+                    "%s: Ignoring option for threads (%zu) since only %zu "
                     "cores are available.\n",
                     CLI_NAME, config->thread_count, available_threads);
             config->thread_count = available_threads;
