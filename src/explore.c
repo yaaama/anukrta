@@ -272,6 +272,10 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
 
 static ptrdiff_t filename_index (char *path) {
 
+  if (!path) {
+    return 0;
+  }
+
   char *last_slash = strrchr(path, '/');
 
   if (!last_slash) {
