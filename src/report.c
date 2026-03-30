@@ -112,7 +112,7 @@ void anu_print_report (anukrta_config *config,
 
   printf("Found %zu duplicate groups from %zu files\n", report->count,
          files->count);
-  printf("----------------------------------------");
+  printf("\n----------------------------------------");
   printf("----------------------------------------\n");
 
   for (size_t i = 0; i < report->count; i++) {
@@ -205,7 +205,7 @@ anu_report anu_generate_report (anu_file_q *files,
   /* Convert the Union-Find result into a list of groups */
 
   /* Initial capacity of report */
-  report.capacity = 10;
+  report.capacity = 8;
   report.groups = calloc(report.capacity, sizeof(dupe_group_vector));
   if (!report.groups) {
     ANU_DIE("Failed to allocate memory.");
