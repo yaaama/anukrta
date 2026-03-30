@@ -1,7 +1,7 @@
 ---
-# clang-diagnostic-*,
 Checks: >
   -*,
+  clang-diagnostic-*,
   bugprone-*,
   cert-*,
   performance-*,

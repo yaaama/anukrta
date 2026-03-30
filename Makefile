@@ -1,11 +1,17 @@
 MAKEFLAGS += --no-print-directory -j
 
+USE_MOLD ?= 0
 VARIANT ?= debug
 SANITIZER ?= none
 DEBUG ?= 1
 PROFILE ?= 0
 
 LDFLAGS ?=
+
+ifeq ($(USE_MOLD), 1)
+    LDFLAGS += -fuse-ld=mold
+endif
+
 include config.mk
 
 # ==========================================
@@ -38,7 +44,7 @@ CFLAGS += -Wall -Wextra \
 # -pedantic
 
 # Inject Compiler-specific flags from config.mk
-# CFLAGS += $(COMPILER_CFLAGS)
+CFLAGS += $(COMPILER_CFLAGS)
 LDFLAGS += $(COMPILER_LDFLAGS)
 
 ifeq (${DEBUG}, 1)
@@ -131,7 +137,7 @@ endif
 .DEFAULT_GOAL := debug
 
 # ALL
-all: debug asan tsan
+all: debug asan tsan profile release
 
 asan:
 	@echo "=== Building ASAN (Address + UBSAN) Variant ==="
@@ -230,6 +236,8 @@ lint:
 memcheck: debug
 	@echo "Running Valgrind on Debug variant..."
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/debug/$(TARGET_NAME)
+
+print-%: ; @echo $*=$($*)
 
 # Include Dependencies
 -include $(DEPS)

@@ -24,7 +24,7 @@ DEV_FLAGS := -Og -ggdb3 \
 -fstrict-aliasing -Wstrict-aliasing \
 -Wstrict-overflow -Winline -Wparentheses \
 -Wuninitialized -fexceptions \
--Warray-parameter
+-Warray-parameter -Winline
 
 
 # Compiler Specific
