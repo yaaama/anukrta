@@ -192,13 +192,13 @@ anu_report anu_generate_report (anu_file_q *files,
       uint64_t current_hash = hashes[(i * config->segments) + seg];
       bk_tree_search(tree->root, current_hash, config->threshold,
                      &segment_results);
-    }
 
-    for (size_t k = 0; k < segment_results.file_count; k++) {
-      size_t match_id = segment_results.files[k];
-      assert(match_id < file_count);
-      /* Merge the sets of the file and its match */
-      unite_sets(i, match_id, parent);
+      /* Process matches for this segment */
+      for (size_t k = 0; k < segment_results.file_count; k++) {
+        size_t match_id = segment_results.files[k];
+        assert(match_id < file_count);
+        unite_sets(i, match_id, parent);
+      }
     }
   }
 
