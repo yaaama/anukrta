@@ -362,6 +362,7 @@ int scale_frame (anu_vreader *vr,
                  b32 crop_black) {
 
   AVFrame *src = vr->frame;
+  char *fname = vr->fmt_ctx->url;
 
   int crop_x = 0;
   int crop_y = 0;
@@ -374,6 +375,7 @@ int scale_frame (anu_vreader *vr,
         anu_detect_black_borders(src, 24, &crop_x, &crop_y, &crop_w, &crop_h);
     /* If returning false, then we have a fully black frame */
     if (!workable_frame) {
+      log_info("%s: Frame is completely black", fname);
       return 1;
     }
   }
@@ -385,20 +387,20 @@ int scale_frame (anu_vreader *vr,
       AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
-    log_error("Failed to create scaling context.");
+    log_error("%s: Failed to create scaling context.", fname);
     return 1;
   }
 
   /* Normalise colourspaces */
   if (normalise_sws_colourspace(vr->frame, vr->sws_ctx)) {
-    log_error("Colourspace normalisation failed.");
+    log_error("%s: Colourspace normalisation failed.", fname);
     return 1;
   }
 
   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(src->format);
 
   if (!desc) {
-    log_error("%s has no pixel format description.", vr->fmt_ctx->url);
+    log_error("%s: No pixel format description found.", fname);
     return 1;
   }
 
@@ -421,7 +423,7 @@ int scale_frame (anu_vreader *vr,
                               dst_slices, dst_linesizes);
 
   if (scaling_ret <= 0) {
-    log_error("Scaling FAILED: `%s`", av_err2str(scaling_ret));
+    log_error("%s: Scaling FAILED: `%s`", fname, av_err2str(scaling_ret));
     return 1;
   }
 

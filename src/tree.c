@@ -46,8 +46,9 @@ static void bkTree_insert_internal (bk_node *node,
                                     uint64_t file_id) {
   // NOLINTEND
   int dist = hamming_distance(node->hash, hash);
-  assert(dist >=
-         0); /* If this is not true, then something horrible has gone wrong. */
+
+  /* If this is not true, then something horrible has gone wrong. */
+  ASSUME(dist >= 0);
 
   if (!dist) {
     /* Exact match (collision). Add data to this node. */

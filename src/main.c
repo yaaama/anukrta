@@ -67,6 +67,7 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
 
   /* Else we scan paths given */
   for (size_t i = 0; i < config->paths_count; i++) {
+    /* FIXME: Ensure paths do not point to the same place */
     if (anu_file_recursive_filewalk(config->paths[i], files)) {
       log_warn("Error searching for files in '%s'", config->paths[i]);
     }
@@ -134,8 +135,16 @@ static int anukrta_driver (anukrta_config *config) {
   size_t hash_collection_len = (file_count * config->segments);
   uint64_t *hashes;
   hashes = calloc(hash_collection_len, sizeof(*hashes));
+  if (!hashes) {
+    return -1;
+  }
+
   int *results;
   results = calloc(file_count, sizeof(*results));
+  if (!results) {
+    free(hashes);
+    return -1;
+  }
 
   if (!hashes || !results) {
     if (hashes) {
