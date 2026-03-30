@@ -22,7 +22,7 @@
 #define DCT_DIGEST_LEN 64
 
 /* PI in floating point format */
-#define ANU_PI_F 3.14159265358979323846f
+#define ANU_PI_F 3.14159265358979323846F
 
 #if ANU_PHASH_DCT_SIZE != 8
 #  warn "dct weights will not work if dct size is not 8."
