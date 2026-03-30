@@ -127,33 +127,23 @@ static int anukrta_driver (anukrta_config *config) {
 
   log_info("Found `%zu` files", file_count);
 
+  size_t hash_collection_len = (file_count * config->segments);
+
   /* Array of hashes
    * E.g. (N files with 2 segments) would look like this:
    * [ File1Seg1, File1Seg2, File2Seg1, File2Seg2, ... File N Seg 2 ]
    * FileNSegN would be the hash created for that segment
    */
-  size_t hash_collection_len = (file_count * config->segments);
   uint64_t *hashes;
   hashes = calloc(hash_collection_len, sizeof(*hashes));
   if (!hashes) {
-    return -1;
+    ANU_DIE("Failed to allocate memory.");
   }
 
   int *results;
   results = calloc(file_count, sizeof(*results));
   if (!results) {
-    free(hashes);
-    return -1;
-  }
-
-  if (!hashes || !results) {
-    if (hashes) {
-      free(hashes);
-    }
-    if (results) {
-      free(results);
-    }
-    return -1;
+    ANU_DIE("Failed to allocate memory.");
   }
 
   /* THREADING START */
@@ -201,19 +191,20 @@ static int anukrta_driver (anukrta_config *config) {
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
+    int result = results[i];
     /* Check the result saved by the thread */
-    switch (results[i]) {
-      case -1:
-        log_debug("Failed to hash file %s", anu_file_get_filename(file));
-        continue;
-      case -2:
-        /* We skipped this hash so lets move onto the next file. */
-        continue;
-      default:
-        /* Success! Insert into the BK-tree */
-        for (size_t j = 0; j < config->segments; j++) {
-          bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
-        }
+    if (result == -1) {
+      log_debug("Failed to hash file %s", anu_file_get_filename(file));
+    }
+    if (result == -2) {
+      /* We skipped this hash so lets move onto the next file. */
+      log_trace("Skipped over file %s", anu_file_get_filename(file));
+    }
+
+    if (result == 0) {
+      for (size_t j = 0; j < config->segments; j++) {
+        bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
+      }
     }
   }
 
