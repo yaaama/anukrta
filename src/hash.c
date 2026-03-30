@@ -91,60 +91,59 @@ uint64_t dct_hash (uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
   /* Final result */
   float dct_result[DCT_DIGEST_LEN];
 
-  const int stride = ANU_PHASH_INPUT_SIZE;
   float sum = 0.0F;
+  const int stride = ANU_PHASH_INPUT_SIZE;
   /* Pass 1: 1D DCT on Rows */
-  for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    uint8_t *row_ptr = &input_pixels[((ptrdiff_t) y * ANU_PHASH_INPUT_SIZE)];
+  for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+    const uint8_t *row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
 
-    for (int u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-      sum = 0;
+    for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
+      const float *weight_ptr = &DCT_WEIGHTS[u * ANU_PHASH_INPUT_SIZE];
+      sum = 0.0F;
 
       for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         /* Formula: sum += pixel[x] * cos(...) */
-        sum += (float) row_ptr[x] * (DCT_WEIGHTS[(u * stride) + x]);
+        sum += (float) row_ptr[x] * weight_ptr[x];
       }
-      row_result[(y * ANU_PHASH_DCT_SIZE) + u] = sum;
+
+      row_result[(u * ANU_PHASH_INPUT_SIZE) + y] = sum;
     }
   }
+
   /* Pass 2: 1D DCT on Columns (applied to row_result) */
-  for (int x = 0; x < ANU_PHASH_DCT_SIZE; x++) {
-    for (int v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
+  for (ptrdiff_t x = 0; x < ANU_PHASH_DCT_SIZE; x++) {
+
+    const float *weight_ptr = &DCT_WEIGHTS[x * ANU_PHASH_INPUT_SIZE];
+
+    for (ptrdiff_t v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
+      const float *col_ptr = &row_result[v * ANU_PHASH_INPUT_SIZE];
       sum = 0.0F;
+
       for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-        sum += row_result[(ptrdiff_t) (y * ANU_PHASH_DCT_SIZE) + x] *
-               (DCT_WEIGHTS[(v * stride) + y]);
+        sum += col_ptr[y] * weight_ptr[y];
       }
-      dct_result[(v * ANU_PHASH_DCT_SIZE) + x] = sum;
+      dct_result[(x * ANU_PHASH_DCT_SIZE) + v] = sum;
     }
   }
 
-  /* We treat values smaller than this precision to be NOISE. */
-  const float epsilon = 0.001F;
   /* Sum up the pixels to calculate the average */
-
   float sum_pixels = 0.0F;
   /* Skip first pixel as it is the brightness value */
   for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     sum_pixels += dct_result[i];
   }
 
-  /* printf("\tValue of [0][0] %.20f\n", (double)dct_result[0]); */
-  /* printf("\tSummed value of DCT (skipping first elem): %.20f\n",
-   * (double)sum_pixels); */
+  /* We treat values smaller than this precision to be NOISE. */
+  const float epsilon = 0.001F;
+  const float threshold = (sum_pixels / (DCT_DIGEST_LEN - 1)) + epsilon;
 
-  float average = sum_pixels / (DCT_DIGEST_LEN - 1);
   /* printf("\tAverage value of pixels: %.20f\n", (double)average); */
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
 
   for (int i = 1; i < DCT_DIGEST_LEN; i++) {
-    final_hash <<= 1;
-
-    if (dct_result[i] > (average + epsilon)) {
-      final_hash |= 1;
-    }
+    final_hash = (final_hash << 1) | (dct_result[i] > threshold);
   }
 
   return final_hash;
