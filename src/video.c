@@ -110,7 +110,7 @@ static bool anu_detect_black_borders (AVFrame *frame,
 
     /* Find the first non-black pixel from the left */
     /* We only need to check up to our current known 'left' */
-    for (int x = 0; x < left; x++) {
+    for (int x = 0; x <= left; x++) {
       if (row[x] > threshold) {
         left = x;
         break;
@@ -119,7 +119,7 @@ static bool anu_detect_black_borders (AVFrame *frame,
 
     /* Find the first non-black pixel from the right */
     /* We only need to check down to our current known 'right' */
-    for (int x = w - 1; x > right; x--) {
+    for (int x = w - 1; x >= right; x--) {
       if (row[x] > threshold) {
         right = x;
         break;
