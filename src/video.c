@@ -61,12 +61,11 @@ static ALWAYS_INLINE AVStream *vreader_video_stream(anu_vreader *vreader);
 static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
                                          int width,
                                          int threshold) {
-  for (int x = 0; x < width; x++) {
-    if (row[x] > threshold) {
-      return true;
-    }
+  uint8_t max_val = 0;
+  for (int i = 0; i < width; i++) {
+    max_val = max_val > row[i] ? max_val : row[i];
   }
-  return false;
+  return max_val > threshold;
 }
 
 /* Detects the bounding box of non-black pixels */
