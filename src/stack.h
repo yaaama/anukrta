@@ -26,7 +26,7 @@ int anu_vector_pop_end(anu_vector *v, void *out);
 /* Pop an element from the beginning of the vector */
 /* int anu_vector_pop_start(anu_vector *v, void *out); */
 /* Return number of elements in vector */
-int anu_vector_count(anu_vector *v);
+size_t anu_vector_count(anu_vector *v);
 /* Check if vector is empty */
 int anu_vector_is_empty(anu_vector *v);
 /* Destroy vector, and all of its items */

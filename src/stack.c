@@ -95,9 +95,9 @@ int anu_vector_pop_end (anu_vector *v, void *out) {
   return (int) v->count;
 }
 
-int anu_vector_count (anu_vector *v) {
+size_t anu_vector_count (anu_vector *v) {
   assert(v);
-  return (int) v->count;
+  return v->count;
 }
 
 void anu_vector_destroy (anu_vector *v) {
