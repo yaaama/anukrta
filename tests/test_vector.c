@@ -1,5 +1,6 @@
 #include <criterion/criterion.h>
 #include <criterion/new/assert.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "../src/stack.h"
