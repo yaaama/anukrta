@@ -2,11 +2,13 @@
 #include "tree.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "stack.h"
 #include "util.h"
 
 bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
@@ -16,10 +18,14 @@ bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
   if (!node) {
     return NULL;
   }
-  node->exact_dupe_count = 0;
+
   node->hash = hash;
-  node->exact_dupe_file_ids[0] = file_id;
-  node->exact_dupe_count = 1;
+  node->children = NULL;
+  node->child_count = 0;
+  node->child_capacity = 0;
+
+  anu_vector_init(&node->exact_dupe_file_ids, 1, sizeof(node->hash));
+  anu_vector_append(&node->exact_dupe_file_ids, &file_id);
 
   return node;
 }
@@ -31,12 +37,15 @@ void bk_tree_node_free (bk_node *node) {
     return;
   }
 
-  for (int i = 0; i < BK_CHILD_ARR_SIZE; i++) {
-    if (node->children[i]) {
-      bk_tree_node_free(node->children[i]);
-    }
+  for (int i = 0; i < node->child_count; i++) {
+    bk_tree_node_free(node->children[i].node);
   }
 
+  if (node->children) {
+    free(node->children);
+  }
+
+  anu_vector_destroy(&node->exact_dupe_file_ids);
   free(node);
 }
 
@@ -52,19 +61,37 @@ static void bkTree_insert_internal (bk_node *node,
 
   if (!dist) {
     /* Exact match (collision). Add data to this node. */
-    node->exact_dupe_file_ids[node->exact_dupe_count] = file_id;
-    ++node->exact_dupe_count;
+    anu_vector_append(&node->exact_dupe_file_ids, &file_id);
     return;
   }
 
-  /* Traverse down the tree */
-  if (!node->children[dist]) {
-    /* Create new child here */
-    node->children[dist] = bk_tree_node_new(hash, file_id);
-  } else {
-    /* Recurse */
-    bkTree_insert_internal(node->children[dist], hash, file_id);
+  for (int i = 0; i < node->child_count; i++) {
+    if (node->children[i].distance == dist) {
+      /* Found child with this distance
+       * Recurse down this child. */
+      bkTree_insert_internal(node->children[i].node, hash, file_id);
+      return;
+    }
   }
+
+  /* Traverse down the tree */
+  /* 2. Edge not found. We must create a new child branch. */
+  /* Check capacity and grow the array if necessary */
+  if (node->child_count == node->child_capacity) {
+    int new_cap = (node->child_capacity == 0) ? 2 : (node->child_capacity * 2);
+    bk_child_edge *temp =
+        realloc(node->children, (size_t) new_cap * sizeof(bk_child_edge));
+    if (!temp) {
+      ANU_DIE("Failed to allocate memory for BK Tree edges.");
+    }
+    node->children = temp;
+    node->child_capacity = new_cap;
+  }
+
+  assert(node->child_count >= 0);
+  node->children[node->child_count].distance = dist;
+  node->children[node->child_count].node = bk_tree_node_new(hash, file_id);
+  ++node->child_count;
 }
 
 void bk_tree_insert (bk_tree *tree, uint64_t hash, uint64_t file_id) {
@@ -82,7 +109,7 @@ void bk_tree_insert (bk_tree *tree, uint64_t hash, uint64_t file_id) {
 void bk_tree_search (bk_node *node,
                      uint64_t hash,
                      size_t tolerance,
-                     anu_dupe_group *groups_out) {
+                     anu_vector *groups_out) {
   // NOLINTEND
   if (!node) {
     return;
@@ -95,16 +122,10 @@ void bk_tree_search (bk_node *node,
 
   /* Found a match */
   if (distance <= tolerance) {
+    uint64_t *file_ids = (uint64_t *) node->exact_dupe_file_ids.items;
 
-    for (int k = 0; k < node->exact_dupe_count; k++) {
-      /* FIXME 2026-03-04
-         We need to check for CAPACITY here.
-         Currently we are just assuming there won't ever be a group with more
-         than the statically allocated array (65) duplicate items.*/
-      size_t next_group_idx = groups_out->file_count;
-      uint64_t *match = &groups_out->files[next_group_idx];
-      *match = node->exact_dupe_file_ids[k];
-      groups_out->file_count++;
+    for (size_t k = 0; k < node->exact_dupe_file_ids.count; k++) {
+      anu_vector_append(groups_out, &file_ids[k]);
     }
   }
 
@@ -115,9 +136,13 @@ void bk_tree_search (bk_node *node,
     max_search = 64;
   }
 
-  for (size_t i = min_search; i <= max_search; i++) {
-    if (node->children[i]) {
-      bk_tree_search(node->children[i], hash, tolerance, groups_out);
+  for (int i = 0; i < node->child_count; i++) {
+    size_t edge_within_tolerance =
+        (((size_t) node->children[i].distance >= min_search) &&
+         ((size_t) node->children[i].distance <= max_search));
+
+    if (edge_within_tolerance) {
+      bk_tree_search(node->children[i].node, hash, tolerance, groups_out);
     }
   }
 }
@@ -145,19 +170,20 @@ static void bk_node_print_recursive (bk_node *node,
   }
 
   printf("Hash: %016lX | Files: [", node->hash);
+  uint64_t *items = (uint64_t *) node->exact_dupe_file_ids.items;
 
-  for (int i = 0; i < node->exact_dupe_count; i++) {
-    printf(" %lu,", node->exact_dupe_file_ids[i]);
+  for (size_t i = 0; i < node->exact_dupe_file_ids.count; i++) {
+    uint64_t hashitem = items[i];
+    printf(" %" PRIu64 ",", hashitem);
   }
   printf("]\n");
 
   /* Recurse children
      We iterate 1 to 64 because distance 0 is the node itself (handled in
      file_ids) */
-  for (int i = 1; i < BK_CHILD_ARR_SIZE; i++) {
-    if (node->children[i]) {
-      bk_node_print_recursive(node->children[i], depth + 1, i);
-    }
+  for (int i = 0; i < node->child_count; i++) {
+    bk_node_print_recursive(node->children[i].node, depth + 1,
+                            node->children[i].distance);
   }
 }
 

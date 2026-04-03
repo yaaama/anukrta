@@ -183,24 +183,27 @@ anu_report anu_generate_report (anu_file_q *files,
   }
 
   /* Important to zero-initialize */
-  anu_dupe_group segment_results = {0};
-  for (size_t i = 0; i < file_count; i++) {
+  anu_vector segment_results;
+  anu_vector_init(&segment_results, 32, sizeof(uint64_t));
 
+  for (size_t i = 0; i < file_count; i++) {
     for (size_t seg = 0; seg < config->segments; seg++) {
-      segment_results.file_count = 0;
+      segment_results.count = 0;
 
       uint64_t current_hash = hashes[(i * config->segments) + seg];
       bk_tree_search(tree->root, current_hash, config->threshold,
                      &segment_results);
 
+      uint64_t *matched_files = (uint64_t *) segment_results.items;
       /* Process matches for this segment */
-      for (size_t k = 0; k < segment_results.file_count; k++) {
-        size_t match_id = segment_results.files[k];
+      for (size_t k = 0; k < segment_results.count; k++) {
+        size_t match_id = matched_files[k];
         assert(match_id < file_count);
         unite_sets(i, match_id, parent);
       }
     }
   }
+  anu_vector_destroy(&segment_results);  // Destroy intermediate results
 
   /* Convert the Union-Find result into a list of groups */
 

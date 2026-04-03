@@ -1,24 +1,25 @@
 #ifndef ANU_BK_TREE_H
 #define ANU_BK_TREE_H
 
+#include "stack.h"
 #define BK_CHILD_ARR_SIZE 65
 #define MAX_FILES_PER_NODE 16
 
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct anu_dupe_group {
-  uint64_t files[65];
-  size_t file_count;
-} anu_dupe_group;
+typedef struct bk_child_edge {
+  int distance;
+  struct bk_node *node;
+} bk_child_edge;
 
 typedef struct bk_node {
   uint64_t hash;
-  int exact_dupe_count;
-  uint64_t exact_dupe_file_ids[BK_CHILD_ARR_SIZE];
-  /* Children of node, indexed by distance */
-  struct bk_node *children[65];
-  size_t child_count;
+  anu_vector exact_dupe_file_ids;
+  /* Children of node */
+  bk_child_edge *children;
+  int child_count;
+  int child_capacity;
 } bk_node;
 
 typedef struct bk_tree {
@@ -33,7 +34,7 @@ bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 void bk_tree_search(bk_node *node,
                     uint64_t hash,
                     size_t tolerance,
-                    anu_dupe_group *groups_out);
+                    anu_vector *groups_out);
 
 /* Insert hash into tree */
 void bk_tree_insert(bk_tree *tree, uint64_t hash, uint64_t file_id);
