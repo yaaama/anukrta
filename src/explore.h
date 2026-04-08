@@ -38,7 +38,6 @@ int anu_fileq_enqueue(anu_file_q *q, anu_file *file_in);
 int anu_fileq_dequeue(anu_file_q *q, anu_file *file_out);
 
 int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
-int anu_file_opendir(char *dir_path, DIR **out);
 int anu_file_ext_supported(char *filename);
 
 static ALWAYS_INLINE char *anu_file_get_filename (anu_file *f) {

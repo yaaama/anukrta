@@ -96,12 +96,12 @@ static const char *video_extensions[] = {
 
 static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
 
-bool anu_file_path_exists (char *path) {
+ALWAYS_INLINE bool anu_file_path_exists (char *path) {
   struct stat statb;
-  return (path && stat(path, &statb) == 0) != 0;
+  return (path && (stat(path, &statb) == 0)) != 0;
 }
 
-bool anu_file_path_is_dir (char *path) {
+ALWAYS_INLINE bool anu_file_path_is_dir (char *path) {
   struct stat statb;
   return (path && stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 }
@@ -146,7 +146,7 @@ int anu_file_ext_supported (char *filename) {
 }
 
 /* TODO Resolve tilde into absolute path */
-static int anu_resolve_tilde (char *path) {
+ALWAYS_INLINE static int anu_resolve_tilde (char *path) {
 
   if (!path) {
     return -1;
@@ -181,7 +181,7 @@ int anu_file_resolve_relative_path (char *restrict path, char *restrict out) {
   return 0;
 }
 
-int anu_file_opendir (char *dir_path, DIR **out) {
+ALWAYS_INLINE static int anu_file_opendir (char *dir_path, DIR **out) {
   assert(dir_path && out);
 
   *out = opendir(dir_path);
@@ -270,7 +270,7 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
   return 0;
 }
 
-static ptrdiff_t filename_index (char *path) {
+static ALWAYS_INLINE ptrdiff_t filename_index (char *path) {
 
   if (!path) {
     return 0;
