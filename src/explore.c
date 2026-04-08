@@ -111,6 +111,7 @@ int anu_file_ext_supported (char *filename) {
   assert(filename);
   char *dot = strrchr(filename, '.');
 
+  /* Check for '.' */
   if (!dot || dot == filename) {
     return 0;
   }
@@ -118,12 +119,14 @@ int anu_file_ext_supported (char *filename) {
   char file_ext_lower[8] = {0};
 
   /* Skip over the dot... */
-  char *extension = ++dot;
+  ++dot;
+  char *extension = dot;
 
+  /* Length of filename extension */
   size_t ext_len = strlen(extension);
 
-  /* Check if extension length is between 4 chars and 3 */
-  if (ext_len < 2 || ext_len > 4) {
+  /* All supported extensions are either 3 or 4 characters long */
+  if (ext_len < 3 || ext_len > 4) {
     return 0;
   }
 
@@ -245,10 +248,10 @@ char *anu_file_basename_stem (char *path, char *out, size_t out_size) {
  * Adds the file pointed to by 'path' to the 'files_out' struct.
  **/
 static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
-  errno = 0;
 
   struct stat statb = {0};
   int stat_return = 0;
+  errno = 0;
   stat_return = stat(path, &statb);
   if (stat_return && errno) {
     perror("Error running 'stat' on file: ");
@@ -264,17 +267,17 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
   file.path = realpath(path, NULL);
   char *base_ptr = anu_file_basename(path);
   assert(base_ptr != path);
-  file.name = (base_ptr - path) > 0 ? (int) (base_ptr - path) : 0;
+  ptrdiff_t idx = (base_ptr - path) > 0 ? (base_ptr - path) : 0;
+  assert(idx > 0);
+  file.name = (size_t) idx;
 
   anu_fileq_enqueue(files_out, &file);
   return 0;
 }
 
-static ALWAYS_INLINE ptrdiff_t filename_index (char *path) {
+ALWAYS_INLINE static size_t filename_index (char *path) {
 
-  if (!path) {
-    return 0;
-  }
+  assert(path);
 
   char *last_slash = strrchr(path, '/');
 
@@ -285,7 +288,7 @@ static ALWAYS_INLINE ptrdiff_t filename_index (char *path) {
   /* last_slash points to '/'. */
   /* We want the character AFTER the slash. */
   /* Subtract pointers: (End Address) - (Start Address) = Index */
-  return ((last_slash + 1) - path);
+  return (size_t) ((last_slash + 1) - path);
 }
 
 /**

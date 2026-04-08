@@ -21,7 +21,7 @@ typedef struct anu_file {
   /* File modification time */
   long mtime;
   /* Index for when name starts in path */
-  ptrdiff_t name;
+  size_t name;
 } anu_file;
 
 typedef struct anu_file_q {
