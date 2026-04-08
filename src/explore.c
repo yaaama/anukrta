@@ -301,17 +301,25 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
     return -1;
   }
 
+  /* Resolve our root path just ONCE */
+  char root_path[PATH_MAX];
+
+  if (realpath(path, root_path) == NULL) {
+    perror("Failed to resolve path:");
+    return -1;
+  }
+
   /* Stat buffer */
   struct stat statb = {0};
   /* Return value of calling stat on a file */
   int stat_return = 0;
 
-  size_t file_len = strlen(path);
+  size_t file_len = strlen(root_path);
 
   /* Check if we have received a path to a FILE with extension we support */
-  if (!anu_file_path_is_dir(path) && anu_file_ext_supported(path)) {
-    log_info("Received path for regular video file: %s", path);
-    return handle_path_pointing_to_file(path, files_out);
+  if (anu_file_ext_supported(root_path)) {
+    log_info("Received path for regular video file: %s", root_path);
+    return handle_path_pointing_to_file(root_path, files_out);
   }
 
   /* Initialise first directory we will explore */
@@ -320,27 +328,22 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
   /* Temp var to hold the directory we are currently in */
   struct anu_dir_job currjob;
 
-  memcpy(dirjob.path, path, file_len);
+  memcpy(dirjob.path, root_path, file_len);
   dirjob.path[file_len] = '\0';
 
   /* Stack containing directories to visit
    * This lets us go through file hierarchies 'recursively'
    * without actually using recursion in the implementation */
   anu_stack dirstack;
-  anu_stack_init(
-      &dirstack, 4,
-      sizeof(struct anu_dir_job));     // Initialise stack to being capacity 4
-  anu_stack_push(&dirstack, &dirjob);  // Push the root directory into the stack
-
-  /* Directory stream */
-  DIR *dir;
-  /* Dir entry */
-  struct dirent *dp;
-  /* Path of current file */
-  char fullpath[PATH_MAX] = {0};
-  anu_file newfile = {0};
+  /* Initialise stack */
+  anu_stack_init(&dirstack, 8, sizeof(struct anu_dir_job));
+  /* Push first item into stack (root directory) */
+  anu_stack_push(&dirstack, &dirjob);
 
   while (anu_stack_pop(&dirstack, &currjob)) {
+
+    /* Directory stream */
+    DIR *dir;
 
     /* Open directory for reading */
     if (anu_file_opendir(currjob.path, &dir) != 0) {
@@ -348,61 +351,91 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
       continue;
     };
 
+    /* Dir entry */
+    struct dirent *dp;
+    /* Directory file descriptor */
+    int dir_fd = dirfd(dir);
+    if (dir_fd == -1) {
+      perror("Could not get file descriptor for directory.");
+      continue;
+    }
+
+    /* Path of current file */
+    /* NOTE: We oversize fullpath because:
+     * - We could end up with len of PATH_MAX + NAME_MAX + 1 characters
+     * where +1 accounts for the null terminator */
+    char fullpath[PATH_MAX];
+    size_t base_len = strlen(currjob.path);
+    memcpy(fullpath, currjob.path, base_len);
+    fullpath[base_len] = '/';
+    char *name_ptr = fullpath + base_len + 1;  // Pointer to where filename goes
+    size_t max_name_len = PATH_MAX - base_len - 1;
+
+    log_trace("Reading directory: %s", currjob.path);
+
     while ((dp = readdir(dir)) != NULL) {
 
       /* Skip over '.' and '..' */
       if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
+        log_trace("Skipping DOT path: '%s'", dp->d_name);
         continue;
       }
 
-      /* Combine directory path with filename and store in 'fullpath' */
-      int path_length = sprintf(fullpath, "%s/%s", (currjob.path), dp->d_name);
-
-      if (UNLIKELY(path_length > PATH_MAX)) {
-        log_warn("Path length (%d) exceeds max length: %d", path_length,
-                 PATH_MAX);
+      /* Ignore symlinks, sockets, devices, etc. */
+      if (dp->d_type != DT_REG && dp->d_type != DT_UNKNOWN &&
+          dp->d_type != DT_DIR) {
+        log_trace("Skipping over NON REGULAR PATH: %s", dp->d_name);
         continue;
       }
 
-      /* Handle stat errors here... */
-      if (stat(fullpath, &statb) == -1) {
-        perror("Stat failed: ");
+      size_t name_len = strlen(dp->d_name);
+
+      /* Prevents buffer overflow */
+      if (UNLIKELY(name_len > max_name_len)) {
         continue;
       }
+      /* +1 to copy the \0 terminator */
+      memcpy(name_ptr, dp->d_name, name_len + 1);
 
       /* If its a directory */
-      if (S_ISDIR(statb.st_mode)) {
-        /* printf("Directory found: %s\n", fullpath); */
-        memcpy(dirjob.path, fullpath, (size_t) path_length);
-        dirjob.path[path_length] = '\0';
+      if (dp->d_type == DT_DIR) {
+        memcpy(dirjob.path, fullpath, base_len + 1 + name_len + 1);
         anu_stack_push(&dirstack, &dirjob);
         continue;
       }
 
-      if (!S_ISREG(statb.st_mode)) {
-        continue;
-      }
-      if (!anu_file_ext_supported(fullpath)) {
+      /* Check path for supported extension */
+      if (!anu_file_ext_supported(dp->d_name)) {
+        log_trace("Skipping non supported extension: %s", dp->d_name);
         continue;
       }
 
+      /* Run stat on path */
+      if (fstatat(dir_fd, dp->d_name, &statb, 0) == -1) {
+        perror("Stat failed: ");
+        continue;
+      }
+      ASSUME(statb.st_size > 0);
+
+      anu_file newfile = {0};
       /* Prepare newfile for data */
-      assert(statb.st_size > 0);
       newfile.size = (size_t) statb.st_size;
       newfile.ctime = statb.st_ctime;
       newfile.mtime = statb.st_mtime;
+
       /* Copy path */
-      assert(path_length > 0);
+      size_t total_path_len = base_len + 1 + name_len;
+      newfile.path = malloc(total_path_len + 1);
+      if (newfile.path == NULL) {
+        ANU_DIE("Out of memory.");
+      }
+      memcpy(newfile.path, fullpath, total_path_len + 1);
+      newfile.name = base_len + 1;  // Index where the filename starts
 
-      /* Resolve the path */
-      newfile.path = realpath(fullpath, NULL);
-
-      /* Get index for when filename starts */
-      newfile.name = filename_index(newfile.path);
-
-      anu_fileq_enqueue(files_out, &newfile);
+      if (anu_fileq_enqueue(files_out, &newfile)) {
+        ANU_DIE("Out of memory.");
+      }
     }
-
     closedir(dir);
   }
 
