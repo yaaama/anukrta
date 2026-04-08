@@ -29,8 +29,8 @@ VENDOR_DIR := lib
 TEST_DIR := tests
 
 # DEFAULT C FLAGS
-CFLAGS := -std=gnu11
-CFLAGS += -Wall -Wextra \
+CFLAGS := -std=gnu11 \
+-Wall -Wextra \
 -Wstrict-prototypes -Wmissing-prototypes \
 -Wold-style-definition \
 -Wshadow -Wvla \
