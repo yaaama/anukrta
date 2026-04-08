@@ -93,8 +93,8 @@ Test (vector, automatic_resize) {
   /* Start with small capacity */
   anu_vector_init(&v, 2, sizeof(int));
 
-  int limit = 100;
-  for (int i = 0; i < limit; i++) {
+  size_t limit = 100;
+  for (size_t i = 0; i < limit; i++) {
     anu_vector_append(&v, &i);
   }
 
