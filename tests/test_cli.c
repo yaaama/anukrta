@@ -6,18 +6,23 @@
 
 #include "../src/cli.h"
 
+static void reset_optind(void) {
+optind = 1;
+}
+
 static void setup (void) {
   /* Reset option index */
-  optind = 1;
+reset_optind();
   /* Redirect standard output and err from tests */
   cr_redirect_stdout();
   cr_redirect_stderr();
 }
 
-TestSuite(cli, .init = setup, .description = "CLI Related Unit Tests");
+
+TestSuite(CLI, .init = setup, .description = "CLI Related Unit Tests");
 
 /* Testing without any options (default behaviour) */
-Test (cli, general_args_none) {
+Test (CLI, general_args_none, .description = "Test for when no arguments are passed") {
   anukrta_config config = {0};
   char *argv[] = {"anukrta", NULL};
   int argc = 1;
@@ -29,7 +34,7 @@ Test (cli, general_args_none) {
   cr_assert(config.verbose == 0);
 }
 
-Test (cli, general_args_positional) {
+Test (CLI, general_args_positional, .description = "Test positional argument parsing") {
   anukrta_config config = {0};
   char *argv[] = {"anukrta", "/path/to/vids", "/other/path", NULL};
   int argc = 3;
@@ -43,72 +48,62 @@ Test (cli, general_args_positional) {
   cr_assert(config.scan_curr_dir == 0);
 }
 
-Test (cli, general_args_numeric_short) {
+Test (CLI, general_args_numeric, .description = "Test parsing of numerical options (short & long)") {
+  anukrta_config config = {0};
+  int argc = 5;
+  int ret;
+
+  /* SHORT */
   char segment_c[] = "15";
   char thread_c[] = "30";
-  anukrta_config config = {0};
-  char *argv[] = {"anukrta", "-s", segment_c, "-t", thread_c, NULL};
-  int argc = 5;
+  char *argv_short[] = {"anukrta", "-s", segment_c, "-t", thread_c, NULL};
 
-  int ret = anu_cli_parse_options(&config, argc, argv);
-
+  ret = anu_cli_parse_options(&config, argc, argv_short);
   cr_assert(ret == 0);
   cr_assert(config.segments == 15);
   cr_assert(config.threshold == 30);
-}
 
-Test (cli, general_args_numeric_long) {
-  anukrta_config config = {0};
-  char segment_c[] = "8";
-  char thread_c[] = "10";
-  char *argv[] = {"anukrta",    "--threads", thread_c,
-                  "--segments", segment_c,   NULL};
-  int argc = 5;
+  /* LONG */
+  reset_optind();
+  char thread_c_long[] = "10";
+  char segment_c_long[] = "8";
+  char *argv_long[] = {"anukrta",    "--threads",    thread_c_long,
+                       "--segments", segment_c_long, NULL};
 
-  int ret = anu_cli_parse_options(&config, argc, argv);
+  ret = anu_cli_parse_options(&config, argc, argv_long);
 
   cr_assert(ret == 0);
   cr_assert(config.segments == 8);
   cr_assert(config.thread_count == 10);
 }
 
-/* -h */
-Test (cli, help_flag_short, .description = "Parsing '-h'") {
-  anukrta_config config = {0};
-  char *argv[] = {"anukrta", "-h", NULL};
-  int argc = 2;
-
-  int ret = anu_cli_parse_options(&config, argc, argv);
-
-  cr_assert(ret == 0);
-  cr_assert(config._exit_early == 1);
-}
-
 /* --help */
-Test (cli, help_flag_long, .description = "Parsing '--help'") {
+Test (CLI, help_flag_long, .description = "Parsing help flags (short & long)") {
   anukrta_config config = {0};
-  char *argv[] = {"anukrta", "--help", NULL};
   int argc = 2;
+  int ret;
 
-  int ret = anu_cli_parse_options(&config, argc, argv);
+  /* SHORT */
+  char *argv_short[] = {"anukrta", "-h", NULL};
+  ret = anu_cli_parse_options(&config, argc, argv_short);
 
   cr_assert(ret == 0);
   cr_assert(config._exit_early == 1);
-}
 
-/* '-v' */
-Test (cli, verbose_flag_short, .description = "Parsing '-v'") {
+  /* LONG */
+  reset_optind();
+  char *argv_long[] = {"anukrta", "--help", NULL};
+  ret = anu_cli_parse_options(&config, argc, argv_long);
 
-  anukrta_config config = {0};
-  char *verbose_short[] = {"anukrta", "-v", NULL};
-  int verbose_short_c = 2;
-  int ret = anu_cli_parse_options(&config, verbose_short_c, verbose_short);
   cr_assert(ret == 0);
-  cr_assert(config.verbose == 1);
+  cr_assert(config._exit_early == 1);
+
 }
 
 /* '--verbose' */
-Test (cli, verbose_flag_long, .description = "Parsing '--verbose'") {
+Test (CLI,
+      verbose_flag_long,
+      .description = "Parsing verbose flags (short & long)") {
   anukrta_config config = {0};
   char *verbose_long[] = {"anukrta", "--verbose", NULL};
   int verbose_long_c = 2;
@@ -116,10 +111,16 @@ Test (cli, verbose_flag_long, .description = "Parsing '--verbose'") {
 
   cr_assert(ret == 0);
   cr_assert(config.verbose == 1);
+
+  char *verbose_short[] = {"anukrta", "-v", NULL};
+  int verbose_short_c = 2;
+  ret = anu_cli_parse_options(&config, verbose_short_c, verbose_short);
+  cr_assert(ret == 0);
+  cr_assert(config.verbose == 1);
 }
 
 /* --dry-run */
-Test (cli, dryrun_flag, .description = "Parsing '--dry-run'") {
+Test (CLI, dryrun_flag, .description = "Parsing '--dry-run' flag") {
   anukrta_config config = {0};
   /* Note: dry-run uses the 'flag' pointer in struct option */
   char *argv[] = {"anukrta", "--dry-run", NULL};
@@ -132,7 +133,7 @@ Test (cli, dryrun_flag, .description = "Parsing '--dry-run'") {
 }
 
 /* --version */
-Test (cli, version_exit_early, .description = "Parsing '--version'") {
+Test (CLI, version_exit_early, .description = "Parsing '--version' flag") {
   anukrta_config config = {0};
   char *argv[] = {"anukrta", "--version", NULL};
   int argc = 2;
@@ -144,20 +145,31 @@ Test (cli, version_exit_early, .description = "Parsing '--version'") {
 }
 
 /* Invalid -s value */
-Test (cli, segments_short_invalid, .description = "Invalid segments argument") {
+Test (CLI,
+      segments_short_invalid,
+      .description = "Pass invalid value for segments option") {
   anukrta_config config = {0};
   /* Segments max is 50 */
-  char *argv[] = {"anukrta", "-s", "999", NULL};
+  char *argv_short[] = {"anukrta", "-s", "999", NULL};
+  char *argv_long[] = {"anukrta", "--segments", "999", NULL};
   int argc = 3;
 
-  int ret = anu_cli_parse_options(&config, argc, argv);
+  int ret = anu_cli_parse_options(&config, argc, argv_short);
+
+  cr_assert(ret == EINVAL);
+  cr_assert(config._exit_early == 1);
+
+  reset_optind();
+  ret = anu_cli_parse_options(&config, argc, argv_long);
 
   cr_assert(ret == EINVAL);
   cr_assert(config._exit_early == 1);
 }
 
 /* Missing arg for '-t' */
-Test (cli, threads_args_none, .description = "Missing value for '-t'") {
+Test (CLI,
+      threads_args_none,
+      .description = "Missing argument for option '-t'") {
   anukrta_config config = {0};
   /* -t requires an argument */
   char *argv[] = {"anukrta", "-t", NULL};
