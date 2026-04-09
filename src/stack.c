@@ -32,7 +32,7 @@ int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
   return EXIT_SUCCESS;
 }
 
-int vector_is_full (anu_vector *v) {
+static inline int vector_is_full (anu_vector *v) {
   assert(v);
   return (v->capacity == v->count) ? 1 : 0;
 }
