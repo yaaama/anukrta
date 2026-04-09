@@ -92,7 +92,7 @@ uint64_t dct_hash (uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
   float dct_result[DCT_DIGEST_LEN];
 
   float sum = 0.0F;
-  const int stride = ANU_PHASH_INPUT_SIZE;
+
   /* Pass 1: 1D DCT on Rows */
   for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
     const uint8_t *row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];

@@ -311,8 +311,6 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
 
   /* Stat buffer */
   struct stat statb = {0};
-  /* Return value of calling stat on a file */
-  int stat_return = 0;
 
   size_t file_len = strlen(root_path);
 

@@ -33,5 +33,5 @@ anu_report anu_generate_report(anu_file_q *files,
 
 void anu_report_destroy(anu_report *report);
 
-char *get_human_sizing_iec(u64 n_bytes, size_t buf_size, char *buf);
+char *get_human_sizing_iec(u64 n_bytes, char *buf);
 #endif  // ANU_REPORT_H

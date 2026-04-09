@@ -10,19 +10,19 @@ Test (Report, human_sizing_iec) {
   char buf[64];
 
   /* Test Byte output */
-  get_human_sizing_iec(500, sizeof(buf), buf);
+  get_human_sizing_iec(500, buf);
   cr_assert_str_eq(buf, "500 B");
 
   /* Test Exact Kibibyte */
-  get_human_sizing_iec(1024, sizeof(buf), buf);
+  get_human_sizing_iec(1024, buf);
   cr_assert_str_eq(buf, "1.00 KiB");
 
   /* Test Fractions (e.g., 1.5 MiB = 1024 * 1024 * 1.5 = 1572864) */
-  get_human_sizing_iec(1572864, sizeof(buf), buf);
+  get_human_sizing_iec(1572864, buf);
   cr_assert_str_eq(buf, "1.50 MiB");
 
   /* Test large sizes */
-  get_human_sizing_iec(1073741824ULL, sizeof(buf), buf); /* 1 GiB */
+  get_human_sizing_iec(1073741824ULL, buf); /* 1 GiB */
   cr_assert_str_eq(buf, "1.00 GiB");
 }
 

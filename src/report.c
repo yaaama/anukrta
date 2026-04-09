@@ -58,7 +58,7 @@ static void unite_sets (size_t i, size_t j, size_t *parent) {
 
 static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
 
-char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
+char *get_human_sizing_iec (u64 n_bytes, char *buf) {
 
   const int num_units = ANU_ARRAY_SIZE(units_iec);
   int unit_index = 0;
@@ -71,7 +71,7 @@ char *get_human_sizing_iec (u64 n_bytes, size_t buf_size, char *buf) {
     n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
     ++unit_index;
   }
-  int c;
+  MAYBE_UNUSED int c;
 
   switch (unit_index) {
     case 0:
@@ -101,7 +101,8 @@ static char *get_date_from_epoch (time_t *epoch_time,
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
-  size_t ret = strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
+  MAYBE_UNUSED size_t ret =
+      strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
   assert(ret > 0);
   return buf;
 }
@@ -129,11 +130,11 @@ void anu_print_report (anukrta_config *config,
     for (size_t j = 0; j < group->count; j++) {
       size_t file_id = group->file_ids[j];
       anu_file *file = &files->items[file_id];
-      char human_sizing[32] = {0};
-      get_human_sizing_iec(file->size, sizeof(human_sizing), human_sizing);
+      char human_sizing[32];
+      get_human_sizing_iec(file->size, human_sizing);
       /* time_t change_t = file->ctime; */
       time_t modification_t = file->mtime;
-      char time_str[64] = {0};
+      char time_str[64];
       get_date_from_epoch(&modification_t, sizeof(time_str), time_str);
       printf("  %s", file->path);
       printf("\n");

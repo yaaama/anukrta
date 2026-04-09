@@ -41,12 +41,6 @@ static uint64_t hash_decoded_frame(
     uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
     anu_hash_type hash_algo);
 static int decode_avpacket(anu_vreader *vreader);
-static void save_gray_frame(unsigned char *buf,
-                            int wrap,
-                            int xsize,
-                            int ysize,
-                            char *prefix,
-                            long frame_num);
 static int normalise_sws_colourspace(AVFrame *frame, SwsContext *context);
 static int vreader_init(char *f_path, anu_vreader *vreader);
 static void vreader_close(anu_vreader *vreader);
@@ -192,11 +186,6 @@ int anu_video_hash (anu_file *file,
   /* Target timestamp in streams time base (tick) */
   int64_t seek_target_sb = 0;
 
-  /* Return value of `decode_packet` */
-  int decoding_success = 0;
-  /* Loop will turn this true when we have decoded a frame for the segment */
-  bool frame_found_for_segment = false;
-  long current_pts = 0;
   uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
   /* Video stream */
   AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
@@ -288,36 +277,6 @@ ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
 ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
   ASSUME(pts >= 0);
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
-}
-
-void save_gray_frame (unsigned char *buf,
-                      int wrap,
-                      int xsize,
-                      int ysize,
-                      char *prefix,
-                      long frame_num) {
-  FILE *fptr;
-
-  char filename[1024];
-  snprintf(filename, sizeof(filename), "%s_frame-%ld.pgm", prefix, frame_num);
-  fptr = fopen(filename, "w");
-
-  if (!fptr) {
-    perror("Failure saving gray scale image, could not open file.");
-    return;
-  }
-
-  /* p5 image headers must end with 255
-   * https://en.wikipedia.org/wiki/Netpbm_format#PGM_example */
-  const int header_end_marker = 255;
-  fprintf(fptr, "P5\n%d %d\n%d\n", xsize, ysize, header_end_marker);
-
-  /* writing line by line */
-  int index;
-  for (index = 0; index < ysize; index++) {
-    fwrite(buf + ((ptrdiff_t) index * wrap), 1, (unsigned long) xsize, fptr);
-  }
-  fclose(fptr);
 }
 
 int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
