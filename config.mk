@@ -10,6 +10,9 @@ endif
 
 CC ?= clang
 
+
+PREPROC_DEFS :=
+
 # --- C Flags ---
 # Development
 DEV_FLAGS := -Og -ggdb3 \
@@ -24,7 +27,7 @@ DEV_FLAGS := -Og -ggdb3 \
 -fstrict-aliasing -Wstrict-aliasing \
 -Wstrict-overflow -Winline -Wparentheses \
 -Wuninitialized -fexceptions \
--Warray-parameter -Winline
+-Warray-parameter
 
 
 # Compiler Specific
@@ -51,14 +54,18 @@ ifeq (${CC}, gcc)
 endif
 
 # Release Build
-RELEASE_FLAGS := -O2 -Wmissing-prototypes -ffast-math
+RELEASE_FLAGS := -O3 -Wmissing-prototypes -ffast-math \
+-Winline \
+-Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes
+
+PREPROC_DEFS += -DNDEBUG
+
 # Profile Build
 PROFILE_FLAGS := -O2 -g3 -fno-omit-frame-pointer -fno-optimize-sibling-calls
 
 
 # --- DEVELOPMENT TOGGLES ---
 # Appended to CPP_FLAGS:
-PREPROC_DEFS :=
 
 # - Use toggles here to customise build -
 
