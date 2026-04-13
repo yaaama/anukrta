@@ -32,20 +32,12 @@ int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
   return EXIT_SUCCESS;
 }
 
-static inline int vector_is_full (anu_vector *v) {
-  assert(v);
-  return (v->capacity == v->count) ? 1 : 0;
-}
-
-int anu_vector_is_empty (anu_vector *v) {
-  assert(v);
-  return (v->count == 0);
-}
+#define VECTOR_FULL(v) (((v)->capacity) == ((v)->count)) ? 1 : 0
 
 int anu_vector_append (anu_vector *v, void *item) {
   assert(v);
 
-  if (vector_is_full(v)) {
+  if (VECTOR_FULL(v)) {
     size_t new_capacity = v->capacity * 2;
     assert(new_capacity > 0);
     void *temp = realloc(v->items, v->_elem_size * new_capacity);

@@ -27,13 +27,17 @@ int anu_vector_pop_end(anu_vector *v, void *out);
 /* int anu_vector_pop_start(anu_vector *v, void *out); */
 /* Return number of elements in vector */
 size_t anu_vector_count(anu_vector *v);
+
 /* Check if vector is empty */
-int anu_vector_is_empty(anu_vector *v);
+inline static int anu_vector_is_empty (anu_vector *v) {
+  return (v->count == 0);
+}
+
 /* Destroy vector, and all of its items */
 void anu_vector_destroy(anu_vector *v);
 /* Get item in vector at index */
 int anu_vector_get(anu_vector *v, size_t index, void *out);
-/* Perform an operation on all items in vector */
+/* TODO Perform an operation on all items in vector */
 void anu_vector_for_all(anu_vector *v, void (*operation)(void *));
 
 void anu_stack_init(anu_stack *s, size_t capacity, size_t elem_size);
