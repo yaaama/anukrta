@@ -301,16 +301,10 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
     return -1;
   }
 
-  /* Resolve our root path just ONCE */
-  char root_path[PATH_MAX];
-
-  if (realpath(path, root_path) == NULL) {
-    perror("Failed to resolve path:");
-    return -1;
-  }
-
   /* Stat buffer */
   struct stat statb = {0};
+  /* Resolve path if needed */
+  char *root_path = path;
 
   size_t file_len = strlen(root_path);
 
