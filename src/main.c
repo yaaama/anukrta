@@ -112,8 +112,8 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* Store the files we find in the path */
   anu_file_q files;
-  /* Initialise the list to 20 items */
-  anu_fileq_init(&files, 20);
+  /* Initialise the list to hold files we find */
+  anu_fileq_init(&files, 16);
 
   scan_dirs(config, &files);
 
