@@ -12,136 +12,136 @@
 
 /** Intermediate buffer length for DCT calculation
  * (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE)
+ * (32 * 8)
  */
-#define DCT_INTERMEDIATE_BUF_LEN 256
+#define DCT_INTERMEDIATE_BUF_LEN (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE)
 
 /**
- * Final DCT digest
- * (ANU_PHASH_DCT_SIZE)**2
+ * Final DCT digest length in bits
+ * ANU_PHASH_DCT_SIZE^2
  */
-#define DCT_DIGEST_LEN 64
+#define DCT_DIGEST_LEN (ANU_PHASH_DCT_SIZE * ANU_PHASH_DCT_SIZE)
 
+/* Scale factor: 2^15 (32768) */
+#define DCT_INT_FIXED_SHIFT 15
+#define DCT_INT_FIXED_SCALE (1LL << DCT_INT_FIXED_SHIFT)
+/* When we multiply two 15 bit numbers, we get 30 bits */
+#define DCT_INT_SCALE_BITS (DCT_INT_FIXED_SHIFT * 2)
+
+#define DCT_INT_SCALE_BITS_Q30 (DCT_INT_FIXED_SHIFT * 2)
+#define DCT_INT_FIXED_SCALE_Q30 (1LL << DCT_INT_SCALE_BITS_Q30)
+
+#define DCT_FLOAT_EPISILON 0.001F
+#define DCT_INT_EPISILON \
+  ((int64_t) (DCT_INT_FIXED_SCALE_Q30 * DCT_FLOAT_EPISILON))
 /* PI in floating point format */
 #define ANU_PI_F 3.14159265358979323846F
 
+/**
+ * Number of coefficients storing image detail
+ * (1 of the values is the brightness aka the DC coefficient)
+ */
+#define DCT_AC_COEFFICIENT_COUNT (DCT_DIGEST_LEN - 1)
+
 #if ANU_PHASH_DCT_SIZE != 8
-#  warn "dct weights will not work if dct size is not 8."
+#  warning "dct weights will not work if dct size is not 8."
 #endif
 
-/* Pre-computed DCT weights for 32->8 reduction */
-/* NOTE: If `ANU_PHASH_DCT_SIZE` changes, these will be invalid */
-static const float DCT_WEIGHTS[256] = {
-  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,
-  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,
-  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,
-  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,
-  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,
-  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,  0.176776692F,
-  0.176776692F,  0.176776692F,  0.249698862F,  0.247294128F,  0.242507815F,
-  0.235386014F,  0.225997329F,  0.214432150F,  0.200801879F,  0.185237780F,
-  0.167889729F,  0.148924828F,  0.128525674F,  0.106888779F,  0.084222458F,
-  0.060745031F,  0.036682624F,  0.012266912F,  -0.012266935F, -0.036682643F,
-  -0.060745049F, -0.084222481F, -0.106888771F, -0.128525689F, -0.148924842F,
-  -0.167889759F, -0.185237810F, -0.200801909F, -0.214432150F, -0.225997329F,
-  -0.235386029F, -0.242507815F, -0.247294128F, -0.249698862F, 0.248796180F,
-  0.239235088F,  0.220480308F,  0.193252608F,  0.158598319F,  0.117849164F,
-  0.072571158F,  0.024504283F,  -0.024504306F, -0.072571181F, -0.117849208F,
-  -0.158598319F, -0.193252623F, -0.220480338F, -0.239235088F, -0.248796180F,
-  -0.248796180F, -0.239235073F, -0.220480308F, -0.193252593F, -0.158598334F,
-  -0.117849171F, -0.072571136F, -0.024504233F, 0.024504358F,  0.072571255F,
-  0.117849179F,  0.158598334F,  0.193252638F,  0.220480338F,  0.239235103F,
-  0.248796195F,  0.247294128F,  0.225997329F,  0.185237780F,  0.128525674F,
-  0.060745031F,  -0.012266935F, -0.084222481F, -0.148924842F, -0.200801909F,
-  -0.235386029F, -0.249698862F, -0.242507815F, -0.214432135F, -0.167889729F,
-  -0.106888734F, -0.036682602F, 0.036682606F,  0.106888846F,  0.167889774F,
-  0.214432165F,  0.242507815F,  0.249698862F,  0.235385999F,  0.200801864F,
-  0.148924738F,  0.084222391F,  0.012266869F,  -0.060745064F, -0.128525674F,
-  -0.185237750F, -0.225997388F, -0.247294143F, 0.245196313F,  0.207867399F,
-  0.138892546F,  0.048772559F,  -0.048772581F, -0.138892591F, -0.207867414F,
-  -0.245196328F, -0.245196313F, -0.207867384F, -0.138892502F, -0.048772596F,
-  0.048772603F,  0.138892606F,  0.207867399F,  0.245196328F,  0.245196313F,
-  0.207867339F,  0.138892531F,  0.048772518F,  -0.048772566F, -0.138892576F,
-  -0.207867444F, -0.245196342F, -0.245196298F, -0.207867295F, -0.138892576F,
-  -0.048772555F, 0.048772644F,  0.138892651F,  0.207867488F,  0.245196357F,
-  0.242507815F,  0.185237780F,  0.084222458F,  -0.036682643F, -0.148924842F,
-  -0.225997329F, -0.249698862F, -0.214432135F, -0.128525704F, -0.012266831F,
-  0.106888846F,  0.200801924F,  0.247294143F,  0.235385999F,  0.167889714F,
-  0.060745016F,  -0.060745064F, -0.167889833F, -0.235386014F, -0.247294113F,
-  -0.200801894F, -0.106888689F, 0.012266881F,  0.128525749F,  0.214432240F,
-  0.249698862F,  0.225997254F,  0.148924798F,  0.036682479F,  -0.084222473F,
-  -0.185237870F, -0.242507815F, 0.239235088F,  0.158598319F,  0.024504283F,
-  -0.117849208F, -0.220480338F, -0.248796180F, -0.193252593F, -0.072571136F,
-  0.072571255F,  0.193252638F,  0.248796195F,  0.220480293F,  0.117849104F,
-  -0.024504321F, -0.158598393F, -0.239235088F, -0.239235088F, -0.158598199F,
-  -0.024504188F, 0.117849216F,  0.220480308F,  0.248796165F,  0.193252549F,
-  0.072571136F,  -0.072571374F, -0.193252712F, -0.248796195F, -0.220480293F,
-  -0.117849201F, 0.024504207F,  0.158598587F,  0.239235163F,  0.235386014F,
-  0.128525674F,  -0.036682643F, -0.185237810F, -0.249698862F, -0.200801879F,
-  -0.060744978F, 0.106888846F,  0.225997359F,  0.242507786F,  0.148924738F,
-  -0.012266919F, -0.167889833F, -0.247294143F, -0.214432076F, -0.084222309F,
-  0.084222622F,  0.214432240F,  0.247294098F,  0.167889595F,  0.012266707F,
-  -0.148924813F, -0.242507815F, -0.225997314F, -0.106888756F, 0.060745072F,
-  0.200801909F,  0.249698862F,  0.185237750F,  0.036682554F,  -0.128525749F,
-  -0.235386044F};
+/* Pre-calculated 1D integer DCT weights for 32x32 to 8x8 pHash
+ *   Format: Q15 fixed-point (shifted left by 15 bits) */
+static const int32_t DCT_WEIGHTS_INT[256] = {
+  /* clang-format off */
+  /* u = 0 */
+  5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793,
+  5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793,
+  5793, 5793, 5793, 5793, 5793, 5793,
+  /* u = 1 */
+    8182, 8103, 7946, 7713, 7405, 7027, 6580, 6070, 5501, 4880, 4212, 3503, 2760,
+  1990, 1202, 402, -402, -1202, -1990, -2760, -3503, -4212, -4880, -5501, -6070,
+  -6580, -7027, -7405, -7713, -7946, -8103, -8182,
+  /* u = 2 */
+    8153, 7839, 7225, 6333, 5197, 3862, 2378, 803, -803, -2378, -3862, -5197,
+  -6333, -7225, -7839, -8153, -8153, -7839, -7225, -6333, -5197, -3862, -2378,
+  -803, 803, 2378, 3862, 5197, 6333, 7225, 7839, 8153,
+  /* u = 3 */
+    8103, 7405, 6070, 4212, 1990, -402, -2760, -4880, -6580, -7713, -8182, -7946,
+  -7027, -5501, -3503, -1202, 1202, 3503, 5501, 7027, 7946, 8182, 7713, 6580,
+  4880, 2760, 402, -1990, -4212, -6070, -7405, -8103,
+  /* u = 4 */
+    8035, 6811, 4551, 1598, -1598, -4551, -6811, -8035, -8035, -6811, -4551,
+  -1598, 1598, 4551, 6811, 8035, 8035, 6811, 4551, 1598, -1598, -4551, -6811,
+  -8035, -8035, -6811, -4551, -1598, 1598, 4551, 6811, 8035,
+  /* u = 5 */
+    7946, 6070, 2760, -1202, -4880, -7405, -8182, -7027, -4212, -402, 3503, 6580,
+  8103, 7713, 5501, 1990, -1990, -5501, -7713, -8103, -6580, -3503, 402, 4212,
+  7027, 8182, 7405, 4880, 1202, -2760, -6070, -7946,
+  /* u = 6 */
+    7839, 5197, 803, -3862, -7225, -8153, -6333, -2378, 2378, 6333, 8153, 7225,
+  3862, -803, -5197, -7839, -7839, -5197, -803, 3862, 7225, 8153, 6333, 2378,
+  -2378, -6333, -8153, -7225, -3862, 803, 5197, 7839,
+  /* u = 7 */
+    7713, 4212, -1202, -6070, -8182, -6580, -1990, 3503, 7405, 7946, 4880, -402,
+  -5501, -8103, -7027, -2760, 2760, 7027, 8103, 5501, 402, -4880, -7946, -7405,
+  -3503, 1990, 6580, 8182, 6070, 1202, -4212, -7713,
+  /* clang-format on */
+};
 
-uint64_t dct_hash (uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
+uint64_t dct_hash (const uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
 
-  /* Intermediate storage */
-  float row_result[DCT_INTERMEDIATE_BUF_LEN];
-  /* Final result */
-  float dct_result[DCT_DIGEST_LEN];
-
-  float sum = 0.0F;
+  int32_t row_result[DCT_INTERMEDIATE_BUF_LEN];
+  int64_t dct_result[DCT_DIGEST_LEN];
 
   /* Pass 1: 1D DCT on Rows */
   for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
     const uint8_t *row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
 
     for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-      const float *weight_ptr = &DCT_WEIGHTS[u * ANU_PHASH_INPUT_SIZE];
-      sum = 0.0F;
+      const int32_t *weight_ptr = &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
 
+      int32_t sum = 0;
+
+      /* Vectorizable by compiler */
       for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
-        /* Formula: sum += pixel[x] * cos(...) */
-        sum += (float) row_ptr[x] * weight_ptr[x];
+        sum += (int32_t) row_ptr[x] * weight_ptr[x];
       }
 
+      /* Max value is ~66 million, safely fits inside int32_t */
       row_result[(u * ANU_PHASH_INPUT_SIZE) + y] = sum;
     }
   }
 
-  /* Pass 2: 1D DCT on Columns (applied to row_result) */
-  for (ptrdiff_t x = 0; x < ANU_PHASH_DCT_SIZE; x++) {
-
-    const float *weight_ptr = &DCT_WEIGHTS[x * ANU_PHASH_INPUT_SIZE];
+  /* Pass 2: 1D DCT on Columns */
+  for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
+    /* u is our output row index */
+    const int32_t *row_of_t = &row_result[u * ANU_PHASH_INPUT_SIZE];
 
     for (ptrdiff_t v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
-      const float *col_ptr = &row_result[v * ANU_PHASH_INPUT_SIZE];
-      sum = 0.0F;
+      /* v is our output column index */
+      const int32_t *weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
+      int64_t sum = 0;
 
       for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-        sum += col_ptr[y] * weight_ptr[y];
+        /* Max sum is ~1.75 * 10^13, safely fits inside int64_t */
+        sum += (int64_t) row_of_t[y] * weight_ptr[y];
       }
-      dct_result[(x * ANU_PHASH_DCT_SIZE) + v] = sum;
+      dct_result[(u * ANU_PHASH_DCT_SIZE) + v] = sum;
     }
   }
 
-  /* Sum up the pixels to calculate the average */
-  float sum_pixels = 0.0F;
-  /* Skip first pixel as it is the brightness value */
+  /* Sum up the pixels to calculate the average (excluding DC coefficient at index 0) */
+  int64_t sum_pixels = 0;
   for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     sum_pixels += dct_result[i];
   }
 
-  /* We treat values smaller than this precision to be NOISE. */
-  const float epsilon = 0.001F;
-  const float threshold = (sum_pixels / (DCT_DIGEST_LEN - 1)) + epsilon;
-
-  /* printf("\tAverage value of pixels: %.20f\n", (double)average); */
+  /* Calculate threshold.
+   * With 15-bit weights, total scale is 2^30.
+   * Float epsilon 0.001 * 2^30 = 1073741. */
+  int64_t threshold =
+      (sum_pixels / DCT_AC_COEFFICIENT_COUNT) + DCT_INT_EPISILON;
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
-
   for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     final_hash = (final_hash << 1) | (dct_result[i] > threshold);
   }
