@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <sys/types.h>
 #include <time.h>
 
 #include "util.h"
@@ -22,6 +23,10 @@ typedef struct anu_file {
   long mtime;
   /* Index for when name starts in path */
   size_t name;
+  /* Device ID */
+  dev_t dev;
+  /* Inode number */
+  ino_t ino;
 } anu_file;
 
 typedef struct anu_file_q {

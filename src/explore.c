@@ -276,9 +276,7 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
 }
 
 ALWAYS_INLINE static size_t filename_index (char *path) {
-
   assert(path);
-
   char *last_slash = strrchr(path, '/');
 
   if (!last_slash) {
@@ -300,9 +298,6 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
   if (!anu_file_path_exists(path)) {
     return -1;
   }
-
-  /* Stat buffer */
-  struct stat statb = {0};
   /* Resolve path if needed */
   char *root_path = path;
 
@@ -316,12 +311,11 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
 
   /* Initialise first directory we will explore */
   struct anu_dir_job dirjob;
+  memcpy(dirjob.path, root_path, file_len);
+  dirjob.path[file_len] = '\0';
 
   /* Temp var to hold the directory we are currently in */
   struct anu_dir_job currjob;
-
-  memcpy(dirjob.path, root_path, file_len);
-  dirjob.path[file_len] = '\0';
 
   /* Stack containing directories to visit
    * This lets us go through file hierarchies 'recursively'
@@ -353,9 +347,6 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
     }
 
     /* Path of current file */
-    /* NOTE: We oversize fullpath because:
-     * - We could end up with len of PATH_MAX + NAME_MAX + 1 characters
-     * where +1 accounts for the null terminator */
     char fullpath[PATH_MAX];
     size_t base_len = strlen(currjob.path);
     memcpy(fullpath, currjob.path, base_len);
@@ -384,10 +375,11 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
 
       /* Prevents buffer overflow */
       if (UNLIKELY(name_len > max_name_len)) {
+        log_warn("Name length is longer than maximum name length.");
         continue;
       }
-      /* +1 to copy the \0 terminator */
-      memcpy(name_ptr, dp->d_name, name_len + 1);
+      memcpy(name_ptr, dp->d_name,
+             (name_len + 1)); /* +1 to copy the \0 terminator */
 
       /* If its a directory */
       if (dp->d_type == DT_DIR) {
@@ -398,9 +390,12 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
 
       /* Check path for supported extension */
       if (!anu_file_ext_supported(dp->d_name)) {
-        log_trace("Skipping non supported extension: %s", dp->d_name);
+        log_debug("Skipping non supported extension: %s", dp->d_name);
         continue;
       }
+
+      /* Stat buffer */
+      struct stat statb;
 
       /* Run stat on path */
       if (fstatat(dir_fd, dp->d_name, &statb, 0) == -1) {
@@ -414,15 +409,17 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
       newfile.size = (size_t) statb.st_size;
       newfile.ctime = statb.st_ctime;
       newfile.mtime = statb.st_mtime;
+      newfile.ino = statb.st_ino;
+      newfile.dev = statb.st_dev;
 
       /* Copy path */
-      size_t total_path_len = base_len + 1 + name_len;
+      size_t total_path_len = base_len + name_len + 1;
       newfile.path = malloc(total_path_len + 1);
       if (newfile.path == NULL) {
         ANU_DIE("Out of memory.");
       }
       memcpy(newfile.path, fullpath, total_path_len + 1);
-      newfile.name = base_len + 1;  // Index where the filename starts
+      newfile.name = base_len + 1; /* Index where the filename starts */
 
       if (anu_fileq_enqueue(files_out, &newfile)) {
         ANU_DIE("Out of memory.");
