@@ -2,6 +2,7 @@
 Checks: >
   -*,
   clang-diagnostic-*,
+  -clang-diagnostic-#pragma-messages,
   bugprone-*,
   cert-*,
   performance-*,
