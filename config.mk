@@ -54,14 +54,15 @@ ifeq (${CC}, gcc)
 endif
 
 # Release Build
-RELEASE_FLAGS := -O3 -Wmissing-prototypes -ffast-math \
+RELEASE_FLAGS := -O3 -ffast-math \
 -Winline \
 -Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes
 
-PREPROC_DEFS += -DNDEBUG
 
 # Profile Build
-PROFILE_FLAGS := -O2 -g3 -fno-omit-frame-pointer -fno-optimize-sibling-calls
+PROFILE_FLAGS := $(RELEASE_FLAGS) -g3 \
+-fno-omit-frame-pointer -fno-optimize-sibling-calls
+
 
 
 # --- DEVELOPMENT TOGGLES ---

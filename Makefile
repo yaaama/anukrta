@@ -57,6 +57,10 @@ ifeq (${PROFILE}, 1)
 	CFLAGS += $(PROFILE_FLAGS)
 endif
 
+ifeq (${RELEASE}, 1)
+	PREPROC_DEFS += -DNDEBUG
+endif
+
 INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
 CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 
