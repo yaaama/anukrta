@@ -61,7 +61,7 @@ static void init_logger (int verbosity,
  * (H - H) = 0
  * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
 static inline int compare_strings (const void *a, const void *b) {
-  return strcmp(*(const char **) a, *(const char **) b);
+  return strcmp(*(const char *const *) a, *(const char *const *) b);
 }
 
 /* TODO Add a check for hard linked files (files with same inode number) */

@@ -98,7 +98,7 @@ Test (vector, automatic_resize) {
     anu_vector_append(&v, &i);
   }
 
-  cr_assert(eq(sz, anu_vector_count(&v),limit));
+  cr_assert(eq(sz, anu_vector_count(&v), limit));
   /* Capacity should have kept doubling all the way to 128 */
   cr_assert(v.capacity == 128);
 

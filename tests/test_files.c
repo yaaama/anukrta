@@ -36,10 +36,11 @@ Test (FileUtilities, basename) {
   cr_assert(zero(str, buffer));
 }
 
-Test(FileUtilities, ext_supported) {
+Test (FileUtilities, ext_supported) {
   /* Valid cases */
   cr_assert_eq(anu_file_ext_supported("video.mp4"), 1);
-  cr_assert_eq(anu_file_ext_supported("movie.MKV"), 1); /* Should be case-insensitive */
+  cr_assert_eq(anu_file_ext_supported("movie.MKV"),
+               1); /* Should be case-insensitive */
   cr_assert_eq(anu_file_ext_supported("/path/to/vid.webm"), 1);
 
   /* Invalid cases */
@@ -49,7 +50,7 @@ Test(FileUtilities, ext_supported) {
   cr_assert_eq(anu_file_ext_supported("music.mp3"), 0); /* Not in video array */
 }
 
-Test(FileUtilities, file_queue_operations) {
+Test (FileUtilities, file_queue_operations) {
   anu_file_q q;
   anu_fileq_init(&q, 2);
   cr_log_info("Initialised file queue\n");

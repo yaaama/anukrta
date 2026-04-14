@@ -1,23 +1,21 @@
 #ifndef ANU_BK_TREE_H
 #define ANU_BK_TREE_H
 
-#include "stack.h"
-#define BK_CHILD_ARR_SIZE 65
-#define MAX_FILES_PER_NODE 16
-
 #include <stddef.h>
 #include <stdint.h>
 
+#include "stack.h"
+
 typedef struct bk_child_edge {
-  int distance;
   struct bk_node *node;
+  int distance;
 } bk_child_edge;
 
 typedef struct bk_node {
-  uint64_t hash;
   anu_vector exact_dupe_file_ids;
   /* Children of node */
   bk_child_edge *children;
+  uint64_t hash;
   int child_count;
   int child_capacity;
 } bk_node;

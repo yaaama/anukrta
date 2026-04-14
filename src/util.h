@@ -47,6 +47,7 @@ typedef struct anukrta_config {
   b32 detect_rotation;     /* TODO Detect rotation in videos? */
   b32 detect_bars;         /* Detect windowboxing/letterboxing/pillarboxing */
   anu_hash_type hash_algorithm; /* Hashing algorithm to use */
+  int report_flags;
 } anukrta_config;
 
 /**

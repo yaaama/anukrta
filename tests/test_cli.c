@@ -6,23 +6,22 @@
 
 #include "../src/cli.h"
 
-static void reset_optind(void) {
-optind = 1;
-}
+static void reset_optind (void) { optind = 1; }
 
 static void setup (void) {
   /* Reset option index */
-reset_optind();
+  reset_optind();
   /* Redirect standard output and err from tests */
   cr_redirect_stdout();
   cr_redirect_stderr();
 }
 
-
 TestSuite(CLI, .init = setup, .description = "CLI Related Unit Tests");
 
 /* Testing without any options (default behaviour) */
-Test (CLI, general_args_none, .description = "Test for when no arguments are passed") {
+Test (CLI,
+      general_args_none,
+      .description = "Test for when no arguments are passed") {
   anukrta_config config = {0};
   char *argv[] = {"anukrta", NULL};
   int argc = 1;
@@ -34,7 +33,9 @@ Test (CLI, general_args_none, .description = "Test for when no arguments are pas
   cr_assert(config.verbose == 0);
 }
 
-Test (CLI, general_args_positional, .description = "Test positional argument parsing") {
+Test (CLI,
+      general_args_positional,
+      .description = "Test positional argument parsing") {
   anukrta_config config = {0};
   char *argv[] = {"anukrta", "/path/to/vids", "/other/path", NULL};
   int argc = 3;
@@ -48,7 +49,9 @@ Test (CLI, general_args_positional, .description = "Test positional argument par
   cr_assert(config.scan_curr_dir == 0);
 }
 
-Test (CLI, general_args_numeric, .description = "Test parsing of numerical options (short & long)") {
+Test (CLI,
+      general_args_numeric,
+      .description = "Test parsing of numerical options (short & long)") {
   anukrta_config config = {0};
   int argc = 5;
   int ret;
@@ -97,7 +100,6 @@ Test (CLI, help_flag_long, .description = "Parsing help flags (short & long)") {
 
   cr_assert(ret == 0);
   cr_assert(config._exit_early == 1);
-
 }
 
 /* '--verbose' */

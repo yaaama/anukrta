@@ -65,7 +65,8 @@ Test (BK_Tree, search_tolerance) {
   cr_assert_eq(results.count, 2, "Expected 2 results, got %zu", results.count);
 
   uint64_t *matched_files = (uint64_t *) results.items;
-  bool found_file_0 = false, found_file_1 = false;
+  bool found_file_0 = false;
+  bool found_file_1 = false;
 
   for (size_t i = 0; i < results.count; i++) {
     if (matched_files[i] == 0) {
