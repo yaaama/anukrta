@@ -24,7 +24,7 @@ BUILD_ROOT := build
 BUILD_DIR := $(BUILD_ROOT)/$(VARIANT)
 OBJ_DIR := $(BUILD_DIR)/objs
 INCLUDE_DIR := src
-VENDOR_DIR := lib
+VENDOR_DIR := vendor
 TEST_DIR := tests
 
 # DEFAULT C FLAGS
