@@ -61,6 +61,23 @@ endif
 CFLAGS += $(COMPILER_CFLAGS)
 LDFLAGS += $(COMPILER_LDFLAGS)
 
+# Development build
+ifeq ($(DEBUG), 1)
+	CFLAGS += $(DEV_FLAGS)
+else
+	CFLAGS += $(RELEASE_FLAGS)
+endif
+
+# Profiling build
+ifeq ($(PROFILE), 1)
+	CFLAGS += $(PROFILE_FLAGS)
+endif
+
+# Release or profile
+ifneq (,$(filter 1,$(PROFILE) $(RELEASE)))
+	PREPROC_DEFS += -DNDEBUG
+endif
+
 INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
 CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 
@@ -73,7 +90,7 @@ FFMPEG_LIBS := $(shell pkg-config --libs libavdevice libavfilter libavformat lib
 
 CFLAGS += $(FFMPEG_CFLAGS)
 LDFLAGS += -Wl,--as-needed
-LDLIBS += $(FFMPEG_LIBS) -lm -lpthread
+LDLIBS := $(FFMPEG_LIBS) -lm -lpthread
 
 # ==========================================
 # Sanitisers
