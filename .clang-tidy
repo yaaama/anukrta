@@ -32,6 +32,7 @@ ImplementationFileExtensions:
   - c
 SystemHeaders: false
 HeaderFilterRegex: "^(src|include)/.*"
+ExcludeHeaderFilterRegex: "^vendor/.*"
 FormatStyle: file
 CheckOptions:
   - key: concurrency-mt-unsafe.FunctionSet

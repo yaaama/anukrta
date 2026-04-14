@@ -1,15 +1,14 @@
-MAKEFLAGS += --no-print-directory -j
+MAKEFLAGS += --no-print-directory
 
 USE_MOLD ?= 0
 VARIANT ?= debug
 SANITIZER ?= none
 DEBUG ?= 1
-PROFILE ?= 0
 
 LDFLAGS ?=
 
 ifeq ($(USE_MOLD), 1)
-    LDFLAGS += -fuse-ld=mold
+	LDFLAGS += -fuse-ld=mold
 endif
 
 include config.mk
@@ -32,34 +31,35 @@ TEST_DIR := tests
 CFLAGS := -std=gnu11 \
 -Wall -Wextra \
 -Wstrict-prototypes -Wmissing-prototypes \
--Wold-style-definition \
 -Wshadow -Wvla \
 -Wconversion -Wsign-conversion -Wdouble-promotion \
 -Wmissing-include-dirs \
 -Wnested-externs \
--Wredundant-decls
+-Wredundant-decls -Wold-style-definition \
+-Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes \
+-Wjump-misses-init -Wuninitialized -Warray-parameter -Winit-self -Wundef
+# -Wpadded
 
-# Disable pedantic for now
-# -Wjump-misses-init \
-# -pedantic
+# Development build
+ifeq ($(DEBUG), debug)
+	CFLAGS += $(DEV_FLAGS)
+endif
+
+# Release or Profile
+ifneq ($(filter profile release,$(VARIANT)),)
+	PREPROC_DEFS += -DNDEBUG
+	LDFLAGS += $(COMPILER_RELEASE_LDFLAGS)
+
+	ifeq ($(VARIANT), release)
+		CFLAGS += $(RELEASE_FLAGS)
+	else ifeq ($(VARIANT), profile)
+		CFLAGS += $(PROFILE_FLAGS)
+	endif
+endif
 
 # Inject Compiler-specific flags from config.mk
 CFLAGS += $(COMPILER_CFLAGS)
 LDFLAGS += $(COMPILER_LDFLAGS)
-
-ifeq (${DEBUG}, 1)
-	CFLAGS += $(DEV_FLAGS)
-else
-	CFLAGS += $(RELEASE_FLAGS)
-endif
-
-ifeq (${PROFILE}, 1)
-	CFLAGS += $(PROFILE_FLAGS)
-endif
-
-ifeq (${RELEASE}, 1)
-	PREPROC_DEFS += -DNDEBUG
-endif
 
 INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
 CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
@@ -68,8 +68,12 @@ CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 #   FFmpeg Configuration
 # ==========================================
 # FFmpeg libraries to link against
-FFMPEG_LIBS := -lavcodec -lavdevice -lavfilter -lavformat -lavutil -lswresample -lswscale
-LDLIBS := -lm -lpthread $(FFMPEG_LIBS)
+FFMPEG_CFLAGS := $(shell pkg-config --cflags libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil)
+FFMPEG_LIBS := $(shell pkg-config --libs libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil)
+
+CFLAGS += $(FFMPEG_CFLAGS)
+LDFLAGS += -Wl,--as-needed
+LDLIBS += $(FFMPEG_LIBS) -lm -lpthread
 
 # ==========================================
 # Sanitisers
@@ -99,16 +103,32 @@ ifneq ($(filter asan tsan, $(SANITIZER)),)
 endif
 
 # ==========================================
+#   Vendor Compilation Flags
+# ==========================================
+# We want vendor code to be optimised + no warnings + no debugging
+VENDOR_CFLAGS := -O3 -g -w -DNDEBUG $(COMPILER_CFLAGS)
+
+# Inherit sanitizers if they are active
+ifneq ($(filter asan tsan, $(SANITIZER)),)
+	VENDOR_CFLAGS += $(SAN_FLAGS) -fno-omit-frame-pointer
+endif
+
+# ==========================================
 #   Programmatic File Discovery
 # ==========================================
-# Find all .c files in SRC_DIR & VENDOR_DIR
-SOURCES := $(shell find $(SRC_DIR) -name '*.c')
-SOURCES += $(wildcard $(VENDOR_DIR)/*.c)
+
+SRC_SOURCES := $(shell find $(SRC_DIR) -name '*.c')
 TEST_SOURCES := $(shell find $(TEST_DIR) -name '*.c' 2>/dev/null)
+VENDOR_SOURCES := $(wildcard $(VENDOR_DIR)/*.c)
+
+SOURCES := $(SRC_SOURCES) $(VENDOR_SOURCES)
 
 # Create object file names (src/main.c -> obj/main.o)
-OBJECTS := $(SOURCES:%.c=$(OBJ_DIR)/%.o)
+SRC_OBJECTS    := $(SRC_SOURCES:%.c=$(OBJ_DIR)/%.o)
+VENDOR_OBJECTS := $(VENDOR_SOURCES:%.c=$(OBJ_DIR)/%.o)
 TEST_OBJECTS := $(TEST_SOURCES:%.c=$(OBJ_DIR)/%.o)
+
+OBJECTS := $(SRC_OBJECTS) $(VENDOR_OBJECTS)
 
 # Helper to remove main.o from the library link for tests
 MAIN_OBJ := $(OBJ_DIR)/$(SRC_DIR)/main.o
@@ -135,7 +155,6 @@ ifeq ($(SANITIZER), none)
 	endif
 endif
 
-
 .PHONY: all run clean test run lint check release release-debug debug format memcheck analyze
 
 .DEFAULT_GOAL := debug
@@ -145,23 +164,23 @@ all: debug asan tsan profile release
 
 asan:
 	@echo "=== Building ASAN (Address + UBSAN) Variant ==="
-	$(Q)$(MAKE) -s VARIANT=asan SANITIZER=asan DEBUG=1 PROFILE=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) -s VARIANT=asan SANITIZER=asan DEBUG=1 build-variant 2>/dev/null
 
 tsan:
 	@echo "=== Building TSAN (Thread + UBSAN) Variant ==="
-	$(Q)$(MAKE) -s VARIANT=tsan SANITIZER=tsan DEBUG=1 PROFILE=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) -s VARIANT=tsan SANITIZER=tsan DEBUG=1 build-variant 2>/dev/null
 
 debug:
 	@echo "=== Building Default Debug Variant ==="
-	$(Q)$(MAKE) VARIANT=debug SANITIZER=none DEBUG=1 PROFILE=0 build-variant
+	$(Q)$(MAKE) VARIANT=debug SANITIZER=none DEBUG=1 build-variant
 
 profile:
 	@echo "=== Building Profile Variant ==="
-	$(Q)$(MAKE) -s VARIANT=profile SANITIZER=none DEBUG=0 PROFILE=1 build-variant 2>/dev/null
+	$(Q)$(MAKE) VARIANT=profile SANITIZER=none DEBUG=0 build-variant 2>/dev/null
 
 release:
 	@echo "=== Building Release Variant ==="
-	$(Q)$(MAKE) -s VARIANT=release SANITIZER=none DEBUG=0 PROFILE=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) VARIANT=release SANITIZER=none DEBUG=0 build-variant 2>/dev/null
 
 build-variant: $(TARGETS_TO_BUILD)
 
@@ -174,6 +193,11 @@ $(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS)
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Linking $(VARIANT) -> $(TEST_TARGET_NAME)..."
 	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -lcriterion -o $@
+
+$(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(ECHO_V) "Compiling Vendor [optimized] $<..."
+	$(Q)$(CC) $(VENDOR_CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -217,28 +241,24 @@ clean-debug:
 bear:
 	@mkdir -p $(BUILD_ROOT)/debug
 	@echo "Generating compile_commands.json..."
-	$(Q)bear -- $(MAKE) -B debug
+	$(Q)bear -- $(MAKE) -B CC=clang debug
 
 analyze: clean-debug
-	scan-build --force-analyze-debug-code -analyze-headers --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE)
+	@scan-build --force-analyze-debug-code -analyze-headers --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE)
 
 cppcheck:
-	@echo "Running cppcheck..."
-	@cppcheck --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
+	@cppcheck -q --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
 	--suppress=missingIncludeSystem \
 	--template='{file}:{line}:{column}: {severity}: {message} [{id}]' \
 	-I $(VENDOR_DIR) -i $(VENDOR_DIR) $(SRC_DIR)
 
 format:
-	@echo "Running clang-format"
-	@clang-format -i $(FILES)
+	@find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/dev/null | xargs -n 10 -P $(shell nproc) clang-format -i
 
 lint:
-	@echo "Running clang-tidy"
-	@clang-tidy --quiet $(FILES)
+	@run-clang-tidy -quiet -hide-progress -config-file .clang-tidy -fix -j $(shell nproc) -format -source-filter '^src/*'
 
 memcheck: debug
-	@echo "Running Valgrind on Debug variant..."
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/debug/$(TARGET_NAME)
 
 print-%: ; @echo $*=$($*)

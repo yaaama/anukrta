@@ -15,20 +15,22 @@ PREPROC_DEFS :=
 
 # --- C Flags ---
 # Development
-DEV_FLAGS := -Og -ggdb3 \
--Wformat=2 \
--Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-missing-prototypes \
+DEV_FLAGS := -Og -g3 \
+-Wformat=2 -Wuse-after-free=3 \
 -fno-omit-frame-pointer -fno-optimize-sibling-calls \
 -Wnull-dereference \
 -Wstack-protector -fstack-protector-strong \
 -fstack-clash-protection -fcf-protection \
--Winit-self \
 -Wmisleading-indentation \
 -fstrict-aliasing -Wstrict-aliasing \
--Wstrict-overflow -Winline -Wparentheses \
--Wuninitialized -fexceptions \
--Warray-parameter
+-Wstrict-overflow -Wparentheses \
+-Warray-parameter -Wunused -Wimplicit-fallthrough
 
+# Release Build
+RELEASE_FLAGS := -O3 -ffast-math -Winline
+
+# Profiling Build
+PROFILE_FLAGS := $(RELEASE_FLAGS) -g3 -fno-omit-frame-pointer -fno-optimize-sibling-calls
 
 # Compiler Specific
 COMPILER_CFLAGS :=
@@ -37,33 +39,26 @@ CLANG_EXTRA_SANS :=
 
 # Clang
 ifeq (${CC}, clang)
-	DEV_FLAGS += -fextend-variable-liveness -Wno-incompatible-pointer-types-discards-qualifiers -Wthread-safety
-	DEV_FLAGS += -Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
-	DEV_FLAGS += -D_FORTIFY_SOURCE=3 -flto=thin
-	COMPILER_LDFLAGS += -flto=thin
-# Clang extra sanitizers (Applied in Makefile if ASAN=1)
+	DEV_FLAGS += -fextend-variable-liveness -Wthread-safety \
+-Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
+# -Wno-incompatible-pointer-types-discards-qualifiers
 	CLANG_EXTRA_SANS := -fsanitize=integer,implicit-conversion,local-bounds
 endif
 ifeq (${CC}, gcc)
-	DEV_FLAGS += -Wno-discarded-qualifiers -fanalyzer
-	DEV_FLAGS += --param analyzer-bb-explosion-factor=50
-	DEV_FLAGS += --param analyzer-max-enodes-per-program-point=200
-	DEV_FLAGS += -Wanalyzer-too-complex
-	DEV_FLAGS += -D_FORTIFY_SOURCE=3 -flto
-	COMPILER_LDFLAGS += -flto
+	DEV_FLAGS += -fanalyzer --param analyzer-bb-explosion-factor=50 \
+--param analyzer-max-enodes-per-program-point=200 -Wanalyzer-too-complex \
+-Wuseless-cast
+# -Wno-discarded-qualifiers
 endif
 
-# Release Build
-RELEASE_FLAGS := -O3 -ffast-math \
--Winline \
--Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes
-
-
-# Profile Build
-PROFILE_FLAGS := $(RELEASE_FLAGS) -g3 \
--fno-omit-frame-pointer -fno-optimize-sibling-calls
-
-
+ifeq (${CC}, clang)
+    COMPILER_RELEASE_LDFLAGS += -flto=thin
+    RELEASE_FLAGS += -flto=thin
+endif
+ifeq (${CC}, gcc)
+    COMPILER_RELEASE_LDFLAGS += -flto
+    RELEASE_FLAGS += -flto
+endif
 
 # --- DEVELOPMENT TOGGLES ---
 # Appended to CPP_FLAGS:
