@@ -275,7 +275,7 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
   return 0;
 }
 
-ALWAYS_INLINE static size_t filename_index (char *path) {
+static ALWAYS_INLINE size_t filename_index (char *path) {
   assert(path);
   char *last_slash = strrchr(path, '/');
 
@@ -390,7 +390,6 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
 
       /* Check path for supported extension */
       if (!anu_file_ext_supported(dp->d_name)) {
-        log_debug("Skipping non supported extension: %s", dp->d_name);
         continue;
       }
 
