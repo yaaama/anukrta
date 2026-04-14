@@ -1,6 +1,6 @@
 MAKEFLAGS += --no-print-directory
 
-USE_MOLD ?= 0
+USE_MOLD ?= 1
 VARIANT ?= debug
 SANITIZER ?= none
 DEBUG ?= 1
@@ -28,7 +28,7 @@ VENDOR_DIR := vendor
 TEST_DIR := tests
 
 # DEFAULT C FLAGS
-CFLAGS := -std=gnu11 \
+CFLAGS := -std=gnu23 \
 -Wall -Wextra \
 -Wstrict-prototypes -Wmissing-prototypes \
 -Wshadow -Wvla \
