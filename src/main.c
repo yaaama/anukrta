@@ -319,7 +319,7 @@ int main (int argc, char *argv[]) {
     .threshold = 15,
     .hash_algorithm = ANU_HASH_ALGO_DCT,
     .skip_duration = 3,
-    .thread_count = ANU_DEF_THREAD_COUNT,
+    .thread_count = 1,
     .detect_bars = 1,
     .detect_black_frames = 1,
   };
