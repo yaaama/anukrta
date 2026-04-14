@@ -333,7 +333,7 @@ int scale_frame (anu_vreader *vr,
         anu_detect_black_borders(src, 24, &crop_x, &crop_y, &crop_w, &crop_h);
     /* If returning false, then we have a fully black frame */
     if (!workable_frame) {
-      log_info("%s: Frame is completely black", fname);
+      log_warn("%s: Frame is completely black", fname);
       return 1;
     }
   }
@@ -632,23 +632,24 @@ size_t vreader_get_duration (anu_vreader *vreader) {
  */
 int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
 
-  /* Flush the decoder buffers.
-   *   If we don't do this, the decoder might return cached frames from the
-   *   old position before decoding frames from the new position. */
-  avcodec_flush_buffers(vreader->codec_ctx);
-
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
    jump to the nearest keyframe BEFORE this timestamp.
    *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
    * frame number (rarely works well), so we stick to TimeStamp seeking. */
-  int ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx,
-                          target_pts, AVSEEK_FLAG_BACKWARD);
+  int ret;
+  ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts,
+                      AVSEEK_FLAG_BACKWARD);
 
   if (ret < 0) {
     log_warn("Error seeking to timestamp %ld: %s", target_pts, av_err2str(ret));
     return ret;
   }
+
+  /* Flush the decoder buffers after a SUCCESSFUL seek.
+   * If we don't do this, the decoder might return cached frames from the
+   * old position before decoding frames from the new position. */
+  avcodec_flush_buffers(vreader->codec_ctx);
 
   return ret;
 }
