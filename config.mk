@@ -16,7 +16,7 @@ PREPROC_DEFS :=
 # --- C Flags ---
 # Development
 DEV_FLAGS := -Og -g3 \
--Wformat=2 -Wuse-after-free=3 \
+-Wformat=2 \
 -fno-omit-frame-pointer -fno-optimize-sibling-calls \
 -Wnull-dereference \
 -Wstack-protector -fstack-protector-strong \
@@ -30,7 +30,7 @@ DEV_FLAGS := -Og -g3 \
 RELEASE_FLAGS := -O3 -ffast-math -Winline
 
 # Profiling Build
-PROFILE_FLAGS := $(RELEASE_FLAGS) -g3 -fno-omit-frame-pointer -fno-optimize-sibling-calls
+PROFILE_FLAGS := $(RELEASE_FLAGS) -g3 -fno-omit-frame-pointer
 
 # Compiler Specific
 COMPILER_CFLAGS :=
@@ -47,7 +47,7 @@ endif
 ifeq (${CC}, gcc)
 	DEV_FLAGS += -fanalyzer --param analyzer-bb-explosion-factor=50 \
 --param analyzer-max-enodes-per-program-point=200 -Wanalyzer-too-complex \
--Wuseless-cast
+-Wuseless-cast -Wuse-after-free=3
 # -Wno-discarded-qualifiers
 endif
 

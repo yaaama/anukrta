@@ -1,6 +1,5 @@
 ---
 BasedOnStyle: Google
-Language: C
 AllowShortIfStatementsOnASingleLine: false
 BreakBeforeTernaryOperators: true
 BreakAdjacentStringLiterals: true
@@ -47,7 +46,7 @@ SpaceBeforeParensOptions:
 #   AfterStruct: false
 
 BracedInitializerIndentWidth: 2
-BinPackParameters: false
+BinPackParameters: OnePerLine
 BinPackArguments: true
 ContinuationIndentWidth: 4
 

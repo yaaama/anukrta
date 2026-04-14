@@ -40,11 +40,6 @@ CFLAGS := -std=gnu23 \
 -Wjump-misses-init -Wuninitialized -Warray-parameter -Winit-self -Wundef
 # -Wpadded
 
-# Development build
-ifeq ($(DEBUG), debug)
-	CFLAGS += $(DEV_FLAGS)
-endif
-
 # Release or Profile
 ifneq ($(filter profile release,$(VARIANT)),)
 	PREPROC_DEFS += -DNDEBUG
@@ -98,9 +93,10 @@ LDLIBS := $(FFMPEG_LIBS) -lm -lpthread
 SAN_FLAGS :=
 
 ifeq ($(SANITIZER), asan)
-	SAN_FLAGS := -fsanitize=address,undefined -fsanitize-address-use-after-scope
+	CFLAGS += -fno-optimize-sibling-calls
+	SAN_FLAGS := -fsanitize=address,undefined,unreachable -fsanitize-address-use-after-scope
 else ifeq ($(SANITIZER), tsan)
-	SAN_FLAGS := -fsanitize=thread,undefined
+	SAN_FLAGS := -fsanitize=thread,undefined,unreachable
 endif
 
 ifneq ($(filter asan tsan, $(SANITIZER)),)
@@ -189,15 +185,15 @@ tsan:
 
 debug:
 	@echo "=== Building Default Debug Variant ==="
-	$(Q)$(MAKE) VARIANT=debug SANITIZER=none DEBUG=1 build-variant
+	$(Q)$(MAKE) VARIANT=debug SANITIZER=$(SANITIZER) DEBUG=1 build-variant
 
 profile:
 	@echo "=== Building Profile Variant ==="
-	$(Q)$(MAKE) VARIANT=profile SANITIZER=none DEBUG=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) VARIANT=profile SANITIZER=$(SANITIZER) DEBUG=0 build-variant 2>/dev/null
 
 release:
 	@echo "=== Building Release Variant ==="
-	$(Q)$(MAKE) VARIANT=release SANITIZER=none DEBUG=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) VARIANT=release SANITIZER=$(SANITIZER) DEBUG=0 build-variant 2>/dev/null
 
 build-variant: $(TARGETS_TO_BUILD)
 
@@ -270,7 +266,7 @@ cppcheck:
 	-I $(VENDOR_DIR) -i $(VENDOR_DIR) $(SRC_DIR)
 
 format:
-	@find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/dev/null | xargs -n 10 -P $(shell nproc) clang-format -i
+	@find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/dev/null | xargs -P $(shell nproc) clang-format -i --verbose
 
 lint:
 	@run-clang-tidy -quiet -hide-progress -config-file .clang-tidy -fix -j $(shell nproc) -format -source-filter '^src/*'
