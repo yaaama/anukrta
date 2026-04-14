@@ -107,6 +107,16 @@ static char *get_date_from_epoch (time_t *epoch_time,
   return buf;
 }
 
+static void print_file_hashes (uint64_t *hashes, int hash_count) {
+  printf("\t-> Hashes: [ ");
+
+  for (int i = 0; i < hash_count; i++) {
+    printf("%016" PRIX64 " ", hashes[i]);
+  }
+
+  printf("]\n");
+}
+
 void anu_print_report (anukrta_config *config,
                        anu_report *report,
                        anu_file_q *files,
@@ -143,15 +153,10 @@ void anu_print_report (anukrta_config *config,
              file_id, human_sizing, time_str,
              anu_time_microseconds_to_seconds(file->duration_us));
 
-      printf("\t-> Hashes: [ ");
-      for (size_t seg = 0; seg < config->segments; seg++) {
-        /* Calculate the exact index in the flat array */
-        uint64_t hash_val = hashes[(file_id * config->segments) + seg];
-
-        /* Print as zero-padded 16-character uppercase Hex */
-        printf("%016" PRIX64 " ", hash_val);
+      if (config->verbose) {
+        print_file_hashes((hashes + (file_id * config->segments)),
+                          (int) config->segments);
       }
-      printf("]\n");
     }
   }
 }
