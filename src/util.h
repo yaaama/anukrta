@@ -11,6 +11,7 @@ typedef int8_t b8;
 typedef int32_t b32;
 typedef uint8_t u8;
 typedef int32_t i32;
+typedef int64_t i64;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef float f32;
@@ -20,13 +21,15 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t size;
 typedef size_t usize;
 
-/* Default thread count */
-#define ANU_DEF_THREAD_COUNT 8
-
 typedef enum anu_hash_type {
   ANU_HASH_ALGO_AVERAGE = 0,
   ANU_HASH_ALGO_DCT = 1,
 } anu_hash_type;
+
+#define ANU_REPORT_FLAG_PRINT_FILE_HASHES (1 << 0)
+#define ANU_DETECTION_FLAG_BAR (1 << 0)
+#define ANU_DETECTION_FLAG_BLACK_FRAME (1 << 1)
+#define ANU_DETECTION_ROTATION (1 << 2)
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
