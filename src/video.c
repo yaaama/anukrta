@@ -31,8 +31,7 @@
 /* Hardcode this so I don't have to include another header */
 #define ANU_EAGAIN 11
 
-static int video_reader_grab_frame_at_pts(anu_vreader *vreader,
-                                          long target_pts);
+static int video_reader_grab_frame_at_pts(anu_vreader *vreader);
 static int scale_frame(anu_vreader *vr,
                        uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
                        int matrix_size,
@@ -209,9 +208,9 @@ int anu_video_hash (anu_file *file,
       continue; /* Try next segment */
     }
 
-    if (video_reader_grab_frame_at_pts(&vreader, seek_target_sb) != 1) {
-      log_debug("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
-                seek_target_sb, i);
+    if (video_reader_grab_frame_at_pts(&vreader) != 1) {
+      log_warn("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
+               seek_target_sb, i);
       continue;
     }
 
@@ -389,10 +388,11 @@ int scale_frame (anu_vreader *vr,
   return 0;
 }
 
-int video_reader_grab_frame_at_pts (anu_vreader *vreader, long target_pts) {
+int video_reader_grab_frame_at_pts (anu_vreader *vreader) {
   int decoding_status = 0;
 
   while (av_read_frame(vreader->fmt_ctx, vreader->packet) >= 0) {
+
     if (vreader->packet->stream_index != vreader->video_stream_idx) {
       av_packet_unref(vreader->packet);
       continue;
@@ -401,12 +401,11 @@ int video_reader_grab_frame_at_pts (anu_vreader *vreader, long target_pts) {
     decoding_status = decode_avpacket(vreader);
 
     if (decoding_status == 1) {
-      long current_pts = vreader->frame->best_effort_timestamp;
-      if (current_pts >= target_pts) {
-        av_packet_unref(vreader->packet);
-        return 1; /* Success, frame found */
-      }
-    } else if (decoding_status < 0) {
+      av_packet_unref(vreader->packet);
+      return 1; /* Success, Keyframe found */
+    }
+
+    if (decoding_status < 0) {
       av_packet_unref(vreader->packet);
       return -1; /* Decoding Error */
     }
