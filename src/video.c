@@ -31,7 +31,7 @@
 /* Hardcode this so I don't have to include another header */
 #define ANU_EAGAIN 11
 
-static int video_reader_grab_frame_at_pts(anu_vreader *vreader);
+static int video_reader_get_frame(anu_vreader *vreader);
 static int scale_frame(anu_vreader *vr,
                        uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
                        int matrix_size,
@@ -160,6 +160,7 @@ int anu_video_hash (anu_file *file,
   /* TODO Make this check earlier on in the pipeline */
   assert(video_duration_us != 0);
   assert(video_duration_us > total_video_segments);
+
   /* As long as this is true we won't break anything when we cast for libav */
   ASSUME(video_duration_us < INT64_MAX);
 
@@ -208,7 +209,7 @@ int anu_video_hash (anu_file *file,
       continue; /* Try next segment */
     }
 
-    if (video_reader_grab_frame_at_pts(&vreader) != 1) {
+    if (video_reader_get_frame(&vreader) != 1) {
       log_warn("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
                seek_target_sb, i);
       continue;
@@ -279,7 +280,7 @@ ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
 }
 
-int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
+static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
 
   int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
 
@@ -388,7 +389,7 @@ int scale_frame (anu_vreader *vr,
   return 0;
 }
 
-int video_reader_grab_frame_at_pts (anu_vreader *vreader) {
+static int video_reader_get_frame (anu_vreader *vreader) {
   int decoding_status = 0;
 
   while (av_read_frame(vreader->fmt_ctx, vreader->packet) >= 0) {
