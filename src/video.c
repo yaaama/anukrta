@@ -77,8 +77,6 @@ static bool anu_detect_black_borders (AVFrame *frame,
 
   int top = 0;
   int bottom = h - 1;
-  int left = 0;
-  int right = w - 1;
 
   while ((top < h) /* Top bound */
          && !(row_has_video(y_plane + ((ptrdiff_t) (top * linesize)), w,
@@ -97,6 +95,9 @@ static bool anu_detect_black_borders (AVFrame *frame,
                          threshold))) {
     --bottom;
   }
+
+  int left = w - 1;
+  int right = 0;
 
   for (int y = top; y <= bottom; y++) {
     const uint8_t *row = y_plane + ((ptrdiff_t) y * linesize);
