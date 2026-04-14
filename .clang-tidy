@@ -24,6 +24,7 @@ Checks: >
   -*unused-*,
   -*swappable-parameters,
   -misc-include-cleaner,
+  -clang-diagnostic-padded
 
 WarningsAsErrors: ""
 HeaderFileExtensions:

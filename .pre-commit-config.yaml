@@ -1,3 +1,4 @@
+fail_fast: false
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -5,12 +6,16 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
-  - repo: https://github.com/cpp-linter/cpp-linter-hooks
-    rev: v1.4.0
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
     hooks:
       - id: clang-format
-        args: [--style=file]  # Loads style from .clang-format file
-        files: ^(src|include)/.*\.(h|c)$ # Limits to specific dirs and file types
+        args: [-i]
       - id: clang-tidy
-        args: [--checks=.clang-tidy --fix] # Loads checks from .clang-tidy file
-        files: ^(src|include)/.*\.(h|c)$ # Limits to specific dirs and file types
+        args: ["--quiet", "--fix-errors"]
+        # - id: oclint
+        # - id: uncrustify
+        # - id: cppcheck
+        #   args: ["--enable=all", "--disable=style,unusedFunction", "--check-level=exhaustive", "--language=c", "--inconclusive", "--std=c11", "--suppress=missingIncludeSystem"]
+        # - id: cpplint
+      # - id: include-what-you-use
