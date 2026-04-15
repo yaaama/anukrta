@@ -20,11 +20,6 @@ typedef struct bk_node {
   int child_capacity;
 } bk_node;
 
-typedef struct bk_tree {
-  /* Root node */
-  bk_node *root;
-} bk_tree;
-
 /* Create new BK node */
 bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 
@@ -35,9 +30,9 @@ void bk_tree_search(bk_node *node,
                     anu_vector *groups_out);
 
 /* Insert hash into tree */
-void bk_tree_insert(bk_tree *tree, uint64_t hash, uint64_t file_id);
+void bk_tree_insert(bk_node *tree, uint64_t hash, uint64_t file_id);
 /* Free node */
 void bk_tree_node_free(bk_node *node);
-void bk_tree_print_ascii(bk_tree *tree);
+void bk_tree_print_ascii(bk_node *tree);
 
 #endif  // ANU_BK_TREE_H

@@ -280,7 +280,7 @@ static int anukrta_driver (anukrta_config *config) {
   pthread_mutex_destroy(&idx_mutex);
 
   anu_file *file;
-  bk_tree filetree = {0};
+  bk_node *filetree = calloc(1, sizeof(*filetree));
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
@@ -296,17 +296,17 @@ static int anukrta_driver (anukrta_config *config) {
 
     if (result == 0) {
       for (size_t j = 0; j < config->segments; j++) {
-        bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
+        bk_tree_insert(filetree, hashes[(i * config->segments) + j], i);
       }
     }
   }
 
-  anu_report report = anu_generate_report(&files, hashes, config, &filetree);
+  anu_report report = anu_generate_report(&files, hashes, config, filetree);
   anu_print_report(config, &report, &files, hashes);
 
   /* CLEANUP */
   anu_report_destroy(&report);
-  bk_tree_node_free(filetree.root);
+  bk_tree_node_free(filetree);
   anu_fileq_destroy(&files);
   free(hashes);
   free(results);

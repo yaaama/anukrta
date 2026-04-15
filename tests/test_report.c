@@ -56,13 +56,13 @@ Test (Report, generate_duplicate_groups) {
   };
 
   /* Populate the BK-Tree manually */
-  bk_tree tree = {0};
-  for (size_t i = 0; i < 4; i++) {
-    bk_tree_insert(&tree, hashes[i], i);
+  bk_node *tree = bk_tree_node_new(hashes[0], 0);
+  for (size_t i = 1; i < 4; i++) {
+    bk_tree_insert(tree, hashes[i], i);
   }
 
   /* Generate the report using Union-Find */
-  anu_report report = anu_generate_report(&files, hashes, &config, &tree);
+  anu_report report = anu_generate_report(&files, hashes, &config, tree);
 
   /*
    * Expected outcome:
@@ -73,7 +73,9 @@ Test (Report, generate_duplicate_groups) {
   cr_assert_eq(report.groups[0].count, 3, "Group should contain 3 files");
 
   /* Verify the correct IDs are in the group (order doesn't matter, but based on your loop it's 0, 1, 2) */
-  bool has_0 = false, has_1 = false, has_2 = false;
+  bool has_0 = false;
+  bool has_1 = false;
+  bool has_2 = false;
   for (size_t i = 0; i < 3; i++) {
     uint64_t id = report.groups[0].file_ids[i];
     if (id == 0) {
@@ -92,7 +94,7 @@ Test (Report, generate_duplicate_groups) {
 
   /* Clean up */
   anu_report_destroy(&report);
-  bk_tree_node_free(tree.root);
+  bk_tree_node_free(tree);
 
   /* Must dequeue and free paths to avoid memory leak in test */
   anu_file tmp;

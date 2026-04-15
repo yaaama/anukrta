@@ -29,7 +29,7 @@ void anu_print_report(anukrta_config *config,
 anu_report anu_generate_report(anu_file_q *files,
                                u64 *hashes,
                                anukrta_config *config,
-                               bk_tree *tree);
+                               bk_node *tree);
 
 void anu_report_destroy(anu_report *report);
 

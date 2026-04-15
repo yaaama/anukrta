@@ -174,7 +174,7 @@ void anu_report_destroy (anu_report *report) {
 anu_report anu_generate_report (anu_file_q *files,
                                 uint64_t *hashes,
                                 anukrta_config *config,
-                                bk_tree *tree) {
+                                bk_node *tree) {
   size_t file_count = files->count;
   anu_report report = {0};
 
@@ -204,8 +204,7 @@ anu_report anu_generate_report (anu_file_q *files,
       segment_results.count = 0;
 
       uint64_t current_hash = hashes[(i * config->segments) + seg];
-      bk_tree_search(tree->root, current_hash, config->threshold,
-                     &segment_results);
+      bk_tree_search(tree, current_hash, config->threshold, &segment_results);
 
       uint64_t *matched_files = (uint64_t *) segment_results.items;
       /* Process matches for this segment */
