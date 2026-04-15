@@ -237,7 +237,8 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* NOTE: Thread count should not exceed file count or it is a waste of resources */
   config->thread_count = MINIMUM(config->thread_count, file_count);
-  pthread_t *threads = calloc(config->thread_count, sizeof(pthread_t));
+  pthread_t *threads;
+  threads = calloc(config->thread_count, sizeof(*threads));
   if (!threads) {
     ANU_DIE("Failed to allocate memory for threads");
   }
@@ -259,14 +260,19 @@ static int anukrta_driver (anukrta_config *config) {
   log_info("Starting %zu hashing threads...", config->thread_count);
 
   /* Create the threads */
-  for (size_t i = 0; i < config->thread_count; i++) {
-    if (pthread_create(&threads[i], NULL, hash_worker_thread, &args) != 0) {
-      log_warn("Failed to create thread %zu", i);
+  int threads_made = 0;
+  for (int i = 0; i < (int) config->thread_count; i++) {
+    int success =
+        (pthread_create(&threads[i], NULL, hash_worker_thread, &args) == 0);
+    threads_made += success;
+    if (!success) {
+      log_warn("Failed to create thread #%d", i);
+      break;
     }
   }
 
   /* Wait for all threads to finish */
-  for (size_t i = 0; i < config->thread_count; i++) {
+  for (int i = 0; i < threads_made; i++) {
     pthread_join(threads[i], NULL);
   }
 
