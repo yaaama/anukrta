@@ -365,6 +365,6 @@ int main (int argc, char *argv[]) {
   log_info("%s now running...", argv[0]);
 
   int driver_ret = anukrta_driver(&config);
-
+  pthread_mutex_destroy(&log_mutex);
   return driver_ret;
 }
