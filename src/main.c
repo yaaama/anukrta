@@ -12,6 +12,7 @@
 #include <libavutil/log.h>
 #include <pthread.h>
 #include <stdarg.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -36,8 +37,7 @@ typedef struct {
   uint64_t *hashes;
   int *results; /* To store the return value of hash_video */
   size_t file_count;
-  size_t *current_idx;    /* Shared index */
-  pthread_mutex_t *mutex; /* Protects current_idx */
+  atomic_size_t *current_idx; /* Shared index */
 } worker_args;
 
 /* callback function for logger */
@@ -167,21 +167,13 @@ static void scan_dirs (anukrta_config *config, anu_file_q *files) {
 static void *hash_worker_thread (void *arg) {
   worker_args *targs = (worker_args *) arg;
 
+  const size_t file_count = targs->file_count;
+
   while (1) {
     size_t my_idx;
+    my_idx = atomic_fetch_add(targs->current_idx, 1);
 
-    /* --- CRITICAL SECTION --- */
-    /* Lock the mutex to safely grab the next file index */
-    pthread_mutex_lock(targs->mutex);
-    my_idx = *(targs->current_idx);
-    if (my_idx < targs->file_count) {
-      *(targs->current_idx) += 1; /* Advance the queue for the next thread */
-    }
-    pthread_mutex_unlock(targs->mutex);
-    /* ------------------------ */
-
-    /* If we've processed all files, exit the thread */
-    if (my_idx >= targs->file_count) {
+    if (my_idx >= file_count) {
       break;
     }
 
@@ -247,19 +239,17 @@ static int anukrta_driver (anukrta_config *config) {
     ANU_DIE("Failed to allocate memory for threads");
   }
 
-  pthread_mutex_t idx_mutex;
-  pthread_mutex_init(&idx_mutex, NULL);
-
-  size_t current_file_idx = 0;
+  atomic_size_t current_file_idx = 0;
 
   /* Package the arguments */
-  worker_args args = {.files = &files,
-                      .config = config,
-                      .hashes = hashes,
-                      .results = results,
-                      .file_count = file_count,
-                      .current_idx = &current_file_idx,
-                      .mutex = &idx_mutex};
+  worker_args args = {
+    .files = &files,
+    .config = config,
+    .hashes = hashes,
+    .results = results,
+    .file_count = file_count,
+    .current_idx = &current_file_idx,
+  };
 
   log_info("Starting %zu hashing threads...", config->thread_count);
 
@@ -279,9 +269,6 @@ static int anukrta_driver (anukrta_config *config) {
   for (int i = 0; i < threads_made; i++) {
     pthread_join(threads[i], NULL);
   }
-
-  /* Clean up threading resources */
-  pthread_mutex_destroy(&idx_mutex);
 
   anu_file *file;
   bk_node *filetree = calloc(1, sizeof(*filetree));
