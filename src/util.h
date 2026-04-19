@@ -90,15 +90,15 @@ typedef struct anukrta_config {
  **/
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM((_val), (_max)), (_min))
 
-#define KILOBYTE(x) ((x) * 1000ULL)
-#define MEGABYTE(x) (KILOBYTE(x) * 1000ULL)
-#define GIGABYTE(x) (MEGABYTE(x) * 1000ULL)
-#define TERABYTE(x) (GIGABYTE(x) * 1000ULL)
+#define KILOBYTE(bytes) ((bytes) * 1000ULL)
+#define MEGABYTE(bytes) (KILOBYTE(bytes) * 1000ULL)
+#define GIGABYTE(bytes) (MEGABYTE(bytes) * 1000ULL)
+#define TERABYTE(bytes) (GIGABYTE(bytes) * 1000ULL)
 
-#define KIBIBYTE(x) ((x) * 1024ULL)
-#define MEBIBYTE(x) (KIBIBYTE(x) * 1024ULL)
-#define GIBIBYTE(x) (MEBIBYTE(x) * 1024ULL)
-#define TEBIBYTE(x) (TEBIBYTE(x) * 1024ULL)
+#define KIBIBYTE(bytes) ((bytes) * 1024ULL)
+#define MEBIBYTE(bytes) (KIBIBYTE(bytes) * 1024ULL)
+#define GIBIBYTE(bytes) (MEBIBYTE(bytes) * 1024ULL)
+#define TEBIBYTE(bytes) (TEBIBYTE(bytes) * 1024ULL)
 
 int hamming_distance(uint64_t hash1, uint64_t hash2);
 void debug_print_matrix(const float *matrix, int rows, int cols);
