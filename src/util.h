@@ -50,6 +50,19 @@ typedef struct anukrta_config {
   int report_flags;
 } anukrta_config;
 
+#ifndef CACHE_LINE_SIZE
+/* Apple Silicon (M1/M2/M3) uses 128-byte cache lines */
+#  if defined(__APPLE__) && defined(__aarch64__)
+#    define CACHE_LINE_SIZE 128
+/* IBM PowerPC and mainframes also often use 128 */
+#  elif defined(__powerpc__) || defined(__s390x__)
+#    define CACHE_LINE_SIZE 128
+/* x86, x86_64, and standard ARM all use 64 */
+#  else
+#    define CACHE_LINE_SIZE 64
+#  endif
+#endif
+
 /**
  * @brief One second (s) in microseconds (us)
  *

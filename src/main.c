@@ -27,6 +27,9 @@
 #include "util.h"
 #include "video.h"
 
+/* Number of integers that fit in a cache line */
+#define CACHE_STRIDE_INT (CACHE_LINE_SIZE / sizeof(int))
+
 typedef struct {
   anu_file_q *files;
   anukrta_config *config;
@@ -189,7 +192,8 @@ static void *hash_worker_thread (void *arg) {
     log_trace("Thread %lu processing file index %zu", pthread_self(), my_idx);
 
     /* Do the hashing */
-    targs->results[my_idx] = anu_video_hash(file, targs->config, my_hashes);
+    targs->results[my_idx * CACHE_STRIDE_INT] =
+        anu_video_hash(file, targs->config, my_hashes);
   }
 
   return NULL;
@@ -228,7 +232,7 @@ static int anukrta_driver (anukrta_config *config) {
   }
 
   int *results;
-  results = calloc(file_count, sizeof(*results));
+  results = malloc(file_count * CACHE_STRIDE_INT * sizeof(*results));
   if (!results) {
     ANU_DIE("Failed to allocate memory.");
   }
@@ -284,7 +288,7 @@ static int anukrta_driver (anukrta_config *config) {
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
-    int result = results[i];
+    int result = results[i * CACHE_STRIDE_INT];
     /* Check the result saved by the thread */
     if (result == -1) {
       log_debug("Failed to hash file %s", anu_file_get_filename(file));
