@@ -1,6 +1,7 @@
 #include "cli.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
@@ -120,15 +121,38 @@ static int parse_arg_integer (const char *restrict arg_name,
 /* Parses a string to a long, assigns out param (size_t) */
 static int parse_numeric_arg_sizet (const char *restrict arg_name,
                                     const char *restrict arg_str,
-                                    long min,
-                                    long max,
+                                    size_t min,
+                                    size_t max,
                                     size_t *out) {
+  if (!arg_name || !arg_str || !out) {
+    return -1;
+  }
+
+  /* Prevent negatives from being parsed */
+  const char *p = arg_str;
+  /* Skip leading whitespace */
+  while (isspace((unsigned char) *p)) {
+    ++p;
+  }
+
+  if (*p == '-') {
+    fprintf(stderr, "[%s] Error: %s cannot be negative.\n", CLI_NAME, arg_name);
+    return -1;
+  }
+
   char *endptr = NULL;
   errno = 0;
 
-  long val = strtol(arg_str, &endptr, 10);
+  unsigned long val = strtoul(arg_str, &endptr, 10);
 
-  if (errno == ERANGE || val < min || val > max) {
+  if (endptr == arg_str || *endptr != '\0') {
+    fprintf(stderr,
+            "[%s] Error: %s requires a valid positive integer, got '%s'.\n",
+            CLI_NAME, arg_name, arg_str);
+    return -1;
+  }
+
+  if (errno == ERANGE || val < min || val > max || val > ULONG_MAX) {
     fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME,
             arg_name, arg_str);
     if (max == LONG_MAX) {
@@ -136,12 +160,6 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
     } else {
       fprintf(stderr, "  Valid range is %ld to %ld.\n", min, max);
     }
-    return -1;
-  }
-
-  if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "[%s] Error: %s requires a valid integer, got '%s'.\n",
-            CLI_NAME, arg_name, arg_str);
     return -1;
   }
 
