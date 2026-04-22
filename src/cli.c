@@ -74,6 +74,50 @@ static const char *get_long_opt_name (int val, const struct option *opts) {
 }
 
 /* Parses a string to a long, assigns out param (size_t) */
+static int parse_arg_integer (const char *restrict arg_name,
+                              const char *restrict arg_str,
+                              int min,
+                              int max,
+                              int *out) {
+
+  if (!arg_name || !arg_str || !out) {
+    return -1;
+  }
+
+  char *endptr = NULL;
+  errno = 0;
+
+  long val = strtol(arg_str, &endptr, 10);
+
+  if (endptr == arg_str || *endptr != '\0') {
+    fprintf(stderr, "[%s] Error: %s requires a valid integer, got '%s'.\n",
+            CLI_NAME, arg_name, arg_str);
+    return -1;
+  }
+
+  if (errno == ERANGE || val < min || val > max || val > INT_MAX ||
+      val < INT_MIN) {
+    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME,
+            arg_name, arg_str);
+
+    if (max == INT_MAX && min == INT_MIN) {
+      // Both are unbounded (fits in any int)
+      fprintf(stderr, "  Value must fit within a standard integer.\n");
+    } else if (max == INT_MAX) {
+      fprintf(stderr, "  Value must be %d or greater.\n", min);
+    } else if (min == INT_MIN) {
+      fprintf(stderr, "  Value must be %d or less.\n", max);
+    } else {
+      fprintf(stderr, "  Valid range is %d to %d.\n", min, max);
+    }
+    return -1;
+  }
+
+  *out = (int) val;
+  return 0;
+}
+
+/* Parses a string to a long, assigns out param (size_t) */
 static int parse_numeric_arg_sizet (const char *restrict arg_name,
                                     const char *restrict arg_str,
                                     long min,
