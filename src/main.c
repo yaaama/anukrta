@@ -217,14 +217,12 @@ static int anukrta_driver (anukrta_config *config) {
    * [ File1Seg1, File1Seg2, File2Seg1, File2Seg2, ... File N Seg 2 ]
    * FileNSegN would be the hash created for that segment
    */
-  uint64_t *hashes;
-  hashes = calloc(hash_collection_len, sizeof(*hashes));
+  uint64_t *hashes = calloc(hash_collection_len, sizeof(*hashes));
   if (!hashes) {
     ANU_DIE("Failed to allocate memory.");
   }
 
-  int *results;
-  results = malloc(file_count * CACHE_STRIDE_INT * sizeof(*results));
+  int *results = calloc((file_count * CACHE_STRIDE_INT), sizeof(*results));
   if (!results) {
     ANU_DIE("Failed to allocate memory.");
   }
@@ -233,8 +231,8 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* NOTE: Thread count should not exceed file count or it is a waste of resources */
   config->thread_count = MINIMUM(config->thread_count, file_count);
-  pthread_t *threads;
-  threads = calloc(config->thread_count, sizeof(*threads));
+  assert(config->thread_count > 0);
+  pthread_t *threads = calloc(config->thread_count, sizeof(*threads));
   if (!threads) {
     ANU_DIE("Failed to allocate memory for threads");
   }

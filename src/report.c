@@ -185,7 +185,7 @@ anu_report anu_generate_report (anu_file_q *files,
   report.count = 0;
 
   /* Union-Find to identify the groups */
-  size_t *parent = malloc(file_count * sizeof(size_t));
+  size_t *parent = calloc(file_count, sizeof(*parent));
   if (!parent) {
     ANU_DIE("Failed to allocate memory.");
   }
@@ -196,7 +196,7 @@ anu_report anu_generate_report (anu_file_q *files,
   }
 
   /* Important to zero-initialize */
-  anu_vector segment_results;
+  anu_vector segment_results = {0};
   anu_vector_init(&segment_results, 32, sizeof(uint64_t));
 
   for (size_t i = 0; i < file_count; i++) {
@@ -228,7 +228,7 @@ anu_report anu_generate_report (anu_file_q *files,
 
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
-  anu_vector *buckets = calloc(file_count, sizeof(anu_vector));
+  anu_vector *buckets = calloc(file_count, sizeof(*buckets));
   if (!buckets) {
     ANU_DIE("Failed to allocate memory.");
   }
@@ -238,7 +238,7 @@ anu_report anu_generate_report (anu_file_q *files,
     /* Should never happen if logic is correct */
     ASSUME(root < file_count);
     if (!buckets[root].items) {
-      anu_vector_init(&buckets[root], 4, sizeof(uint64_t));
+      anu_vector_init(&buckets[root], 2, sizeof(root));
     }
     anu_vector_append(&buckets[root], &i);
   }

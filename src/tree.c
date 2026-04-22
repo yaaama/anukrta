@@ -127,12 +127,8 @@ void bk_tree_search (bk_node *node,
     }
   }
 
-  size_t min_search = (distance > tolerance) ? (distance - tolerance) : 0;
-  size_t max_search = distance + tolerance;
-
-  if (max_search > 64) {
-    max_search = 64;
-  }
+  int min_search = (distance > tolerance) ? (distance - tolerance) : 0;
+  int max_search = MINIMUM((distance + tolerance), 64);
 
   for (int i = 0; i < node->child_count; i++) {
     size_t edge_within_tolerance =
