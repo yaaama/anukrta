@@ -30,6 +30,31 @@ int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
 
 #define VECTOR_FULL(v) (((v)->capacity) == ((v)->count)) ? 1 : 0
 
+int anu_vector_extend (anu_vector *v, void *items, size_t count) {
+
+  assert(count > 0);
+  assert(v);
+  assert(items);
+
+  if ((v->capacity - v->count) < count) {
+    size_t new_capacity = v->capacity * 2;
+    assert(new_capacity > 0);
+    assert(new_capacity > v->capacity);
+    void *temp = realloc(v->items, v->_elem_size * new_capacity);
+    if (!temp) {
+      perror("Reallocation failed.");
+      return EXIT_FAILURE;
+    }
+    v->items = temp;
+    v->capacity = new_capacity;
+  }
+
+  void *target = (byte *) v->items + (v->count * v->_elem_size);
+  memcpy(target, items, (count * v->_elem_size));
+  v->count += count;
+  return (int) v->count;
+}
+
 int anu_vector_append (anu_vector *v, void *item) {
   assert(v);
 

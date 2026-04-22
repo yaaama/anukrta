@@ -27,6 +27,7 @@ int anu_vector_pop_end(anu_vector *v, void *out);
 /* int anu_vector_pop_start(anu_vector *v, void *out); */
 /* Return number of elements in vector */
 size_t anu_vector_count(anu_vector *v);
+int anu_vector_extend(anu_vector *v, void *items, size_t count);
 
 /* Check if vector is empty */
 inline static int anu_vector_is_empty (anu_vector *v) {
