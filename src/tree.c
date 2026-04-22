@@ -107,17 +107,17 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
 // NOLINTBEGIN (*recursion)
 void bk_tree_search (bk_node *node,
                      uint64_t hash,
-                     size_t tolerance,
+                     int tolerance,
                      anu_vector *groups_out) {
+
+  assert(tolerance > 0);
   // NOLINTEND
   if (!node) {
     return;
   }
 
-  int distance_int = hamming_distance(node->hash, hash);
-  assert(distance_int >= 0 && distance_int <= 64);
-
-  size_t distance = (size_t) distance_int;
+  int distance = hamming_distance(node->hash, hash);
+  assert(distance >= 0 && distance <= 64);
 
   /* Found a match */
   if (distance <= tolerance) {
@@ -132,9 +132,8 @@ void bk_tree_search (bk_node *node,
   int max_search = MINIMUM((distance + tolerance), 64);
 
   for (int i = 0; i < node->child_count; i++) {
-    size_t edge_within_tolerance =
-        (((size_t) node->children[i].distance >= min_search) &&
-         ((size_t) node->children[i].distance <= max_search));
+    int edge_within_tolerance = ((node->children[i].distance >= min_search) &&
+                                 (node->children[i].distance <= max_search));
 
     if (edge_within_tolerance) {
       bk_tree_search(node->children[i].node, hash, tolerance, groups_out);
