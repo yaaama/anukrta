@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* 1 byte (8 bits) boolean type */
 typedef int8_t b8;
@@ -68,12 +69,53 @@ typedef struct anukrta_config {
  *
  * This is useful as FFmpeg uses microseconds for their internal timebase.
  **/
-#define ANU_TIME_ONE_SEC_IN_US 1000000
+#define ANU_TIME_ONE_SEC_IN_US 1000000ULL
+
+/**
+ * @brief Converts microseconds to seconds.
+ * @param microseconds The value in us.
+ * @return The equivalent value in seconds.
+ */
+static inline double anu_time_microseconds_to_seconds (size_t microseconds) {
+  return (microseconds > 0) ? ((double) microseconds / ANU_TIME_ONE_SEC_IN_US)
+                            : 0;
+}
+
+/**
+ * @brief Converts seconds to microseconds.
+ * @param seconds The value in decimal seconds.
+ * @return The equivalent value in microseconds.
+ */
+static inline size_t anu_time_seconds_to_microseconds (double seconds) {
+  return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
+                       : 0;
+}
+
+/** @} */  // END TIME
 
 /**
  * @brief Array size macro
  **/
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+
+/** @name Number related macros
+ * Macros to help with numbers
+ * @{
+ */
+
+/**
+ * @brief Round up 32 bit integer variable to next power of 2.
+ **/
+#define ROUNDUP_32(x)                                                         \
+  (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4, (x) |= (x) >> 8, \
+   (x) |= (x) >> 16, ++(x))
+
+/**
+ * @brief Round up 64 bit integer variable to next power of 2.
+ **/
+#define ROUNDUP_64(x)                                                         \
+  (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4, (x) |= (x) >> 8, \
+   (x) |= (x) >> 16, (x) |= (x) >> 32, ++(x))
 
 /**
  *  @brief Return larger value
@@ -84,6 +126,16 @@ typedef struct anukrta_config {
  * @brief Return smaller value
  **/
 #define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
+
+/**
+ * @brief Absolute value of x
+ */
+#define ABSOLUTE(X) (X) > 0) ? (X) : -(X))
+
+/**
+ * @brief Difference of x and y
+ **/
+#define DIFF(A, B) ((A) > (B) ? (A) - (B) : (B) - (A))
 
 /**
  * @brief Range constraint macro to ensure value is between min and max.
@@ -98,23 +150,23 @@ typedef struct anukrta_config {
 #define KIBIBYTE(bytes) ((bytes) * 1024ULL)
 #define MEBIBYTE(bytes) (KIBIBYTE(bytes) * 1024ULL)
 #define GIBIBYTE(bytes) (MEBIBYTE(bytes) * 1024ULL)
-#define TEBIBYTE(bytes) (TEBIBYTE(bytes) * 1024ULL)
+#define TEBIBYTE(bytes) (GIBIBYTE(bytes) * 1024ULL)
+/** @} */
 
-int hamming_distance(uint64_t hash1, uint64_t hash2);
-void debug_print_matrix(const float *matrix, int rows, int cols);
-void anu_util_print_indent(int depth);
+static inline int hamming_distance (uint64_t hash1, uint64_t hash2) {
+
+  static_assert(
+      sizeof(unsigned long long) >= 8,
+      "Unsigned long longs must be 64 bits for this implementation to work.");
+
+  return __builtin_popcountll(hash1 ^ hash2);
+}
+
+void print_matrix_float(FILE *fd, const float *matrix, int rows, int cols);
+void anu_util_print_indent(FILE *fd, int spaces, int depth);
 
 static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
-}
-
-static inline double anu_time_microseconds_to_seconds (size_t microseconds) {
-  return ((double) microseconds / ANU_TIME_ONE_SEC_IN_US);
-}
-
-static inline size_t anu_time_seconds_to_microseconds (double seconds) {
-  return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
-                       : 0;
 }
 
 #define ZERO_MEMORY(pointer, count, type) \
@@ -123,7 +175,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
-#define ALWAYS_INLINE __attribute__((always_inline)) inline
+#define ALWAYS_INLINE inline __attribute__((always_inline))
 #define HOT_FUNCTION __attribute__((hot))
 
 #if defined(__GNUC__) || defined(__clang__)

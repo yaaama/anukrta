@@ -5,8 +5,11 @@
 #include <stdio.h>
 
 /* Helper to visualise matrix */
-void debug_print_matrix (const float *matrix, int rows, int cols) {
-  printf("--- %dx%d Visual Dump ---\n", cols, rows);
+void print_matrix_float (FILE *fd,
+                         const float *matrix,
+                         const int rows,
+                         const int cols) {
+  fprintf(stdout, "--- %dx%d Visual Dump ---\n", cols, rows);
   for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
     for (int x = 0; x < cols; x++) {
       float val = matrix[(y * cols) + x];
@@ -21,25 +24,18 @@ void debug_print_matrix (const float *matrix, int rows, int cols) {
       } else if (50 < val) {
         c = '.';
       }
-      printf("%c", c);
+      fputc(c, stdout);
     }
-    printf("\n");
+    fputc('\n', stdout);
   }
-  printf("-------------------------\n");
+  fprintf(stdout, "-------------------------\n");
 }
 
-int hamming_distance (uint64_t hash1, uint64_t hash2) {
+void anu_util_print_indent (FILE *fd, const int spaces, const int depth) {
 
-  _Static_assert(
-      sizeof(unsigned long long) >= 8,
-      "Unsigned long longs must be 64 bits for this implementation to work.");
-
-  return __builtin_popcountll(hash1 ^ hash2);
-}
-
-void anu_util_print_indent (int depth) {
-  for (int i = 0; i < depth; i++) {
-    /* 4 spaces per level */
-    printf("    ");
+  if ((depth < 0) || (spaces <= 0)) {
+    return;
   }
+  FILE *file = fd ? fd : stdout;
+  fprintf(file, "%*s", (depth * spaces), "");
 }
