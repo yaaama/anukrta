@@ -15,11 +15,7 @@
 int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
   assert(elem_size);
 
-  if (capacity == 0) {
-    capacity = 4;
-  }
-
-  v->capacity = capacity;
+  v->capacity = (capacity > 0) ? capacity : 2;
   v->count = 0;
   v->_elem_size = elem_size;
 
@@ -38,8 +34,9 @@ int anu_vector_append (anu_vector *v, void *item) {
   assert(v);
 
   if (VECTOR_FULL(v)) {
-    size_t new_capacity = v->capacity * 2;
+    size_t new_capacity = (v->capacity > 0) ? (v->capacity * 2) : 4;
     assert(new_capacity > 0);
+    assert(new_capacity > v->capacity);
     void *temp = realloc(v->items, v->_elem_size * new_capacity);
     if (!temp) {
       perror("Reallocation failed.");

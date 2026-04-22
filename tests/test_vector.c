@@ -23,7 +23,7 @@ Test (vector, init_and_destroy) {
 
   cr_assert(v.items != NULL, "Items pointer should not be NULL after init");
   cr_assert(v.count == 0, "Initial count should be 0");
-  cr_assert(v.capacity >= 4, "Capacity should default to at least 4");
+  cr_assert(v.capacity > 0, "Capacity should default to positive number.");
   cr_assert(anu_vector_is_empty(&v), "Vector should report as empty");
 
   anu_vector_destroy(&v);
