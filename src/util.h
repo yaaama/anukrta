@@ -37,7 +37,7 @@ typedef struct anukrta_config {
   size_t skip_duration; /* Video length shorter than this will be skipped */
   size_t paths_count;   /* Number of paths we parsed from cli args */
   int threshold;        /* Similarity threshold */
-  size_t segments;      /* Number of segments to hash from a video */
+  int segments;         /* Number of segments to hash from a video */
   size_t thread_count;  /* Number of threads */
   b32 verbose;          /* Turn on verbose output */
   b32 scan_curr_dir;    /* Only scan current directory */

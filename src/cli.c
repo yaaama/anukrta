@@ -58,7 +58,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Detect Black Frames: %s\n",
          config->detect_black_frames ? "YES" : "NO");
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
-  printf("Segments to hash: %zu\n", config->segments);
+  printf("Segments to hash: %d\n", config->segments);
   printf("Maximum Distance Threshold: %d\n", config->threshold);
   printf("Skip videos shorter than: %zu seconds\n", config->skip_duration);
   printf("Thread Count: %zu\n", config->thread_count);
@@ -316,8 +316,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         /* -s | --segments */
       case ARG_SEGMENTS:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, 50,
-                                      &config->segments) != 0) {
+          if (parse_arg_integer(arg_invoked, optarg, 1, 50,
+                                &config->segments) != 0) {
             goto exit_error;
           }
           break;
