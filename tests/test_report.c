@@ -56,9 +56,9 @@ Test (Report, generate_duplicate_groups) {
   };
 
   /* Populate the BK-Tree manually */
-  bk_node *tree = bk_tree_node_new(hashes[0], 0);
-  for (size_t i = 1; i < 4; i++) {
-    bk_tree_insert(tree, hashes[i], i);
+  bk_node *tree = NULL;
+  for (size_t i = 0; i < 4; i++) {
+    bk_tree_insert(&tree, hashes[i], i);
   }
 
   /* Generate the report using Union-Find */

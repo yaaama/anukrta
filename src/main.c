@@ -269,7 +269,7 @@ static int anukrta_driver (anukrta_config *config) {
   }
 
   anu_file *file;
-  bk_node *filetree = calloc(1, sizeof(*filetree));
+  bk_node *filetree = NULL;
 
   for (size_t i = 0; i < file_count; i++) {
     file = (files.items + i);
@@ -285,7 +285,7 @@ static int anukrta_driver (anukrta_config *config) {
 
     if (result == 0) {
       for (size_t j = 0; j < config->segments; j++) {
-        bk_tree_insert(filetree, hashes[(i * config->segments) + j], i);
+        bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
       }
     }
   }

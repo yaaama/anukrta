@@ -30,7 +30,7 @@ void bk_tree_search(bk_node *node,
                     anu_vector *groups_out);
 
 /* Insert hash into tree */
-void bk_tree_insert(bk_node *tree, uint64_t hash, uint64_t file_id);
+void bk_tree_insert(bk_node **tree_ptr, uint64_t hash, uint64_t file_id);
 /* Free node */
 void bk_tree_node_free(bk_node *node);
 void bk_tree_print_ascii(bk_node *tree);

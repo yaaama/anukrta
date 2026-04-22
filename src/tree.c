@@ -94,13 +94,14 @@ static void bkTree_insert_internal (bk_node *node,
   ++node->child_count;
 }
 
-void bk_tree_insert (bk_node *tree, uint64_t hash, uint64_t file_id) {
-  if (!tree) {
-    tree = bk_tree_node_new(hash, file_id);
+void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
+  assert(tree_ptr);
+  if (*tree_ptr == NULL) {
+    *tree_ptr = bk_tree_node_new(hash, file_id);
     return;
   }
 
-  bkTree_insert_internal(tree, hash, file_id);
+  bkTree_insert_internal(*tree_ptr, hash, file_id);
 }
 
 // NOLINTBEGIN (*recursion)
