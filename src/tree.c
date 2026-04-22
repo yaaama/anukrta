@@ -54,7 +54,8 @@ static void bkTree_insert_internal (bk_node *node,
                                     uint64_t hash,
                                     uint64_t file_id) {
   // NOLINTEND
-  int dist = hamming_distance(node->hash, hash);
+  uint64_t node_hash = node->hash;
+  int dist = hamming_distance(node_hash, hash);
 
   /* If this is not true, then something horrible has gone wrong. */
   ASSUME(dist >= 0);
@@ -105,38 +106,41 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
 }
 
 // NOLINTBEGIN (*recursion)
-void bk_tree_search (bk_node *node,
+void bk_tree_search (bk_node *root,
                      uint64_t hash,
                      int tolerance,
                      anu_vector *groups_out) {
 
   assert(tolerance > 0);
   // NOLINTEND
-  if (!node) {
+  if (!root) {
     return;
   }
 
-  int distance = hamming_distance(node->hash, hash);
-  assert(distance >= 0 && distance <= 64);
+  const bk_node *stack[64];
+  int top = 0;
+  stack[top++] = root;
 
-  /* Found a match */
-  if (distance <= tolerance) {
-    uint64_t *file_ids = (uint64_t *) node->exact_dupe_file_ids.items;
+  while (top > 0) {
+    const bk_node *node = stack[--top];
+    uint64_t node_hash = node->hash;
+    int distance = hamming_distance(node_hash, hash);
+    ASSUME(distance >= 0 && distance <= 64);
 
-    for (size_t k = 0; k < node->exact_dupe_file_ids.count; k++) {
-      anu_vector_append(groups_out, &file_ids[k]);
+    /* Found a match */
+    if (distance <= tolerance) {
+      anu_vector_extend(groups_out, node->exact_dupe_file_ids.items,
+                        node->exact_dupe_file_ids.count);
     }
-  }
 
-  int min_search = (distance > tolerance) ? (distance - tolerance) : 0;
-  int max_search = MINIMUM((distance + tolerance), 64);
+    int min_search = distance - tolerance;
+    int max_search = distance + tolerance;
 
-  for (int i = 0; i < node->child_count; i++) {
-    int edge_within_tolerance = ((node->children[i].distance >= min_search) &&
-                                 (node->children[i].distance <= max_search));
-
-    if (edge_within_tolerance) {
-      bk_tree_search(node->children[i].node, hash, tolerance, groups_out);
+    for (int i = 0; i < node->child_count; i++) {
+      int d = node->children[i].distance;
+      if (d >= min_search && d <= max_search) {
+        stack[top++] = node->children[i].node;
+      }
     }
   }
 }
