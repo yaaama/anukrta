@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <time.h>
 
+#include "config.h"
 #include "util.h"
 
 typedef struct anu_file {

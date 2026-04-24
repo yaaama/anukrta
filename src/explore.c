@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include "config.h"
 #include "log.h"
 #include "stack.h"
 #include "util.h"

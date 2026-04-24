@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "config.h"
 #include "explore.h"
 #include "hash.h"
 #include "log.h"

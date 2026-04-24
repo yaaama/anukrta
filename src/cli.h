@@ -1,7 +1,7 @@
 #ifndef ANU_CLI_H
 #define ANU_CLI_H
 
-#include "util.h"
+#include "config.h"
 
 #define ANU_VERSION "0.0.1"
 

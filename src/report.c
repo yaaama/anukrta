@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "config.h"
 #include "explore.h"
 #include "stack.h"
 #include "tree.h"
@@ -155,7 +156,7 @@ void anu_print_report (anukrta_config *config,
 
       if (config->verbose) {
         print_file_hashes((hashes + (file_id * config->segments)),
-                          (int) config->segments);
+                          config->segments);
       }
     }
   }

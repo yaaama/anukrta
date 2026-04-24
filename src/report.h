@@ -1,6 +1,7 @@
 #ifndef ANU_REPORT_H
 #define ANU_REPORT_H
 
+#include "config.h"
 #include "explore.h"
 #include "tree.h"
 #include "util.h"
