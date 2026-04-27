@@ -43,6 +43,7 @@ void anu_fileq_destroy(anu_file_q *q);
 int anu_fileq_enqueue(anu_file_q *q, anu_file *file_in);
 int anu_fileq_dequeue(anu_file_q *q, anu_file *file_out);
 
+void scan_dirs(anukrta_config *config, anu_file_q *files);
 int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
 int anu_file_ext_supported(char *filename);
 

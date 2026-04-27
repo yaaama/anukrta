@@ -453,3 +453,109 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
   anu_stack_destroy(&dirstack);
   return 0;
 }
+
+/* Helper function for quick-sort
+ * Compares 'a' with 'b' lexicographically using its ASCII values
+ * e.g. a="Hello" , b="Hi"
+ * (H - H) = 0
+ * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
+static inline int compare_strings (const void *a, const void *b) {
+  return strcmp(*(const char *const *) a, *(const char *const *) b);
+}
+
+/* TODO Add a check for hard linked files (files with same inode number) */
+void scan_dirs (anukrta_config *config, anu_file_q *files) {
+  /* Scan current directory */
+  if (config->scan_curr_dir) {
+
+    char *resolved = realpath(".", NULL);
+    if (!resolved) {
+      ANU_DIE("Could not resolve current path.");
+    }
+
+    log_info("Scanning current directory");
+    if (anu_file_recursive_filewalk(resolved, files)) {
+      log_warn("Error searching for files in current directory.");
+    }
+
+    free(resolved);
+    return;
+  }
+
+  /* If we're not scanning current dir, then paths_count should be non zero */
+  assert(config->paths_count > 0);
+
+  /* Array to hold resolved absolute paths */
+  char **real_paths =
+      (char **) calloc(config->paths_count, sizeof(*real_paths));
+  if (!real_paths) {
+    ANU_DIE("Failed to allocate memory for paths.");
+  }
+
+  size_t valid_paths = 0;
+  for (size_t i = 0; i < config->paths_count; i++) {
+    /* realpath with NULL automatically allocates memory for the resolved path */
+    char *resolved = realpath(config->paths[i], NULL);
+    if (resolved != NULL) {
+      real_paths[valid_paths++] = resolved;
+    } else {
+      log_warn("Could not resolve path '%s'", config->paths[i]);
+    }
+  }
+
+  if (valid_paths == 0) {
+    log_warn("No valid paths");
+    free((void *) real_paths);
+    return;
+  }
+
+  /* Sort paths lexicographically
+   * so "/a/b" will be sorted before "/a/b/c"
+   * We can then remove redundant paths
+   */
+  qsort((void *) real_paths, valid_paths, sizeof(char *), compare_strings);
+
+  size_t unique_paths = 1;
+
+  for (size_t i = 1; i < valid_paths; i++) {
+    const char *prev = real_paths[unique_paths - 1];
+    const char *current = real_paths[i];
+    size_t prev_len = strlen(prev);
+
+    bool is_duplicate_or_subdir = false;
+
+    /* Check if 'current' starts with 'prev' */
+    if (strncmp(prev, current, prev_len) == 0) {
+
+      /* Ensure it's an exact match or an actual subdirectory,
+       * avoiding similar names (e.g. prev="/dir", curr="/dir-2") */
+      if (current[prev_len] == '\0' || current[prev_len] == '/' ||
+          (prev[0] == '/' &&
+           prev_len == 1)) { /* Handle cases where path is '/' */
+        is_duplicate_or_subdir = true;
+      }
+    }
+
+    /* If we found a redundant path */
+    if (is_duplicate_or_subdir) {
+      log_debug(
+          "Skipping overlapping or duplicate path: '%s' (covered by '%s')",
+          current, prev);
+      free(real_paths[i]); /* Free the redundant path */
+    } else {
+      real_paths[unique_paths] = real_paths[i]; /* Keep the unique path */
+      ++unique_paths;
+    }
+  }
+
+  /* Now we scan only the unique paths */
+  for (size_t i = 0; i < unique_paths; i++) {
+    if (anu_file_recursive_filewalk(real_paths[i], files)) {
+      log_warn("Error searching for files in '%s'", real_paths[i]);
+    }
+    /* Free path once we're done */
+    free(real_paths[i]);
+  }
+
+  free((void *) real_paths);
+}
