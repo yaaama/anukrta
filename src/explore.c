@@ -29,6 +29,9 @@ void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
   q->capacity = init_capacity;
   q->count = 0;
   q->items = calloc(q->capacity, sizeof(anu_file));
+  if (!q->items) {
+    ANU_DIE("Failure to allocate memory for file queue.");
+  }
   q->head = 0;
   q->tail = 0;
 }
@@ -90,12 +93,15 @@ struct anu_dir_job {
 
 /* Video extensions */
 static const char *video_extensions[] = {
-  "3g2", "3gp",  "amv",  "asf", "avi", "f4a",  "f4b", "f4p", "f4v", "flv",
-  "flv", "gifv", "m4p",  "m4v", "m4v", "mkv",  "mng", "mod", "mov", "mp2",
-  "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf",  "nsv", "ogg", "ogv", "qt",
-  "rm",  "roq",  "rrc",  "svi", "vob", "webm", "wmv", "yuv"};
+  "3g2", "3gp",  "amv",  "asf", "avi", "f4a", "f4b",  "f4p", "f4v",
+  "flv", "gifv", "m4p",  "m4v", "mkv", "mng", "mod",  "mov", "mp2",
+  "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf", "nsv",  "ogg", "ogv",
+  "qt",  "rm",   "roq",  "rrc", "svi", "vob", "webm", "wmv", "yuv"};
 
 static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
+
+static const int VIDEO_EXTENSION_MAX_LENGTH = 4;
+static const int VIDEO_EXTENSION_MIN_LENGTH = 2;
 
 ALWAYS_INLINE bool anu_file_path_exists (char *path) {
   struct stat statb;
@@ -117,35 +123,49 @@ int anu_file_ext_supported (char *filename) {
     return 0;
   }
 
-  char file_ext_lower[8] = {0};
+  char file_ext_lower[5] = {0};
 
   /* Skip over the dot... */
-  ++dot;
-  char *extension = dot;
+  char *extension = dot + 1;
 
-  /* Length of filename extension */
-  size_t ext_len = strlen(extension);
+  int i = 0;
+  for (; i < 5; i++) {
+    char c = extension[i];
+    /* Break if null terminator */
+    if (c == '\0') {
+      break;
+    }
+    /* Reached 5th character, extension is too long */
+    if (i == VIDEO_EXTENSION_MAX_LENGTH) {
+      return 0;
+    }
 
-  /* All supported extensions are either 3 or 4 characters long */
-  if (ext_len < 3 || ext_len > 4) {
+    file_ext_lower[i] = (char) anu_util_tolower(c);
+  }
+
+  /* If i was less than two characters */
+  if (i < VIDEO_EXTENSION_MIN_LENGTH) {
     return 0;
   }
 
-  memcpy(file_ext_lower, extension, ext_len);
-  file_ext_lower[ext_len] = '\0';
+  /* Search if extension is within array (binary searching) */
+  int low = 0;
+  int high = (int) VIDEO_EXTENSIONS_COUNT - 1;
 
-  int u = 0;
-  while (file_ext_lower[u] != '\0') {
-    file_ext_lower[u] = (char) anu_util_tolower(file_ext_lower[u]);
-    ++u;
-  }
+  while (low <= high) {
+    int mid = low + ((high - low) / 2);
+    int cmp = strcmp(file_ext_lower, video_extensions[mid]);
 
-  /* Search if extension is within array */
-  for (size_t i = 0; i < VIDEO_EXTENSIONS_COUNT; i++) {
-    if (strcmp(file_ext_lower, video_extensions[i]) == 0) {
+    if (cmp == 0) {
       return 1;
     }
+    if (cmp < 0) {
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
   }
+
   return 0;
 }
 

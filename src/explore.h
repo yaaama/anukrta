@@ -11,9 +11,11 @@
 #include "config.h"
 #include "util.h"
 
-typedef struct anu_file {
+typedef struct {
   /* Path */
   char *path;
+  /* Index for when name starts in path */
+  size_t name;
   /* Size in bytes */
   size_t size;
   /* Duration of video file */
@@ -22,15 +24,13 @@ typedef struct anu_file {
   long ctime;
   /* File modification time */
   long mtime;
-  /* Index for when name starts in path */
-  size_t name;
   /* Device ID */
   dev_t dev;
   /* Inode number */
   ino_t ino;
 } anu_file;
 
-typedef struct anu_file_q {
+typedef struct {
   anu_file *items; /* Items */
   size_t count;    /* Items in storage */
   size_t capacity; /* Max capacity */
@@ -46,7 +46,7 @@ int anu_fileq_dequeue(anu_file_q *q, anu_file *file_out);
 int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
 int anu_file_ext_supported(char *filename);
 
-static ALWAYS_INLINE char *anu_file_get_filename (anu_file *f) {
+static inline char *anu_file_get_filename (anu_file *f) {
   return f->path + f->name;
 }
 
