@@ -28,9 +28,6 @@
 #include "util.h"
 #include "video.h"
 
-/* Number of integers that fit in a cache line */
-#define CACHE_STRIDE_INT (CACHE_LINE_SIZE / sizeof(int))
-
 typedef struct {
   anu_file_q *files;
   anukrta_config *config;

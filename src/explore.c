@@ -219,6 +219,8 @@ ALWAYS_INLINE static int anu_file_opendir (char *dir_path, DIR **out) {
 
 /**
  * @brief Get a file name (extension included) from path.
+ * @return Success: pointer to the start of the file name.
+ * Failure: Returns path pointer.
  **/
 char *anu_file_basename (char *path) {
   assert(path);

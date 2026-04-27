@@ -460,8 +460,8 @@ int decode_avpacket (anu_vreader *vreader) {
  * You need to call the complimentary function to close and destroy the struct
  * once you are done with it.
  *
- * @param f_path[in] File path.
- * @param vreader[out] Structure to initialise.
+ * @param[in] f_path File path.
+ * @param[in][out] vreader Structure to initialise.
  * @return 0 if success, non-zero for anything else.
  *
  */
@@ -479,7 +479,7 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
   int errcode = 0;
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
   if (errcode < 0) {
-    log_debug("Could not open file (`%s`): `%s`", f_path, av_err2str(errcode));
+    log_error("Could not open file (`%s`): `%s`", f_path, av_err2str(errcode));
     return -1;
   }
 
@@ -535,7 +535,7 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
   vreader->codec_ctx = avcodec_alloc_context3(codec);
 
   if (!vreader->codec_ctx) {
-    log_fatal("Failed to allocate memory.");
+    log_error("Failed to allocate memory for codec context");
     return -1;
   }
 
@@ -545,7 +545,7 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
   }
 
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
-    log_error("Failed to initialise codec `%s`", codec->long_name);
+    log_error("Failed to initialise codec context for `%s`", codec->long_name);
     return -1;
   }
 
@@ -554,7 +554,7 @@ int vreader_init (char *f_path, anu_vreader *vreader) {
   vreader->packet = av_packet_alloc();
 
   if (vreader->frame == NULL || vreader->packet == NULL) {
-    log_fatal("Failed to allocate memory for packet/frame.");
+    log_error("Failed to allocate memory for packet/frame.");
     return -1;
   }
 

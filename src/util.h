@@ -1,3 +1,8 @@
+/**
+ * @file util.h
+ * @brief Utility functions/macros used throughout the codebase.
+ */
+
 #ifndef ANU_UTIL_H
 #define ANU_UTIL_H
 
@@ -22,6 +27,10 @@ typedef uintptr_t uptr;
 typedef ptrdiff_t size;
 typedef size_t usize;
 
+/**
+ * @def CACHE_LINE_SIZE
+ * @brief Number of bytes in a single cache line
+ */
 #ifndef CACHE_LINE_SIZE
 /* Apple Silicon (M1/M2/M3) uses 128-byte cache lines */
 #  if defined(__APPLE__) && defined(__aarch64__)
@@ -34,10 +43,21 @@ typedef size_t usize;
 #    define CACHE_LINE_SIZE 64
 #  endif
 #endif
+/* Number of datatypes that that fit within a single cache line */
+#define CACHE_STRIDE_INT (CACHE_LINE_SIZE / sizeof(int))
+#define CACHE_STRIDE_LONG (CACHE_LINE_SIZE / sizeof(long))
+#define CACHE_STRIDE_LLONG (CACHE_LINE_SIZE / sizeof(long long))
+#define CACHE_STRIDE_CHAR (CACHE_LINE_SIZE / sizeof(char))
+#define CACHE_STRIDE_FLOAT (CACHE_LINE_SIZE / sizeof(float))
+#define CACHE_STRIDE_DOUBLE (CACHE_LINE_SIZE / sizeof(double))
+
+/** @name Time conversion utilities
+ * Useful constants and inline functions to convert between different time bases.
+ * @{
+ */
 
 /**
  * @brief One second (s) in microseconds (us)
- *
  * This is useful as FFmpeg uses microseconds for their internal timebase.
  **/
 #define ANU_TIME_ONE_SEC_IN_US 1000000ULL
@@ -66,7 +86,7 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 
 /**
  * @brief Array size macro
- **/
+ */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 /** @name Number related macros
@@ -89,13 +109,15 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
    (x) |= (x) >> 16, (x) |= (x) >> 32, ++(x))
 
 /**
- *  @brief Return larger value
- **/
+ * @brief Return larger value
+ * @return Larger value between x and y
+ */
 #define MAXIMUM(x, y) ((x) > (y) ? (x) : (y))
 
 /**
  * @brief Return smaller value
- **/
+ * @return Smaller value between x and y
+ */
 #define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
 
 /**
@@ -110,9 +132,19 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 
 /**
  * @brief Range constraint macro to ensure value is between min and max.
- **/
+ * @param _val The value to clamp
+ * @param _max Maximum value to clamp to
+ * @param _min Mininmum value to clamp to
+ * @return Clamped value
+ */
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM((_val), (_max)), (_min))
 
+/** @} */
+
+/** @name File Size Constants
+ * Macro constants for file sizes.
+ * @{
+ */
 #define KILOBYTE(bytes) ((bytes) * 1000ULL)
 #define MEGABYTE(bytes) (KILOBYTE(bytes) * 1000ULL)
 #define GIGABYTE(bytes) (MEGABYTE(bytes) * 1000ULL)
@@ -124,16 +156,25 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 #define TEBIBYTE(bytes) (GIBIBYTE(bytes) * 1024ULL)
 /** @} */
 
+static_assert(
+    sizeof(unsigned long long) >= 8,
+    "Unsigned long longs must be at least 64 bits for our hamming distance "
+    "implementation to work.");
+
+/**
+ * @brief Calculate hamming distance between two **unsigned** 64-bit integers.
+ * Makes use of `__builtin_popcountll()`
+ * @return Number of bits that differ between `X` and `Y` as an integer.
+ * @retval 0 `X` and `Y` are the exact same.
+ * @retval 64 `X` and `Y` are compliments of one another.
+ * @retval k `X` and `Y` differ by `k` number of bits.
+ **/
 static inline int hamming_distance (uint64_t hash1, uint64_t hash2) {
-
-  static_assert(
-      sizeof(unsigned long long) >= 8,
-      "Unsigned long longs must be 64 bits for this implementation to work.");
-
   return __builtin_popcountll(hash1 ^ hash2);
 }
 
 void print_matrix_float(FILE *fd, const float *matrix, int rows, int cols);
+
 void anu_util_print_indent(FILE *fd, int spaces, int depth);
 
 static inline int anu_util_tolower (int c) {
@@ -165,7 +206,7 @@ static inline int anu_util_tolower (int c) {
  *  @brief Print panic message and abort the program as our code is broken.
  *
  * To be used only when there is some logical issue in our code.
- **/
+ */
 #define ANU_PANIC(message)                                             \
   do {                                                                 \
     (void) fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, \
@@ -177,7 +218,7 @@ static inline int anu_util_tolower (int c) {
  *  @brief Print message and exit as we have encountered external error.
  *
  *  Used when we encounter issues such as memory allocation failure.
- **/
+ */
 #define ANU_DIE(message)                                               \
   do {                                                                 \
     (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, \
@@ -187,8 +228,9 @@ static inline int anu_util_tolower (int c) {
   } while (0)
 
 /**
- *  @brief Print message and exit, as this section of code is not implemented yet.
- **/
+ * @def TODO
+ * @brief Print message and exit, as this section of code is not implemented yet.
+ */
 #define TODO(message)                                               \
   do {                                                              \
     (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
