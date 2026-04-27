@@ -137,18 +137,21 @@ int anu_video_hash (anu_file *file,
                     anukrta_config *config,
                     uint64_t *hashes_out) {
 
-  assert(config->segments > 0 && file && hashes_out);
+  assert(config->segments > 0);
+  assert(file);
+  assert(hashes_out);
 
   anu_vreader vreader = {0};
 
   /* Setup video reader */
-  if (vreader_init(file->path, &vreader) < 0) {
+  if (vreader_init(file->path, &vreader)) {
     vreader_close(&vreader);
     return -1;
   }
 
   file->duration_us = vreader_get_duration(&vreader);
-  if (file->duration_us == 0) {
+  /* Return early if duration is 0 */
+  if (UNLIKELY(file->duration_us == 0)) {
     vreader_close(&vreader);
     return -1;
   }
@@ -164,10 +167,6 @@ int anu_video_hash (anu_file *file,
 
   /* As long as this is true we won't break anything when we cast for libav */
   ASSUME(video_duration_us < INT64_MAX);
-
-  if (!file->duration_us) {
-    file->duration_us = video_duration_us;
-  }
 
   /* Check if file duration is longer than the skip threshold */
   if (file->duration_us <=
