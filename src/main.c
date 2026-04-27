@@ -59,6 +59,7 @@ static void *hash_worker_thread (void *arg) {
   worker_args *targs = (worker_args *) arg;
 
   const size_t file_count = targs->file_count;
+  const size_t segments = (size_t) targs->config->segments;
 
   while (1) {
     size_t my_idx;
@@ -70,7 +71,8 @@ static void *hash_worker_thread (void *arg) {
 
     /* Get the specific file and hash pointer for this index */
     anu_file *file = (targs->files->items + my_idx);
-    uint64_t *my_hashes = &targs->hashes[my_idx * targs->config->segments];
+    size_t hash_idx = my_idx * segments;
+    uint64_t *my_hashes = &targs->hashes[hash_idx];
 
     log_trace("Thread %lu processing file index %zu", pthread_self(), my_idx);
 
@@ -91,17 +93,18 @@ static int anukrta_driver (anukrta_config *config) {
 
   scan_dirs(config, &files);
 
-  size_t file_count = files.count;
-
+  const size_t file_count = files.count;
   if (file_count < 1) {
     log_warn("No video files found!");
     anu_fileq_destroy(&files);
     return -1;
   }
+  ASSUME(config->segments > 0);
+  const size_t segments_st = (size_t) config->segments;
 
   log_info("Found `%zu` files", file_count);
 
-  size_t hash_collection_len = (file_count * config->segments);
+  const size_t hash_collection_len = (file_count * segments_st);
 
   /* Array of hashes
    * E.g. (N files with 2 segments) would look like this:
@@ -175,8 +178,8 @@ static int anukrta_driver (anukrta_config *config) {
     }
 
     if (result == 0) {
-      for (size_t j = 0; j < config->segments; j++) {
-        bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
+      for (size_t j = 0; j < segments_st; j++) {
+        bk_tree_insert(&filetree, hashes[(i * segments_st) + j], i);
       }
     }
   }

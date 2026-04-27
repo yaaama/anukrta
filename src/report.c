@@ -155,7 +155,7 @@ void anu_print_report (anukrta_config *config,
              anu_time_microseconds_to_seconds(file->duration_us));
 
       if (config->verbose) {
-        print_file_hashes((hashes + (file_id * config->segments)),
+        print_file_hashes((hashes + (file_id * (size_t) config->segments)),
                           config->segments);
       }
     }
@@ -199,12 +199,14 @@ anu_report anu_generate_report (anu_file_q *files,
   /* Important to zero-initialize */
   anu_vector segment_results = {0};
   anu_vector_init(&segment_results, 32, sizeof(uint64_t));
+  const size_t segments = (size_t) config->segments;
 
   for (size_t i = 0; i < file_count; i++) {
-    for (size_t seg = 0; seg < config->segments; seg++) {
+    for (size_t seg = 0; seg < segments; seg++) {
       segment_results.count = 0;
 
-      uint64_t current_hash = hashes[(i * config->segments) + seg];
+      size_t cur_hash_idx = ((i * segments) + seg);
+      uint64_t current_hash = hashes[cur_hash_idx];
       bk_tree_search(tree, current_hash, config->threshold, &segment_results);
 
       uint64_t *matched_files = (uint64_t *) segment_results.items;

@@ -9,7 +9,7 @@ void print_matrix_float (FILE *fd,
                          const float *matrix,
                          const int rows,
                          const int cols) {
-  fprintf(stdout, "--- %dx%d Visual Dump ---\n", cols, rows);
+  fprintf(fd, "--- %dx%d Visual Dump ---\n", cols, rows);
   for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
     for (int x = 0; x < cols; x++) {
       float val = matrix[(y * cols) + x];
@@ -24,11 +24,11 @@ void print_matrix_float (FILE *fd,
       } else if (50 < val) {
         c = '.';
       }
-      fputc(c, stdout);
+      fputc(c, fd);
     }
-    fputc('\n', stdout);
+    fputc('\n', fd);
   }
-  fprintf(stdout, "-------------------------\n");
+  fprintf(fd, "-------------------------\n");
 }
 
 void anu_util_print_indent (FILE *fd, const int spaces, const int depth) {
