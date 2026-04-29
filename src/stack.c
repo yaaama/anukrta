@@ -15,11 +15,11 @@
 int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
   assert(elem_size);
 
-  v->capacity = (capacity > 0) ? capacity : 2;
+  v->capacity = (capacity > 0) ? capacity : 4;
   v->count = 0;
   v->_elem_size = elem_size;
 
-  v->items = malloc(capacity * elem_size);
+  v->items = malloc(v->capacity * v->_elem_size);
 
   if (!v->items) {
     perror("Memory allocation failed.");
@@ -30,16 +30,24 @@ int anu_vector_init (anu_vector *v, size_t capacity, size_t elem_size) {
 
 #define VECTOR_FULL(v) (((v)->capacity) == ((v)->count)) ? 1 : 0
 
-int anu_vector_extend (anu_vector *v, void *items, size_t count) {
+int anu_vector_extend (anu_vector *restrict v,
+                       void *restrict items,
+                       size_t count) {
 
   assert(count > 0);
   assert(v);
   assert(items);
 
-  if ((v->capacity - v->count) < count) {
-    size_t new_capacity = v->capacity * 2;
-    assert(new_capacity > 0);
-    assert(new_capacity > v->capacity);
+  size_t required_cap = v->count + count;
+
+  if (required_cap > v->capacity) {
+    size_t new_capacity = (required_cap > 8) ? required_cap : 8;
+
+    ROUNDUP_64(new_capacity);
+
+    /* Double check for overflow */
+    ASSUME(new_capacity >= required_cap);
+
     void *temp = realloc(v->items, v->_elem_size * new_capacity);
     if (!temp) {
       perror("Reallocation failed.");
@@ -55,7 +63,7 @@ int anu_vector_extend (anu_vector *v, void *items, size_t count) {
   return (int) v->count;
 }
 
-int anu_vector_append (anu_vector *v, void *item) {
+int anu_vector_append (anu_vector *restrict v, void *restrict item) {
   assert(v);
 
   if (VECTOR_FULL(v)) {
@@ -142,13 +150,9 @@ void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
 
   assert(elem_size);
 
-  size_t init_cap = capacity;
+  size_t init_cap = capacity > 0 ? capacity : 2;
 
-  if (capacity == 0) {
-    init_cap = 4;
-  }
-
-  s->capacity = capacity;
+  s->capacity = init_cap;
   s->count = 0;
   s->elem_size = elem_size;
 
@@ -159,7 +163,7 @@ void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
   }
 }
 
-void anu_stack_push (anu_stack *s, void *item_ptr) {
+void anu_stack_push (anu_stack *restrict s, void *restrict item_ptr) {
   assert(s && s->capacity > 0);
 
   if (s->count == s->capacity) {
@@ -179,7 +183,7 @@ void anu_stack_push (anu_stack *s, void *item_ptr) {
   ++s->count;
 }
 
-int anu_stack_pop (anu_stack *s, void *dest) {
+int anu_stack_pop (anu_stack *restrict s, void *restrict dest) {
   if (s->count == 0) {
     return 0;
   }
@@ -192,7 +196,7 @@ int anu_stack_pop (anu_stack *s, void *dest) {
 
 int anu_stack_is_empty (anu_stack *s) { return (s->count == 0); }
 
-void anu_stack_peek (anu_stack *s, void *dest) {
+void anu_stack_peek (anu_stack *restrict s, void *restrict dest) {
   if (anu_stack_is_empty(s)) {
     return;
   }
