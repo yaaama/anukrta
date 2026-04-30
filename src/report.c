@@ -58,16 +58,16 @@ static void unite_sets (size_t i, size_t j, size_t *parent) {
 }
 
 static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
+static const int UNITS_IEC_COUNT = ANU_ARRAY_SIZE(units_iec);
 
 char *get_human_sizing_iec (u64 n_bytes, char *buf) {
 
-  const int num_units = ANU_ARRAY_SIZE(units_iec);
   int unit_index = 0;
   /* We will use this to keep track of the fractional part */
   size_t remainder = 0;
 
   /* >> 10 is equivalent to dividing by 1024 */
-  while ((n_bytes >= 1024) && (unit_index < (num_units - 1))) {
+  while ((n_bytes >= 1024) && (unit_index < (UNITS_IEC_COUNT - 1))) {
     remainder = n_bytes & 1023; /* Equivalent to: n_bytes % 1024 */
     n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
     ++unit_index;
