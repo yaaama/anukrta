@@ -5,9 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/**
- * Size of row/col len of DCT hash
- */
+/** Size of row/col len of DCT hash */
 #define ANU_PHASH_DCT_SIZE 8
 
 /** Intermediate buffer length for DCT calculation
@@ -22,18 +20,19 @@
  */
 #define DCT_DIGEST_LEN (ANU_PHASH_DCT_SIZE * ANU_PHASH_DCT_SIZE)
 
-/* Scale factor: 2^15 (32768) */
+/** Scale factor: 2^15 (32768) */
 #define DCT_INT_FIXED_SHIFT 15
-#define DCT_INT_FIXED_SCALE (1LL << DCT_INT_FIXED_SHIFT)
 /* When we multiply two 15 bit numbers, we get 30 bits */
-#define DCT_INT_SCALE_BITS (DCT_INT_FIXED_SHIFT * 2)
-
 #define DCT_INT_SCALE_BITS_Q30 (DCT_INT_FIXED_SHIFT * 2)
 #define DCT_INT_FIXED_SCALE_Q30 (1LL << DCT_INT_SCALE_BITS_Q30)
 
+/** Error threshold for when working with FLOAT weights */
 #define DCT_FLOAT_EPISILON 0.001F
+
+/** Error threshold when working with scaled fixed-point weights */
 #define DCT_INT_EPISILON \
   ((int64_t) (DCT_INT_FIXED_SCALE_Q30 * DCT_FLOAT_EPISILON))
+
 /* PI in floating point format */
 #define ANU_PI_F 3.14159265358979323846F
 
