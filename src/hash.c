@@ -100,7 +100,7 @@ uint64_t dct_hash (const uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
       int32_t sum = 0;
 
       /* Vectorizable by compiler */
-      for (int x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
+      for (ptrdiff_t x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
         sum += (int32_t) row_ptr[x] * weight_ptr[x];
       }
 
@@ -119,7 +119,7 @@ uint64_t dct_hash (const uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
       const int32_t *weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
       int64_t sum = 0;
 
-      for (int y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+      for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
         /* Max sum is ~1.75 * 10^13, safely fits inside int64_t */
         sum += (int64_t) row_of_t[y] * weight_ptr[y];
       }
