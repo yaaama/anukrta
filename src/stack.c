@@ -46,7 +46,7 @@ int anu_vector_extend (anu_vector *restrict v,
     ROUNDUP_64(new_capacity);
 
     /* Double check for overflow */
-    ASSUME(new_capacity >= required_cap);
+    assert(new_capacity >= required_cap);
 
     void *temp = realloc(v->items, v->_elem_size * new_capacity);
     if (!temp) {

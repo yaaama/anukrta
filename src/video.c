@@ -158,7 +158,7 @@ int anu_video_hash (anu_file *file,
   char *fname = anu_file_get_filename(file);
 
   /* We want to split the video into this many segments */
-  size_t total_video_segments = (size_t) config->segments;
+  size_t total_video_segments = config->segments;
   ASSUME(total_video_segments > 0);
 
   size_t video_duration_us = file->duration_us;

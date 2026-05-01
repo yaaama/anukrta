@@ -286,13 +286,13 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
   file.mtime = statb.st_mtime;
   assert(statb.st_size > 0);
   file.size = (size_t) statb.st_size;
-
   file.path = realpath(path, NULL);
   char *base_ptr = anu_file_basename(path);
-  assert(base_ptr != path);
-  ptrdiff_t idx = (base_ptr - path) > 0 ? (base_ptr - path) : 0;
-  assert(idx > 0);
-  file.name = (size_t) idx;
+  if (UNLIKELY(base_ptr == path)) {
+    log_error("Could not determine basename from path...");
+    return 1;
+  }
+  file.name_offset = (u32) (base_ptr - path);
 
   anu_fileq_enqueue(files_out, &file);
   return 0;
@@ -372,6 +372,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
     /* Path of current file */
     char fullpath[PATH_MAX];
     size_t base_len = strlen(currjob.path);
+    assert(base_len < PATH_MAX);
     memcpy(fullpath, currjob.path, base_len);
     fullpath[base_len] = '/';
     char *name_ptr = fullpath + base_len + 1;  // Pointer to where filename goes
@@ -395,6 +396,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
       }
 
       size_t name_len = strlen(dp->d_name);
+      assert(name_len <= NAME_MAX);
 
       /* Prevents buffer overflow */
       if (UNLIKELY(name_len > max_name_len)) {
@@ -424,24 +426,28 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
         perror("Stat failed: ");
         continue;
       }
-      ASSUME(statb.st_size > 0);
+      if (UNLIKELY(statb.st_size == 0)) {
+        continue;
+      }
 
-      anu_file newfile = {0};
-      /* Prepare newfile for data */
-      newfile.size = (size_t) statb.st_size;
-      newfile.ctime = statb.st_ctime;
-      newfile.mtime = statb.st_mtime;
-      newfile.ino = statb.st_ino;
-      newfile.dev = statb.st_dev;
+      anu_file newfile = {
+        .size = (usize) statb.st_size,
+        .ctime = statb.st_ctime,
+        .mtime = statb.st_mtime,
+        .ino = statb.st_ino,
+        .dev = statb.st_dev,
+      };
 
       /* Copy path */
       size_t total_path_len = base_len + name_len + 1;
+      assert(total_path_len <= PATH_MAX);
       newfile.path = malloc(total_path_len + 1);
       if (newfile.path == NULL) {
         ANU_DIE("Out of memory.");
       }
       memcpy(newfile.path, fullpath, total_path_len + 1);
-      newfile.name = base_len + 1; /* Index where the filename starts */
+      newfile.name_offset =
+          (u32) base_len + 1; /* Index where the filename starts */
 
       if (anu_fileq_enqueue(files_out, &newfile)) {
         ANU_DIE("Out of memory.");

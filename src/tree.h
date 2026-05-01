@@ -8,7 +8,7 @@
 
 typedef struct bk_child_edge {
   struct bk_node *node;
-  int distance;
+  size_t distance;
 } bk_child_edge;
 
 typedef struct bk_node {
@@ -16,8 +16,8 @@ typedef struct bk_node {
   /* Children of node */
   bk_child_edge *children;
   uint64_t hash;
-  int child_count;
-  int child_capacity;
+  size_t child_count;
+  size_t child_capacity;
 } bk_node;
 
 /* Create new BK node */
@@ -26,7 +26,7 @@ bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 /* Search for nodes with hashes with distance less than tolerance */
 void bk_tree_search(bk_node *root,
                     uint64_t hash,
-                    int tolerance,
+                    size_t tolerance,
                     anu_vector *groups_out);
 
 /* Insert hash into tree */

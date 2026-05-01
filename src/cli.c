@@ -58,8 +58,8 @@ void anu_cli_print_configuration (anukrta_config *config) {
   printf("Detect Black Frames: %s\n",
          config->detect_black_frames ? "YES" : "NO");
   printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
-  printf("Segments to hash: %d\n", config->segments);
-  printf("Maximum Distance Threshold: %d\n", config->threshold);
+  printf("Segments to hash: %zu\n", config->segments);
+  printf("Maximum Distance Threshold: %zu\n", config->threshold);
   printf("Skip videos shorter than: %zu seconds\n", config->skip_duration);
   printf("Thread Count: %zu\n", config->thread_count);
 }
@@ -156,9 +156,9 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
     fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME,
             arg_name, arg_str);
     if (max == LONG_MAX) {
-      fprintf(stderr, "  Value must be %ld or greater.\n", min);
+      fprintf(stderr, "  Value must be %zu or greater.\n", min);
     } else {
-      fprintf(stderr, "  Valid range is %ld to %ld.\n", min, max);
+      fprintf(stderr, "  Valid range is %zu to %zu.\n", min, max);
     }
     return -1;
   }
@@ -316,8 +316,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         /* -s | --segments */
       case ARG_SEGMENTS:
         {
-          if (parse_arg_integer(arg_invoked, optarg, 1, 50,
-                                &config->segments) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, 50,
+                                      &config->segments) != 0) {
             goto exit_error;
           }
           break;
@@ -325,8 +325,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* -t | --threshold */
       case ARG_THRESHOLD:
         {
-          if (parse_arg_integer(arg_invoked, optarg, 0, 64,
-                                &config->threshold) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, 64,
+                                      &config->threshold) != 0) {
             goto exit_error;
           }
           break;

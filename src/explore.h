@@ -11,23 +11,23 @@
 #include "config.h"
 #include "util.h"
 
-typedef struct {
+typedef struct anu_file {
   /* Path */
   char *path;
-  /* Index for when name starts in path */
-  size_t name;
   /* Size in bytes */
   size_t size;
   /* Duration of video file */
   size_t duration_us;
   /* File mode change time */
-  long ctime;
+  i64 ctime;
   /* File modification time */
-  long mtime;
-  /* Device ID */
+  i64 mtime;
+  /* Device ID (either 32bit or 64)*/
   dev_t dev;
-  /* Inode number */
+  /* Inode number (either 32bit or 64) */
   ino_t ino;
+  /* Index for when name starts in path */
+  u32 name_offset;
 } anu_file;
 
 typedef struct {
@@ -48,7 +48,7 @@ int anu_file_recursive_filewalk(char *path, anu_file_q *files_out);
 int anu_file_ext_supported(char *filename);
 
 static inline char *anu_file_get_filename (anu_file *f) {
-  return f->path + f->name;
+  return f->path + f->name_offset;
 }
 
 bool anu_file_path_is_dir(char *path);

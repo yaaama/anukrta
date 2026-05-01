@@ -99,8 +99,8 @@ static int anukrta_driver (anukrta_config *config) {
     anu_fileq_destroy(&files);
     return -1;
   }
-  ASSUME(config->segments > 0);
-  const size_t segments_st = (size_t) config->segments;
+  assert(config->segments > 0);
+  const size_t segments_st = config->segments;
 
   log_info("Found `%zu` files", file_count);
 
@@ -147,12 +147,12 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* Create the threads */
   int threads_made = 0;
-  for (int i = 0; i < (int) config->thread_count; i++) {
+  for (size_t i = 0; i < config->thread_count; i++) {
     int success =
         (pthread_create(&threads[i], NULL, hash_worker_thread, &args) == 0);
     threads_made += success;
     if (!success) {
-      log_warn("Failed to create thread #%d", i);
+      log_warn("Failed to create thread #%zu", i);
       break;
     }
   }

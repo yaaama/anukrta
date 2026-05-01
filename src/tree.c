@@ -37,7 +37,7 @@ void bk_tree_node_free (bk_node *node) {
     return;
   }
 
-  for (int i = 0; i < node->child_count; i++) {
+  for (size_t i = 0; i < node->child_count; i++) {
     bk_tree_node_free(node->children[i].node);
   }
 
@@ -55,10 +55,10 @@ static void bkTree_insert_internal (bk_node *node,
                                     uint64_t file_id) {
   // NOLINTEND
   uint64_t node_hash = node->hash;
-  int dist = hamming_distance(node_hash, hash);
-
+  int hamming_dist = hamming_distance(node_hash, hash);
   /* If this is not true, then something horrible has gone wrong. */
-  ASSUME(dist >= 0);
+  ASSUME(hamming_dist >= 0 && hamming_dist <= 64);
+  size_t dist = (size_t) hamming_dist;
 
   if (!dist) {
     /* Exact match (collision). Add data to this node. */
@@ -66,7 +66,7 @@ static void bkTree_insert_internal (bk_node *node,
     return;
   }
 
-  for (int i = 0; i < node->child_count; i++) {
+  for (size_t i = 0; i < node->child_count; i++) {
     if (node->children[i].distance == dist) {
       /* Found child with this distance
        * Recurse down this child. */
@@ -76,12 +76,15 @@ static void bkTree_insert_internal (bk_node *node,
   }
 
   /* Traverse down the tree */
-  /* 2. Edge not found. We must create a new child branch. */
+  /* Edge not found. We must create a new child branch. */
+
   /* Check capacity and grow the array if necessary */
   if (node->child_count == node->child_capacity) {
-    int new_cap = (node->child_capacity == 0) ? 2 : (node->child_capacity * 2);
+    size_t new_cap =
+        (node->child_capacity > 0) ? (node->child_capacity * 2) : 2;
+    assert(new_cap > node->child_capacity);
     bk_child_edge *temp =
-        realloc(node->children, (size_t) new_cap * sizeof(bk_child_edge));
+        realloc(node->children, new_cap * sizeof(bk_child_edge));
     if (!temp) {
       ANU_DIE("Failed to allocate memory for BK Tree edges.");
     }
@@ -89,7 +92,6 @@ static void bkTree_insert_internal (bk_node *node,
     node->child_capacity = new_cap;
   }
 
-  assert(node->child_count >= 0);
   node->children[node->child_count].distance = dist;
   node->children[node->child_count].node = bk_tree_node_new(hash, file_id);
   ++node->child_count;
@@ -105,41 +107,43 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
   bkTree_insert_internal(*tree_ptr, hash, file_id);
 }
 
-// NOLINTBEGIN (*recursion)
 void bk_tree_search (bk_node *root,
                      uint64_t hash,
-                     int tolerance,
+                     size_t tolerance,
                      anu_vector *groups_out) {
 
-  assert(tolerance > 0);
-  // NOLINTEND
-  if (!root) {
+  assert(tolerance <= 64);
+
+  if (UNLIKELY(!root)) {
     return;
   }
 
+  const ptrdiff_t tol = (ptrdiff_t) tolerance;
+
   const bk_node *stack[64];
-  int top = 0;
+  size_t top = 0;
   stack[top++] = root;
 
   while (top > 0) {
     const bk_node *node = stack[--top];
     uint64_t node_hash = node->hash;
-    int distance = hamming_distance(node_hash, hash);
+    ptrdiff_t distance = (ptrdiff_t) hamming_distance(node_hash, hash);
     ASSUME(distance >= 0 && distance <= 64);
 
     /* Found a match */
-    if (distance <= tolerance) {
+    if (distance <= tol) {
       anu_vector_extend(groups_out, node->exact_dupe_file_ids.items,
                         node->exact_dupe_file_ids.count);
     }
 
-    int min_search = distance - tolerance;
-    int max_search = distance + tolerance;
+    ptrdiff_t min_search = distance - tol;
+    ptrdiff_t max_search = distance + tol;
 
-    for (int i = 0; i < node->child_count; i++) {
-      int d = node->children[i].distance;
+    for (size_t i = 0; i < node->child_count; i++) {
+      ptrdiff_t d = (ptrdiff_t) node->children[i].distance;
       if (d >= min_search && d <= max_search) {
-        stack[top++] = node->children[i].node;
+        stack[top] = node->children[i].node;
+        ++top;
       }
     }
   }
@@ -147,22 +151,22 @@ void bk_tree_search (bk_node *root,
 
 // NOLINTBEGIN (*recursion)
 static void bk_node_print_recursive (bk_node *node,
-                                     int depth,
-                                     int edge_distance) {
+                                     usize depth,
+                                     size edge_distance) {
   // NOLINTEND
-  if (!node) {
+  if (UNLIKELY(!node)) {
     return;
   }
 
   /* Print Indentation */
-  for (int i = 0; i < depth; i++) {
+  for (usize i = 0; i < depth; i++) {
     printf(i == depth - 1 ? "|__ " : "    ");
   }
 
   /* Print Edge Weight (Distance from parent) and Node Info
      If edge_distance is -1, it's the root. */
   if (edge_distance != -1) {
-    printf("[%d] ", edge_distance);
+    printf("[%td] ", edge_distance);
   } else {
     printf("[ROOT] ");
   }
@@ -179,9 +183,10 @@ static void bk_node_print_recursive (bk_node *node,
   /* Recurse children
      We iterate 1 to 64 because distance 0 is the node itself (handled in
      file_ids) */
-  for (int i = 0; i < node->child_count; i++) {
+  for (size_t i = 0; i < node->child_count; i++) {
+    ASSUME(node->children[i].distance <= 64);
     bk_node_print_recursive(node->children[i].node, depth + 1,
-                            node->children[i].distance);
+                            (size) node->children[i].distance);
   }
 }
 

@@ -16,20 +16,20 @@ typedef enum anu_hash_type {
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anukrta_config {
   char **paths;
-  size_t skip_duration; /* Video length shorter than this will be skipped */
-  size_t paths_count;   /* Number of paths we parsed from cli args */
-  int threshold;        /* Similarity threshold */
-  int segments;         /* Number of segments to hash from a video */
-  size_t thread_count;  /* Number of threads */
-  b32 verbose;          /* Turn on verbose output */
-  b32 scan_curr_dir;    /* Only scan current directory */
-  b32 _exit_early;      /* Exit quickly (set when we parse '-h' for example) */
-  b32 dry_run;          /* TODO Do not save/actually process any files */
+  usize skip_duration; /* Video length shorter than this will be skipped */
+  usize paths_count;   /* Number of paths we parsed from cli args */
+  usize threshold;     /* Similarity threshold */
+  usize segments;      /* Number of segments to hash from a video */
+  usize thread_count;  /* Number of threads */
+  b32 verbose;         /* Turn on verbose output */
+  b32 scan_curr_dir;   /* Only scan current directory */
+  b32 _exit_early;     /* Exit quickly (set when we parse '-h' for example) */
+  b32 dry_run;         /* TODO Do not save/actually process any files */
   b32 detect_black_frames; /* TODO Detect black frames in video and skip them? */
   b32 detect_rotation;     /* TODO Detect rotation in videos? */
   b32 detect_bars;         /* Detect windowboxing/letterboxing/pillarboxing */
   anu_hash_type hash_algorithm; /* Hashing algorithm to use */
-  int report_flags;
+  u32 report_flags;
 } anukrta_config;
 
 #endif  // ANU_CONFIG_H
