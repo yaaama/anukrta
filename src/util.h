@@ -59,7 +59,7 @@ typedef size_t usize;
 /**
  * @brief One second (s) in microseconds (us)
  * This is useful as FFmpeg uses microseconds for their internal timebase.
- **/
+ */
 #define ANU_TIME_ONE_SEC_IN_US 1000000ULL
 
 /**
@@ -84,50 +84,21 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 
 /** @} */  // END TIME
 
-/**
- * @brief Array size macro
- */
-#define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
-
-/** @name Number related macros
- * Macros to help with numbers
+/** @name Math Related Macros
+ * Macros to help with numbers and math
  * @{
  */
 
-/**
- * @brief Round up 32 bit integer variable to next power of 2.
- **/
-#define ROUNDUP_32(x)                                                         \
-  (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4, (x) |= (x) >> 8, \
-   (x) |= (x) >> 16, ++(x))
+/** Return larger value */
+#define MAXIMUM(X, Y) ((X) > (Y) ? (X) : (Y))
 
-/**
- * @brief Round up 64 bit integer variable to next power of 2.
- **/
-#define ROUNDUP_64(x)                                                         \
-  (--(x), (x) |= (x) >> 1, (x) |= (x) >> 2, (x) |= (x) >> 4, (x) |= (x) >> 8, \
-   (x) |= (x) >> 16, (x) |= (x) >> 32, ++(x))
+/** Return smallest number between x and y */
+#define MINIMUM(X, Y) ((X) < (Y) ? (X) : (Y))
 
-/**
- * @brief Return larger value
- * @return Larger value between x and y
- */
-#define MAXIMUM(x, y) ((x) > (y) ? (x) : (y))
+/** Absolute value of X */
+#define ABSOLUTE(X) ((X) > 0 ? (X) : -(X))
 
-/**
- * @brief Return smaller value
- * @return Smaller value between x and y
- */
-#define MINIMUM(x, y) ((x) < (y) ? (x) : (y))
-
-/**
- * @brief Absolute value of x
- */
-#define ABSOLUTE(X) (X) > 0) ? (X) : -(X))
-
-/**
- * @brief Difference of x and y
- **/
+/** Difference of x and y */
 #define DIFF(A, B) ((A) > (B) ? (A) - (B) : (B) - (A))
 
 /**
@@ -139,21 +110,34 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
  */
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM((_val), (_max)), (_min))
 
-/** @} */
+/** Round up 32 bit integer variable to next power of 2. */
+#define ROUNDUP_32(X)                                                         \
+  (--(X), (X) |= (X) >> 1, (X) |= (X) >> 2, (X) |= (X) >> 4, (X) |= (X) >> 8, \
+   (X) |= (X) >> 16, ++(X))
 
-/** @name File Size Constants
- * Macro constants for file sizes.
+/** Round up 64 bit integer variable to next power of 2. */
+#define ROUNDUP_64(X)                                                         \
+  (--(X), (X) |= (X) >> 1, (X) |= (X) >> 2, (X) |= (X) >> 4, (X) |= (X) >> 8, \
+   (X) |= (X) >> 16, (X) |= (X) >> 32, ++(X))
+
+/** @} */  // END NUMBER
+
+/** @name File Size Constants in Bytes
+ * Math to convert size to their size in bytes
+ * E.g. KILOBYTE(10) == 10,000 bytes
  * @{
  */
-#define KILOBYTE(bytes) ((bytes) * 1000ULL)
-#define MEGABYTE(bytes) (KILOBYTE(bytes) * 1000ULL)
-#define GIGABYTE(bytes) (MEGABYTE(bytes) * 1000ULL)
-#define TERABYTE(bytes) (GIGABYTE(bytes) * 1000ULL)
 
-#define KIBIBYTE(bytes) ((bytes) * 1024ULL)
-#define MEBIBYTE(bytes) (KIBIBYTE(bytes) * 1024ULL)
-#define GIBIBYTE(bytes) (MEBIBYTE(bytes) * 1024ULL)
-#define TEBIBYTE(bytes) (GIBIBYTE(bytes) * 1024ULL)
+#define KILOBYTE(X) ((X) * 1000ULL)
+#define MEGABYTE(X) (KILOBYTE(X) * 1000ULL)
+#define GIGABYTE(X) (MEGABYTE(X) * 1000ULL)
+#define TERABYTE(X) (GIGABYTE(X) * 1000ULL)
+
+#define KIBIBYTE(X) ((X) * 1024ULL)
+#define MEBIBYTE(X) (KIBIBYTE(X) * 1024ULL)
+#define GIBIBYTE(X) (MEBIBYTE(X) * 1024ULL)
+#define TEBIBYTE(X) (GIBIBYTE(X) * 1024ULL)
+
 /** @} */
 
 static_assert(
@@ -181,13 +165,21 @@ static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
 
+/** @brief Array size macro */
+#define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+
+/** @brief Zero out memory */
 #define ZERO_MEMORY(pointer, count, type) \
   memset((pointer), 0, (count) * sizeof(type))
 
+/** @brief Hint to compiler that the branch is most LIKELY true */
 #define LIKELY(x) __builtin_expect(!!(x), 1)
+
+/** @brief Hint to the compiler the condition is most likely FALSE */
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
+
 #define HOT_FUNCTION __attribute__((hot))
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -203,9 +195,9 @@ static inline int anu_util_tolower (int c) {
 #define JOIN(a, b) GLUE(a, b)
 
 /**
- *  @brief Print panic message and abort the program as our code is broken.
- *
- * To be used only when there is some logical issue in our code.
+ * @def ANU_PANIC
+ * @brief Print panic message and abort the program as our code is broken.
+ * @note To be used only when there is some logical issue in our code.
  */
 #define ANU_PANIC(message)                                             \
   do {                                                                 \
@@ -215,9 +207,9 @@ static inline int anu_util_tolower (int c) {
   } while (0)
 
 /**
- *  @brief Print message and exit as we have encountered external error.
- *
- *  Used when we encounter issues such as memory allocation failure.
+ * @def ANU_DIE
+ * @brief Print message and exit as we have encountered external error.
+ * @note Used when we encounter issues such as memory allocation failure.
  */
 #define ANU_DIE(message)                                               \
   do {                                                                 \
@@ -242,11 +234,12 @@ static inline int anu_util_tolower (int c) {
 #ifdef ANU_DEBUG  // If its in DEBUG MODE
 
 /* Debug builds should crash when reaching unreachable code. */
-#  define UNREACHABLE(message)                                           \
-    do {                                                                 \
-      (void) fprintf(stderr, "Unreachable code reached at: %s:%d: %s\n", \
-                     __FILE__, __LINE__, (message));                     \
-      abort();                                                           \
+#  define UNREACHABLE(message)                                          \
+    do {                                                                \
+      (void) fprintf(stderr,                                            \
+                     "[PANIC] UNREACHABLE CODE REACHED AT %s:%d: %s\n", \
+                     __FILE__, __LINE__, (message));                    \
+      abort();                                                          \
     } while (0)
 
 /* Assumption crashes when false. */
@@ -267,8 +260,9 @@ static inline int anu_util_tolower (int c) {
 /* Tell compiler our assumptions are TRUE and optimise out anything contrary. */
 #  define ASSUME(cond) \
     do {               \
-      if (!(cond))     \
+      if (!(cond)) {   \
         UNREACHABLE(); \
+      }                \
     } while (0)
 
 #endif  // UNREACHABLE
