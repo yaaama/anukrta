@@ -80,9 +80,34 @@ CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 # ==========================================
 #   FFmpeg Configuration
 # ==========================================
-# FFmpeg libraries to link against
-FFMPEG_CFLAGS := $(shell pkg-config --cflags libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil)
-FFMPEG_LIBS := $(shell pkg-config --libs libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil)
+# --- Local FFmpeg Configuration ---
+# Set to 1 to use a custom locally-built FFmpeg instead of the system one
+USE_LOCAL_FFMPEG ?= 0
+
+FFMPEG_MODULES := libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil
+
+ifeq ($(USE_LOCAL_FFMPEG), 1)
+  # The path to the 'prefix' where your local FFmpeg was installed
+  # (the directory containing 'include' and 'lib' folders for ffmpeg)
+  LOCAL_FFMPEG_DIR ?=
+  # Point pkg-config to our local FFmpeg installation
+	PKG_CONFIG_CMD := PKG_CONFIG_PATH="$(LOCAL_FFMPEG_DIR)/lib/pkgconfig" pkg-config
+
+  # Tell the resulting binary where to find the local shared libraries at runtime
+	LDFLAGS += -Wl,-rpath=$(LOCAL_FFMPEG_DIR)/lib
+
+  $(info [INFO] Using LOCAL FFmpeg located at: $(LOCAL_FFMPEG_DIR))
+else
+# Use standard system pkg-config
+	PKG_CONFIG_CMD := pkg-config
+endif
+# Get the raw flags from pkg-config (e.g., "-I/usr/include -D_GNU_SOURCE")
+FFMPEG_CFLAGS_RAW := $(shell $(PKG_CONFIG_CMD) --cflags $(FFMPEG_MODULES))
+
+# Replace "-I/path" to "-isystem /path" to silence third-party warnings
+FFMPEG_CFLAGS := $(patsubst -I%,-isystem %,$(FFMPEG_CFLAGS_RAW))
+
+FFMPEG_LIBS := $(shell $(PKG_CONFIG_CMD) --libs $(FFMPEG_MODULES))
 
 CFLAGS += $(FFMPEG_CFLAGS)
 LDFLAGS += -Wl,--as-needed
