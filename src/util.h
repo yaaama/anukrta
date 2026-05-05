@@ -28,8 +28,36 @@ typedef ptrdiff_t size;
 typedef size_t usize;
 
 /**
+ * @name BitMacros Flag Macros
+ * Macros for safe bitflag manipulation.
+ * @{
+ */
+
+/** Sets one or more flags in a bitmask. */
+#define ANU_SET_FLAG(mask, flag) ((mask) |= (flag))
+
+/** Clears one or more flags from a bitmask. */
+#define ANU_CLEAR_FLAG(mask, flag) ((mask) &= ~(flag))
+
+/** Toggles one or more flags in a bitmask. */
+#define ANU_TOGGLE_FLAG(mask, flag) ((mask) ^= (flag))
+
+/**
+ * Checks if ALL specified flags are set.
+ * @note If flag is 0, this will return true.
+ */
+#define ANU_HAS_ALL_FLAGS(mask, flag) (((mask) & (flag)) == (flag))
+
+/**
+ * Checks if ANY of the specified flags are set.
+ */
+#define ANU_HAS_ANY_FLAG(mask, flag) (((mask) & (flag)) != 0)
+
+/** @} */  // End BitMacros group
+
+/**
  * @def CACHE_LINE_SIZE
- * @brief Number of bytes in a single cache line
+ * @brief Number of bytes in a single cache line.
  */
 #ifndef CACHE_LINE_SIZE
 /* Apple Silicon (M1/M2/M3) uses 128-byte cache lines */
@@ -43,21 +71,27 @@ typedef size_t usize;
 #    define CACHE_LINE_SIZE 64
 #  endif
 #endif
-/* Number of datatypes that that fit within a single cache line */
+/** Number of integer types that fit within a single cache line. */
 #define CACHE_STRIDE_INT (CACHE_LINE_SIZE / sizeof(int))
+/** Number of `long` types that fit within a single cache line. */
 #define CACHE_STRIDE_LONG (CACHE_LINE_SIZE / sizeof(long))
+/** Number of `long long` types that fit within a single cache line. */
 #define CACHE_STRIDE_LLONG (CACHE_LINE_SIZE / sizeof(long long))
+/** Number of `char` types that will fit within a single cache line. */
 #define CACHE_STRIDE_CHAR (CACHE_LINE_SIZE / sizeof(char))
+/** Number of `float` types that will fit within a single cache line. */
 #define CACHE_STRIDE_FLOAT (CACHE_LINE_SIZE / sizeof(float))
+/** Number of `double` types that will fit within a single cache line. */
 #define CACHE_STRIDE_DOUBLE (CACHE_LINE_SIZE / sizeof(double))
 
-/** @name Time conversion utilities
+/**
+ * @name Time conversion utilities
  * Useful constants and inline functions to convert between different time bases.
  * @{
  */
 
 /**
- * @brief One second (s) in microseconds (us)
+ * @brief One second (s) in microseconds (us).
  * This is useful as FFmpeg uses microseconds for their internal timebase.
  */
 #define ANU_TIME_ONE_SEC_IN_US 1000000ULL
@@ -85,21 +119,21 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 /** @} */  // END TIME
 
 /** @name Math Related Macros
- * Macros to help with numbers and math
+ * Macros to help with numbers and math.
  * @{
  */
 
-/** Return larger value */
+/** Return larger value from X and Y. */
 #define MAXIMUM(X, Y) ((X) > (Y) ? (X) : (Y))
 
-/** Return smallest number between x and y */
+/** Return smallest number between X and Y */
 #define MINIMUM(X, Y) ((X) < (Y) ? (X) : (Y))
 
 /** Absolute value of X */
 #define ABSOLUTE(X) ((X) > 0 ? (X) : -(X))
 
-/** Difference of x and y */
-#define DIFF(A, B) ((A) > (B) ? (A) - (B) : (B) - (A))
+/** Difference of X and Y. */
+#define DIFF(X, Y) ((X) > (Y) ? (X) - (Y) : (Y) - (X))
 
 /**
  * @brief Range constraint macro to ensure value is between min and max.
@@ -123,21 +157,19 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 /** @} */  // END NUMBER
 
 /** @name File Size Constants in Bytes
- * Math to convert size to their size in bytes
- * E.g. KILOBYTE(10) == 10,000 bytes
+ * Macros to convert sizes to their equivalent value in bytes.
+ * E.g. KILOBYTE(10) == 10,000 bytes.
  * @{
  */
+#define KILOBYTE(X) ((X) * 1000ULL)          ///< KB to Bytes (SI)
+#define MEGABYTE(X) (KILOBYTE(X) * 1000ULL)  ///< MB to Bytes (SI)
+#define GIGABYTE(X) (MEGABYTE(X) * 1000ULL)  ///< GB to Bytes (SI)
+#define TERABYTE(X) (GIGABYTE(X) * 1000ULL)  ///< TB to Bytes (SI)
 
-#define KILOBYTE(X) ((X) * 1000ULL)
-#define MEGABYTE(X) (KILOBYTE(X) * 1000ULL)
-#define GIGABYTE(X) (MEGABYTE(X) * 1000ULL)
-#define TERABYTE(X) (GIGABYTE(X) * 1000ULL)
-
-#define KIBIBYTE(X) ((X) * 1024ULL)
-#define MEBIBYTE(X) (KIBIBYTE(X) * 1024ULL)
-#define GIBIBYTE(X) (MEBIBYTE(X) * 1024ULL)
-#define TEBIBYTE(X) (GIBIBYTE(X) * 1024ULL)
-
+#define KIBIBYTE(X) ((X) * 1024ULL)          ///< KiB to Bytes (IEC)
+#define MEBIBYTE(X) (KIBIBYTE(X) * 1024ULL)  ///< MiB to Bytes (IEC)
+#define GIBIBYTE(X) (MEBIBYTE(X) * 1024ULL)  ///< GiB to Bytes (IEC)
+#define TEBIBYTE(X) (GIBIBYTE(X) * 1024ULL)  ///< TiB to Bytes (IEC)
 /** @} */
 
 static_assert(
@@ -147,12 +179,12 @@ static_assert(
 
 /**
  * @brief Calculate hamming distance between two **unsigned** 64-bit integers.
- * Makes use of `__builtin_popcountll()`
+ * Makes use of `__builtin_popcountll()`.
  * @return Number of bits that differ between `X` and `Y` as an integer.
  * @retval 0 `X` and `Y` are the exact same.
  * @retval 64 `X` and `Y` are compliments of one another.
  * @retval k `X` and `Y` differ by `k` number of bits.
- **/
+ */
 static inline int hamming_distance (const uint64_t a, const uint64_t b) {
   return __builtin_popcountll(a ^ b);
 }
@@ -165,17 +197,17 @@ static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
 
-/** @brief Array size macro */
+/** Array size macro. */
 #define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
-/** @brief Zero out memory */
+/** Zero out memory. */
 #define ZERO_MEMORY(pointer, count, type) \
   memset((pointer), 0, (count) * sizeof(type))
 
-/** @brief Hint to compiler that the branch is most LIKELY true */
+/** Hint to compiler that the branch is most likely *TRUE*. */
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 
-/** @brief Hint to the compiler the condition is most likely FALSE */
+/** Hint to the compiler the condition is most likely *FALSE*. */
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 #define ALWAYS_INLINE inline __attribute__((always_inline))
