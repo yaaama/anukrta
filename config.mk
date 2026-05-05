@@ -10,7 +10,6 @@ endif
 
 CC ?= clang
 
-
 PREPROC_DEFS :=
 
 # --- C Flags ---
@@ -40,24 +39,19 @@ CLANG_EXTRA_SANS :=
 # Clang
 ifeq (${CC}, clang)
 	DEV_FLAGS += -fextend-variable-liveness -Wthread-safety \
--Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
+	-Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
 # -Wno-incompatible-pointer-types-discards-qualifiers
 	CLANG_EXTRA_SANS := -fsanitize=integer,implicit-conversion,local-bounds
+	COMPILER_RELEASE_LDFLAGS += -flto=thin
+	RELEASE_FLAGS += -flto=thin
 endif
 ifeq (${CC}, gcc)
 	DEV_FLAGS += -fanalyzer --param analyzer-bb-explosion-factor=50 \
 --param analyzer-max-enodes-per-program-point=200 -Wanalyzer-too-complex \
 -Wuseless-cast -Wuse-after-free=3
 # -Wno-discarded-qualifiers
-endif
-
-ifeq (${CC}, clang)
-    COMPILER_RELEASE_LDFLAGS += -flto=thin
-    RELEASE_FLAGS += -flto=thin
-endif
-ifeq (${CC}, gcc)
-    COMPILER_RELEASE_LDFLAGS += -flto
-    RELEASE_FLAGS += -flto
+  COMPILER_RELEASE_LDFLAGS += -flto
+  RELEASE_FLAGS += -flto
 endif
 
 # --- DEVELOPMENT TOGGLES ---
@@ -70,9 +64,4 @@ USE_RECURSIVE_FIND_SET = 0
 
 ifeq ($(USE_RECURSIVE_FIND_SET), 1)
     PREPROC_DEFS += -DANU__USE_RECURSIVE_SET_FIND
-endif
-
-# ANU_DEBUG
-ifeq (${DEBUG}, 1)
-	PREPROC_DEFS += -DANU_DEBUG
 endif

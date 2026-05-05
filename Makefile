@@ -59,6 +59,7 @@ LDFLAGS += $(COMPILER_LDFLAGS)
 # Development build
 ifeq ($(DEBUG), 1)
 	CFLAGS += $(DEV_FLAGS)
+	PREPROC_DEFS += -DANU_DEBUG
 else
 	CFLAGS += $(RELEASE_FLAGS)
 endif
@@ -168,6 +169,9 @@ ifeq ($(SANITIZER), none)
 	endif
 endif
 
+
+$(info [INFO] Using $(CC), with flags $(CFLAGS))
+
 .PHONY: all run clean test run lint check release release-debug debug format memcheck analyze
 
 .DEFAULT_GOAL := debug
@@ -185,15 +189,15 @@ tsan:
 
 debug:
 	@echo "=== Building Default Debug Variant ==="
-	$(Q)$(MAKE) VARIANT=debug SANITIZER=$(SANITIZER) DEBUG=1 build-variant
+	$(Q)$(MAKE) VARIANT=debug SANITIZER=none DEBUG=1 build-variant
 
 profile:
 	@echo "=== Building Profile Variant ==="
-	$(Q)$(MAKE) VARIANT=profile SANITIZER=$(SANITIZER) DEBUG=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) VARIANT=profile SANITIZER=none DEBUG=0 build-variant 2>/dev/null
 
 release:
 	@echo "=== Building Release Variant ==="
-	$(Q)$(MAKE) VARIANT=release SANITIZER=$(SANITIZER) DEBUG=0 build-variant 2>/dev/null
+	$(Q)$(MAKE) VARIANT=release SANITIZER=none DEBUG=0 build-variant 2>/dev/null
 
 build-variant: $(TARGETS_TO_BUILD)
 
