@@ -153,13 +153,13 @@ static_assert(
  * @retval 64 `X` and `Y` are compliments of one another.
  * @retval k `X` and `Y` differ by `k` number of bits.
  **/
-static inline int hamming_distance (uint64_t hash1, uint64_t hash2) {
-  return __builtin_popcountll(hash1 ^ hash2);
+static inline int hamming_distance (const uint64_t a, const uint64_t b) {
+  return __builtin_popcountll(a ^ b);
 }
 
-void print_matrix_float(FILE *fd, const float *matrix, int rows, int cols);
+void print_matrix_float(FILE *fp, const float *matrix, int rows, int cols);
 
-void anu_util_print_indent(FILE *fd, int spaces, int depth);
+void anu_util_print_indent(FILE *fp, int spaces, int depth);
 
 static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
