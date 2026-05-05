@@ -150,7 +150,7 @@ void anu_stack_init (anu_stack *s, size_t capacity, size_t elem_size) {
 
   assert(elem_size);
 
-  size_t init_cap = capacity > 0 ? capacity : 2;
+  size_t init_cap = capacity > 0 ? capacity : 4;
 
   s->capacity = init_cap;
   s->count = 0;
