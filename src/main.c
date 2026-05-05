@@ -198,9 +198,8 @@ static int anukrta_driver (anukrta_config *config) {
   return 0;
 }
 
-int main (int argc, char *argv[]) {
+static inline anukrta_config default_config (void) {
 
-  /* Default configuration */
   anukrta_config config = {
     .dry_run = 0,
     .verbose = 0,
@@ -212,6 +211,13 @@ int main (int argc, char *argv[]) {
     .detect_bars = 1,
     .detect_black_frames = 1,
   };
+  return config;
+}
+
+int main (int argc, char *argv[]) {
+
+  /* Default configuration */
+  anukrta_config config = default_config();
 
   /* Option parsing return value */
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
