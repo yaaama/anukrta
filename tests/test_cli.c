@@ -5,6 +5,7 @@
 #include <getopt.h>
 
 #include "../src/cli.h"
+#include "config.h"
 
 static void reset_optind (void) { optind = 1; }
 
@@ -29,8 +30,8 @@ Test (CLI,
   int ret = anu_cli_parse_options(&config, argc, argv);
 
   cr_assert(ret == 0);
-  cr_assert(config.scan_curr_dir == 1, "Should scan current dir by default");
-  cr_assert(config.verbose == 0);
+  cr_assert(eq(config.runtime_flags & RT_SCAN_CURR_DIR, RT_SCAN_CURR_DIR));
+  cr_assert(zero(config.runtime_flags & RT_VERBOSE));
 }
 
 Test (CLI,
@@ -46,7 +47,8 @@ Test (CLI,
   cr_assert(config.paths_count == 2);
   cr_assert(eq(str, config.paths[0], "/path/to/vids"));
   cr_assert(eq(str, config.paths[1], "/other/path"));
-  cr_assert(config.scan_curr_dir == 0);
+
+  cr_assert(zero(config.runtime_flags & RT_SCAN_CURR_DIR));
 }
 
 Test (CLI,
@@ -89,17 +91,16 @@ Test (CLI, help_flag_long, .description = "Parsing help flags (short & long)") {
   /* SHORT */
   char *argv_short[] = {"anukrta", "-h", NULL};
   ret = anu_cli_parse_options(&config, argc, argv_short);
-
   cr_assert(ret == 0);
-  cr_assert(config._exit_early == 1);
+
+  cr_assert(gt(config.runtime_flags & RT_EXIT_EARLY, 0));
 
   /* LONG */
   reset_optind();
   char *argv_long[] = {"anukrta", "--help", NULL};
   ret = anu_cli_parse_options(&config, argc, argv_long);
 
-  cr_assert(ret == 0);
-  cr_assert(config._exit_early == 1);
+  cr_assert(gt(config.runtime_flags & RT_EXIT_EARLY, 0));
 }
 
 /* '--verbose' */
@@ -112,13 +113,14 @@ Test (CLI,
   int ret = anu_cli_parse_options(&config, verbose_long_c, verbose_long);
 
   cr_assert(ret == 0);
-  cr_assert(config.verbose == 1);
+
+  cr_assert(gt(config.runtime_flags & RT_VERBOSE, 0));
 
   char *verbose_short[] = {"anukrta", "-v", NULL};
   int verbose_short_c = 2;
   ret = anu_cli_parse_options(&config, verbose_short_c, verbose_short);
   cr_assert(ret == 0);
-  cr_assert(config.verbose == 1);
+  cr_assert(gt(config.runtime_flags & RT_VERBOSE, 0));
 }
 
 /* --dry-run */
@@ -131,7 +133,8 @@ Test (CLI, dryrun_flag, .description = "Parsing '--dry-run' flag") {
   int ret = anu_cli_parse_options(&config, argc, argv);
 
   cr_assert(ret == 0);
-  cr_assert(config.dry_run == 1);
+
+  cr_assert(gt(config.runtime_flags & RT_DRY_RUN, 0));
 }
 
 /* --version */
@@ -143,7 +146,7 @@ Test (CLI, version_exit_early, .description = "Parsing '--version' flag") {
   int ret = anu_cli_parse_options(&config, argc, argv);
 
   cr_assert(ret == 0);
-  cr_assert(config._exit_early == 1);
+  cr_assert(gt(config.runtime_flags & RT_EXIT_EARLY, 0));
 }
 
 /* Invalid -s value */
@@ -159,13 +162,15 @@ Test (CLI,
   int ret = anu_cli_parse_options(&config, argc, argv_short);
 
   cr_assert(ret == EINVAL);
-  cr_assert(config._exit_early == 1);
+
+  cr_assert(gt(config.runtime_flags & RT_EXIT_EARLY, 0));
 
   reset_optind();
   ret = anu_cli_parse_options(&config, argc, argv_long);
 
   cr_assert(ret == EINVAL);
-  cr_assert(config._exit_early == 1);
+
+  cr_assert(gt(config.runtime_flags & RT_EXIT_EARLY, 0));
 }
 
 /* Missing arg for '-t' */
@@ -180,5 +185,5 @@ Test (CLI,
   int ret = anu_cli_parse_options(&config, argc, argv);
 
   cr_assert(ret == 22);
-  cr_assert(config._exit_early == 1);
+  cr_assert(gt(config.runtime_flags & RT_EXIT_EARLY, 0));
 }

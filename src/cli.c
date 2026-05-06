@@ -11,9 +11,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "util.h"
 
 #define CLI_NAME "anukrta"
+#define ANU_VERSION "0.0.1"
 
 static const char *get_program_name (const char *arg_zero) {
   const char *last_slash = strrchr(arg_zero, '/');
@@ -51,18 +53,31 @@ static void print_help (const char *program_name) {
 
 void anu_cli_print_configuration (anukrta_config *config) {
 
-  printf("\n=== Configuration ===\n");
-  printf("Verbose: %s\n", config->verbose ? "YES" : "NO");
-  printf("Dry Run: %s\n", config->dry_run ? "YES" : "NO");
-  printf("Detect Bars (Letterboxing | Windowboxing | Pillarboxing): %s\n",
-         config->detect_bars ? "YES" : "NO");
-  printf("Detect Black Frames: %s\n",
-         config->detect_black_frames ? "YES" : "NO");
-  printf("Detect Rotation: %s\n", config->detect_rotation ? "YES" : "NO");
+  bflag32 rtflags = config->runtime_flags;
+  bflag32 detflags = config->detect_flags;
+  bflag32 reportflags = config->report_flags;
+  printf("\n===== Configuration =====\n");
+  printf("Verbose: %s\n", ANU_HAS_ANY_FLAG(rtflags, RT_VERBOSE) ? "YES" : "NO");
+  printf("Dry Run: %s\n", ANU_HAS_ANY_FLAG(rtflags, RT_DRY_RUN) ? "YES" : "NO");
+  printf("Scan Current Directory: %s\n",
+         ANU_HAS_ANY_FLAG(rtflags, RT_SCAN_CURR_DIR) ? "YES" : "NO");
+
   printf("Segments to hash: %zu\n", config->segments);
   printf("Maximum Distance Threshold: %zu\n", config->threshold);
   printf("Skip videos shorter than: %zu seconds\n", config->skip_duration);
   printf("Thread Count: %zu\n", config->thread_count);
+
+  printf("= Report Flags =\n");
+  printf("Print hashes alongside duplicates: %s\n",
+         ANU_HAS_ANY_FLAG(reportflags, REPORT_PRINT_HASHES) ? "YES" : "NO");
+
+  printf("= Detection Flags =\n");
+  printf("Detect Bars (Letterboxing | Windowboxing | Pillarboxing): %s\n",
+         ANU_HAS_ANY_FLAG(detflags, DETECT_BARS) ? "YES" : "NO");
+  printf("Detect Black Frames: %s\n",
+         ANU_HAS_ANY_FLAG(detflags, DETECT_BLACK_FRAME) ? "YES" : "NO");
+  printf("Detect Rotation: %s\n",
+         ANU_HAS_ANY_FLAG(detflags, DETECT_ROTATION) ? "YES" : "NO");
 }
 
 /* Helper to reverse-lookup long option names */
@@ -168,6 +183,34 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
   return 0;
 }
 
+/**
+ * @brief Parses a string into a boolean (1 or 0).
+ * @retval -1 if the string is not a recognized boolean value.
+ * @retval 0 if false.
+ * @retval 1 if true.
+ */
+static int parse_bool_arg (const char *restrict arg_name,
+                           const char *restrict arg_str) {
+  if (!arg_str) {
+    return -1;
+  }
+
+  assert(arg_name);
+
+  if (strcmp(arg_str, "1") == 0 || strcasecmp(arg_str, "yes") == 0 ||
+      strcasecmp(arg_str, "true") == 0) {
+    return 1;
+  }
+  if (strcmp(arg_str, "0") == 0 || strcasecmp(arg_str, "no") == 0 ||
+      strcasecmp(arg_str, "false") == 0) {
+    return 0;
+  }
+
+  fprintf(stderr, "[%s] Error: Invalid argument for boolean option '%s'\n",
+          CLI_NAME, arg_name);
+  return -1;
+}
+
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   const char *program_name = get_program_name(argv[0]);
@@ -175,14 +218,18 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   enum anu_options {  // NOLINT (*enum-initial-value)
     AUTO_HANDLE = 0,
     CMD_HELP = 'h',
-    FLAG_VERBOSE = 'v',
     ARG_SEGMENTS = 's',
     ARG_THRESHOLD = 't',
+    FLAG_VERBOSE = 'v',
 
     /* Auto-incrementing long-only options */
-    CMD_VERSION = 1000,
+    CMD_VERSION = 256,
     ARG_THREADS,
     ARG_SKIP_DURATION,
+    FLAG_DRY_RUN,
+    FLAG_DETECT_BLACK_FRAME,
+    FLAG_DETECT_BARS,
+    FLAG_DETECT_ROTATION,
   };
 
   /* clang-format off */
@@ -212,10 +259,11 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
  * FLAGS
  */
     /* TODO Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
-    {"verbose",         no_argument,       NULL,                         FLAG_VERBOSE},      // -v | --verbose
-    {"dry-run",         no_argument,       &config->dry_run,             1},                 // --dry-run
-    {"detect-black",    no_argument,       &config->detect_black_frames, 1},                 // TODO
-    {"detect-rotation", no_argument,       &config->detect_rotation,     1},                 // TODO
+    {"verbose",            no_argument,          NULL,                FLAG_VERBOSE},               // -v | --verbose
+    {"dry-run",            no_argument,          NULL,                FLAG_DRY_RUN},               // --dry-run
+    {"detect-black",       optional_argument,    NULL,                FLAG_DETECT_BLACK_FRAME},    // --detect-black
+    {"detect-rotation",    optional_argument,    NULL,                FLAG_DETECT_ROTATION},       // --detect-rotation
+    {"detect-bars",        optional_argument,    NULL,                FLAG_DETECT_BARS},           // --detect-bars
 
     {0,                    0,                    0,                   0}};                // END
   /* clang-format on */
@@ -303,20 +351,28 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       case CMD_HELP:
         {
           print_help(program_name);
-          goto exit_early;
+          ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
+          return 0;
         }
       /* --version */
       case CMD_VERSION:
         {
           printf("%s - version: " ANU_VERSION "\n", program_name);
-          goto exit_early;
-          break;
+          ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
+          return 0;
         }
 
       /* -v | --verbose */
       case FLAG_VERBOSE:
         {
-          config->verbose = 1;
+          ANU_SET_FLAG(config->runtime_flags, RT_VERBOSE);
+          break;
+        }
+
+      /* --dry-run */
+      case FLAG_DRY_RUN:
+        {
+          ANU_SET_FLAG(config->runtime_flags, RT_DRY_RUN);
           break;
         }
 
@@ -357,11 +413,67 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
           break;
         }
-      case ARG_SKIP_DURATION:  // --skip-duration
+      case ARG_SKIP_DURATION: /* --skip-duration */
         {
           if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, INT_MAX,
                                       &config->skip_duration) != 0) {
             goto exit_error;
+          }
+          break;
+        }
+      case FLAG_DETECT_BARS: /* --detect-bars */
+        {
+          /* No arg after opt */
+          if (optarg == NULL) {
+            ANU_SET_FLAG(config->detect_flags, DETECT_BARS);
+          }
+          int detect_bars_arg = parse_bool_arg(arg_invoked, optarg);
+
+          if (detect_bars_arg == -1) {
+            goto exit_error;
+          }
+          if (detect_bars_arg) {
+            ANU_SET_FLAG(config->detect_flags, DETECT_BARS);
+          } else {
+            ANU_CLEAR_FLAG(config->detect_flags, DETECT_BARS);
+          }
+
+          break;
+        }
+      case FLAG_DETECT_BLACK_FRAME: /* --detect-black */
+        {
+          /* No arg after opt */
+          if (optarg == NULL) {
+            ANU_SET_FLAG(config->detect_flags, DETECT_BLACK_FRAME);
+          }
+          int detect_blackframe_arg = parse_bool_arg(arg_invoked, optarg);
+
+          if (detect_blackframe_arg == -1) {
+            goto exit_error;
+          }
+          if (detect_blackframe_arg) {
+            ANU_SET_FLAG(config->detect_flags, DETECT_BLACK_FRAME);
+          } else {
+            ANU_CLEAR_FLAG(config->detect_flags, DETECT_BLACK_FRAME);
+          }
+          break;
+        }
+
+      case FLAG_DETECT_ROTATION:
+        {  // --detect-black
+          if (optarg == NULL) {
+            ANU_SET_FLAG(config->detect_flags,
+                         DETECT_ROTATION);  // Just --detect-blackframe
+          }
+          int detect_rotation_arg = parse_bool_arg(arg_invoked, optarg);
+
+          if (detect_rotation_arg == -1) {
+            goto exit_error;
+          }
+          if (detect_rotation_arg == 0) {
+            ANU_CLEAR_FLAG(config->detect_flags, DETECT_ROTATION);
+          } else {
+            ANU_SET_FLAG(config->detect_flags, DETECT_ROTATION);
           }
           break;
         }
@@ -387,7 +499,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   } else {
     printf("\n--- Scanning Current Directory ---\n");
-    config->scan_curr_dir = 1;
+    ANU_SET_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR);
     config->paths_count = 1;
     config->paths = NULL;
   }
@@ -401,14 +513,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
 exit_error:
   {
-    config->_exit_early = 1;
+    ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
     ret = 22;
-    return ret;
-  }
-
-exit_early:
-  {
-    config->_exit_early = 1;
     return ret;
   }
 }

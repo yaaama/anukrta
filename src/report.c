@@ -12,6 +12,7 @@
 #include "explore.h"
 #include "stack.h"
 #include "tree.h"
+#include "util.h"
 
 #ifdef ANU__USE_RECURSIVE_SET_FIND  // Recursive 'find_set' implementation
 #  pragma message("Making use of recursive `find_set` implementation.")
@@ -154,7 +155,7 @@ void anu_print_report (anukrta_config *config,
              file_id, human_sizing, time_str,
              anu_time_microseconds_to_seconds(file->duration_us));
 
-      if (config->verbose) {
+      if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_VERBOSE)) {
         print_file_hashes((hashes + (file_id * config->segments)),
                           config->segments);
       }

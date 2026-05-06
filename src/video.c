@@ -214,7 +214,7 @@ int anu_video_hash (anu_file *file,
     }
 
     if (scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
-                    config->detect_bars) != 0) {
+                    ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS)) != 0) {
       log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
       continue;
     }

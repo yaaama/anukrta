@@ -1,5 +1,6 @@
 /* Video similarity tool */
 
+#include "config.h"
 #ifdef ANU_DEBUG
 #  pragma message "Compilation in DEBUG mode."
 #  ifdef NDEBUG
@@ -200,17 +201,18 @@ static int anukrta_driver (anukrta_config *config) {
 
 static inline anukrta_config default_config (void) {
 
-  anukrta_config config = {
-    .dry_run = 0,
-    .verbose = 0,
-    .segments = 2,
-    .threshold = 15,
-    .hash_algorithm = ANU_HASH_ALGO_DCT,
-    .skip_duration = 3,
-    .thread_count = 1,
-    .detect_bars = 1,
-    .detect_black_frames = 1,
-  };
+  anukrta_config config = {.segments = 2,
+                           .threshold = 15,
+                           .hash_algorithm = ANU_HASH_ALGO_DCT,
+                           .skip_duration = 3,
+                           .thread_count = 1,
+                           .runtime_flags = 0,
+                           .detect_flags = 0,
+                           .report_flags = 0};
+
+  ANU_SET_FLAG(config.detect_flags, DETECT_ROTATION);
+  ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
+  ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
   return config;
 }
 
@@ -223,7 +225,8 @@ int main (int argc, char *argv[]) {
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
   /* Exit if non zero or if config has exit_early flag set */
-  if (parsing_return || config._exit_early) {
+  if (parsing_return ||
+      (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_EXIT_EARLY))) {
     return parsing_return;
   }
 
@@ -233,7 +236,7 @@ int main (int argc, char *argv[]) {
 
   int log_lvl = 0;
   int libav_log_lvl = 0;
-  if (config.verbose) {
+  if (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_VERBOSE)) {
     anu_cli_print_configuration(&config);
     log_lvl = LOG_DEBUG;
     libav_log_lvl = AV_LOG_INFO;
