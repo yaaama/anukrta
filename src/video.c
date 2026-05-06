@@ -159,11 +159,8 @@ int anu_video_hash (anu_file *file,
 
   /* We want to split the video into this many segments */
   size_t total_video_segments = config->segments;
-  ASSUME(total_video_segments > 0);
 
   size_t video_duration_us = file->duration_us;
-  /* TODO Make this check earlier on in the pipeline */
-  assert(video_duration_us != 0);
   assert(video_duration_us > total_video_segments);
 
   /* As long as this is true we won't break anything when we cast for libav */

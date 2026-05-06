@@ -35,22 +35,23 @@ static void print_help (const char *program_name) {
 
   /* clang-format off */
   fprintf(stderr, "\nUsage: %s [OPTIONS...] [PATH]\n", program_name);
-  fprintf(stderr, "\t-h, --help\t\tShow this help message\n");
-  fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output\n");
-  fprintf(stderr, "\t-s, --segments\t\tNumber of segments to hash for each video\n");
+  fprintf(stderr, "\t-h, --help\t\tShow this help message.\n");
+  fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output.\n");
+  fprintf(stderr, "\t-s, --segments\t\tNumber of segments to hash for each video.\n");
   fprintf(stderr, "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to 64 (0 being the most similar).\n");
   fprintf(stderr, "\t--skip-duration\t\tSkip videos shorter than N seconds.\n");
   fprintf(stderr, "\t--threads\t\tNumber of threads to use.\n");
   fprintf(stderr, "\t--version\t\tPrint version and exit.\n");
-  fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes. \n");
+  fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes.\n");
   fprintf(stderr, "\t--detect-black\t\tDetect black frames and skip over them.\n");
+  fprintf(stderr, "\t--detect-bars\t\tDetect bars around video (e.g. letterboxing).\n");
   fprintf(stderr, "\t--detect-rotation\t\tDetect rotated videos.\n");
   /* clang-format on */
 }
 
 void anu_cli_print_configuration (anukrta_config *config) {
 
-  printf("\n--- Configuration ---\n");
+  printf("\n=== Configuration ===\n");
   printf("Verbose: %s\n", config->verbose ? "YES" : "NO");
   printf("Dry Run: %s\n", config->dry_run ? "YES" : "NO");
   printf("Detect Bars (Letterboxing | Windowboxing | Pillarboxing): %s\n",
@@ -185,22 +186,28 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   };
 
   /* clang-format off */
+
+
   /* name, has_arg, flag, val */
   const struct option anukrta_opts[] = {
+
+  /* NOTE: Realigning struct in Emacs:
+     prefix-arg + align-regexp --> ,\(\s-*\) --> 1 --> 4 --> yes
+   */
 /*
  * COMMANDS:
  * These will cause the program to exit early.
  */
-    {"help",            no_argument,       NULL,                         CMD_HELP},          // -h | --help
-    {"version",         no_argument,       NULL,                         CMD_VERSION},       // --version
+    {"help",               no_argument,          NULL,                CMD_HELP},                   // -h | --help
+    {"version",            no_argument,          NULL,                CMD_VERSION},                // --version
 /*
  * RUNTIME CONFIG:
  * Options to customise how the program does things.
  */
-    {"threshold",       required_argument, NULL,                         ARG_THRESHOLD},     // -t | --threshold
-    {"segments",        required_argument, NULL,                         ARG_SEGMENTS},      // -s | --segments
-    {"threads",         required_argument, NULL,                         ARG_THREADS},       // --threads
-    {"skip-duration",   required_argument, NULL,                         ARG_SKIP_DURATION}, // --skip-duration
+    {"threshold",          required_argument,    NULL,                ARG_THRESHOLD},              // -t | --threshold
+    {"segments",           required_argument,    NULL,                ARG_SEGMENTS},               // -s | --segments
+    {"threads",            required_argument,    NULL,                ARG_THREADS},                // --threads
+    {"skip-duration",      required_argument,    NULL,                ARG_SKIP_DURATION},          // --skip-duration
 /*
  * FLAGS
  */
@@ -210,7 +217,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     {"detect-black",    no_argument,       &config->detect_black_frames, 1},                 // TODO
     {"detect-rotation", no_argument,       &config->detect_rotation,     1},                 // TODO
 
-    {0,                 0,                 0,                            0}};                // END
+    {0,                    0,                    0,                   0}};                // END
   /* clang-format on */
 
   /* Short options */

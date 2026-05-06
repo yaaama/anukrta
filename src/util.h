@@ -33,23 +33,40 @@ typedef size_t usize;
  * @{
  */
 
-/** Sets one or more flags in a bitmask. */
+/**
+ * @def ANU_SET_FLAG
+ * @brief Sets one or more flags in a bitmask.
+ *
+ * ```c
+ * ANU_SET_FLAG(player_state, STATUS_RUNNING | STATUS_POISONED);
+ * ```
+ */
 #define ANU_SET_FLAG(mask, flag) ((mask) |= (flag))
 
 /** Clears one or more flags from a bitmask. */
 #define ANU_CLEAR_FLAG(mask, flag) ((mask) &= ~(flag))
 
-/** Toggles one or more flags in a bitmask. */
+/**
+ * @def ANU_TOGGLE_FLAG
+ * @brief Toggles one or more flags in a bitmask.
+ */
 #define ANU_TOGGLE_FLAG(mask, flag) ((mask) ^= (flag))
 
 /**
- * Checks if ALL specified flags are set.
+ * @def ANU_HAS_ALL_FLAGS
+ * @brief Checks if ALL specified flags are set.
  * @note If flag is 0, this will return true.
+ * ```c
+ * if (ANU_HAS_ALL_FLAGS(player_state, STATUS_RUNNING | STATUS_POISONED)) {
+ *  printf("Player is losing health fast!\n");
+ * }
+ * ```
  */
 #define ANU_HAS_ALL_FLAGS(mask, flag) (((mask) & (flag)) == (flag))
 
 /**
- * Checks if ANY of the specified flags are set.
+ * @def ANU_HAS_ANY_FLAG
+ * @brief Checks if ANY of the specified flags are set.
  */
 #define ANU_HAS_ANY_FLAG(mask, flag) (((mask) & (flag)) != 0)
 
