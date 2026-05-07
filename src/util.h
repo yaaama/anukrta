@@ -11,10 +11,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/* 1 byte (8 bits) boolean type */
-typedef int8_t b8;
-/* 4 byte (32 bits) boolean type */
-typedef int32_t b32;
 typedef uint8_t u8;
 typedef int32_t i32;
 typedef int64_t i64;

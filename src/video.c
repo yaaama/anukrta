@@ -36,7 +36,7 @@ static int video_reader_get_frame(anu_vreader *vreader);
 static int scale_frame(anu_vreader *vr,
                        uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
                        int matrix_size,
-                       b32 crop_black);
+                       bool crop_black);
 static uint64_t hash_decoded_frame(
     uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
     anu_hash_type hash_algo);
@@ -316,7 +316,7 @@ static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
 int scale_frame (anu_vreader *vr,
                  uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
                  int matrix_size,
-                 b32 crop_black) {
+                 bool crop_black) {
 
   AVFrame *src = vr->frame;
   char *fname = vr->fmt_ctx->url;
