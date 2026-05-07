@@ -20,6 +20,7 @@ Checks: >
   -readability-magic-numbers,
   -readability-avoid-unconditional-preprocessor-if,
   -readability-non-const-parameter,
+  readability-redundant-casting,
   -misc-no-recursion,
   -*unused-*,
   -*swappable-parameters,
