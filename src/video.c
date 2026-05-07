@@ -37,26 +37,227 @@ typedef struct cropping {
   int y;
   int w;
   int h;
-
 } cropping;
 
-static int video_reader_get_frame(anu_vreader *vreader);
-static int scale_frame(anu_vreader *vr,
-                       uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-                       int matrix_size,
-                       bool crop_black);
-static uint64_t hash_decoded_frame(
-    uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-    anu_hash_type hash_algo);
-static int normalise_sws_colourspace(AVFrame *frame, SwsContext *context);
-static int vreader_init(char *f_path, anu_vreader *vreader);
-static void vreader_close(anu_vreader *vreader);
-static int vreader_seek_pts(anu_vreader *vreader, int64_t target_pts);
+static ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
+  assert(pts >= 0);
+  return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+}
 
-static ALWAYS_INLINE size_t pts_to_useconds(long pts, AVRational timebase);
-static ALWAYS_INLINE double frame_pts_to_seconds(long pts, AVRational timebase);
-static ALWAYS_INLINE size_t vreader_get_duration(anu_vreader *vreader);
-static ALWAYS_INLINE AVStream *vreader_video_stream(anu_vreader *vreader);
+static MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (
+    int64_t pts,
+    AVRational timebase) {
+  assert(pts >= 0);
+  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) /
+          ANU_TIME_ONE_SEC_IN_US);
+}
+
+/**
+ * @brief Open video and initialise video struct.
+ *
+ * This will open a video given by the param 'filename'.
+ *
+ * You need to call the complimentary function to close and destroy the struct
+ * once you are done with it.
+ *
+ * @param[in] f_path File path.
+ * @param[in][out] vreader Structure to initialise.
+ * @return 0 if success, non-zero for anything else.
+ *
+ */
+static int vreader_init (char *f_path, anu_vreader *vreader) {
+
+  /* Initialise VideoReader */
+  memset(vreader, 0, sizeof(anu_vreader));
+  vreader->video_stream_idx = -1;
+
+  log_trace("Opening `%s`", f_path);
+
+  /* Opens input file and guesses format of file */
+  int errcode = 0;
+  errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
+
+  if (errcode < 0) {
+    log_error("Could not open file (`%s`): `%s`", f_path, av_err2str(errcode));
+    return -1;
+  }
+
+  /* Will read bytes from file/decode a few frames to fill out context that the
+     method above missed (`avformat_open_input` will only read header of file)
+   */
+  errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
+  if (errcode < 0) {
+    log_error("Failed to read both file header and stream info (`%s`): `%s`",
+              f_path, av_err2str(errcode));
+    return -1;
+  }
+
+  /* Find Video Stream & Codec */
+  const AVCodec *codec = NULL;
+
+  /* Finds best stream that matches our specifications */
+  vreader->video_stream_idx = av_find_best_stream(
+      vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
+
+  if (vreader->video_stream_idx < 0) {
+    if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
+      log_error("No decoder found for stream.");
+    }
+
+    if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
+      log_error("No video stream found.");
+    }
+    return -1;
+  }
+
+  log_trace("Found video stream at index `%d`", vreader->video_stream_idx);
+
+  AVCodecParameters *codec_params = NULL;
+  /* Get codec parameters */
+  codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
+  /* Get codec to decode frames */
+  codec = avcodec_find_decoder(codec_params->codec_id);
+
+  if (!codec) {
+    log_error("No codec found.");
+    return -1;
+  }
+
+  /* Init Codec Context */
+  vreader->codec_ctx = avcodec_alloc_context3(codec);
+
+  if (!vreader->codec_ctx) {
+    log_error("Failed to allocate memory for codec context");
+    return -1;
+  }
+
+  if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
+    log_error("Could not retrieve codec context.");
+    return -1;
+  }
+
+  if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
+    log_error("Failed to initialise codec context for `%s`", codec->long_name);
+    return -1;
+  }
+
+  /* Alloc Buffers */
+  vreader->frame = av_frame_alloc();
+
+  if (vreader->frame == NULL) {
+    log_error("Failed to allocate memory for frame.");
+    return -1;
+  }
+
+  vreader->packet = av_packet_alloc();
+  if (vreader->packet == NULL) {
+    log_error("Failed to allocate memory for packet.");
+    return -1;
+  }
+
+  return 0;
+}
+
+static void vreader_close (anu_vreader *vreader) {
+  if (vreader->packet) {
+    av_packet_free(&vreader->packet);
+  }
+  if (vreader->sws_ctx) {
+    sws_freeContext(vreader->sws_ctx);
+  }
+
+  if (vreader->frame) {
+    av_frame_free(&vreader->frame);
+  }
+  if (vreader->codec_ctx) {
+    /* Drain decoder */
+    avcodec_send_packet(vreader->codec_ctx, NULL);
+    /* Free context */
+    avcodec_free_context(&vreader->codec_ctx);
+  }
+  if (vreader->fmt_ctx) {
+    avformat_close_input(&vreader->fmt_ctx);
+  }
+}
+
+static ALWAYS_INLINE AVStream *vreader_video_stream (anu_vreader *vreader) {
+  assert(vreader);
+  assert(vreader->video_stream_idx >= 0);
+  assert(vreader->fmt_ctx);
+  return vreader->fmt_ctx->streams[vreader->video_stream_idx];
+}
+
+/**
+ * @brief Get duration of video.
+ *
+ * Retrieves duration of video either using container duration (if found) or by
+ * using the video stream specified.
+ *
+ * @param fmt_ctx Format (container) context.
+ * @param vid_stream Video stream.
+ * @return Duration of video in microseconds.
+ *
+ */
+static size_t vreader_get_duration (anu_vreader *vreader) {
+  AVStream *vid_stream = vreader_video_stream(vreader);
+
+  /* duration in stream-base */
+  int64_t duration_in_sb = vid_stream->duration;
+  AVRational stream_timebase = vid_stream->time_base;
+  log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
+            stream_timebase.den);
+
+  if (duration_in_sb > 0) {
+    return pts_to_useconds(duration_in_sb, stream_timebase);
+  }
+
+  if (duration_in_sb == AV_NOPTS_VALUE) {
+    duration_in_sb =
+        (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
+    log_warn(
+        "[%s] Video stream omitting duration, using container values as "
+        "fallback (%.2fs)",
+        vreader->fmt_ctx->url,
+        anu_time_microseconds_to_seconds((size_t) duration_in_sb));
+    return (size_t) duration_in_sb;
+  }
+
+  return 0;
+}
+
+/**
+ * @brief Seek to timestamp.
+ *
+ * Seeks to a specified timestamp.
+ *
+ * @param vreader VideoReader instance.
+ * @param target_ts Target time stamp (in streams own time base).
+ * @return 0 on success, anything else on failure.
+ *
+ * @note When `av_seek_frame` fails, this function returns its value.
+ */
+static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
+
+  /* Perform seek
+   *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
+   jump to the nearest keyframe BEFORE this timestamp.
+   *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
+   * frame number (rarely works well), so we stick to TimeStamp seeking. */
+  int seek_ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx,
+                               target_pts, AVSEEK_FLAG_BACKWARD);
+
+  if (seek_ret < 0) {
+    log_warn("Error seeking to timestamp %ld: %s", target_pts,
+             av_err2str(seek_ret));
+    return seek_ret;
+  }
+
+  /* Flush the decoder buffers after a SUCCESSFUL seek.
+   * If we don't do this, the decoder might return cached frames from the
+   * old position before decoding frames from the new position. */
+  avcodec_flush_buffers(vreader->codec_ctx);
+  return 0;
+}
 
 /**
  * Helper to check if a row contains non-black pixels.
@@ -144,121 +345,11 @@ static inline bool anu_detect_black_borders (AVFrame *frame,
   return true;
 }
 
-int anu_video_hash (anu_file *file,
-                    anukrta_config *config,
-                    uint64_t *hashes_out) {
-
-  assert(config->segments > 0);
-  assert(file);
-  assert(hashes_out);
-
-  anu_vreader vreader = {0};
-
-  /* Setup video reader */
-  if (vreader_init(file->path, &vreader)) {
-    vreader_close(&vreader);
-    return -1;
-  }
-
-  file->duration_us = vreader_get_duration(&vreader);
-  /* Return early if duration is 0 */
-  if (UNLIKELY(file->duration_us == 0)) {
-    vreader_close(&vreader);
-    return -1;
-  }
-  char *fname = anu_file_get_filename(file);
-
-  /* We want to split the video into this many segments */
-  size_t total_video_segments = config->segments;
-
-  size_t video_duration_us = file->duration_us;
-  assert(video_duration_us > total_video_segments);
-
-  /* As long as this is true we won't break anything when we cast for libav */
-  ASSUME(video_duration_us < INT64_MAX);
-
-  /* Check if file duration is longer than the skip threshold */
-  if (file->duration_us <=
-      (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
-    log_debug("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
-              fname, anu_time_microseconds_to_seconds(file->duration_us),
-              anu_time_microseconds_to_seconds(config->skip_duration));
-
-    vreader_close(&vreader);
-    return -2;
-  }
-
-  size_t frame_step_us = video_duration_us / total_video_segments;
-  /* Counter for # of frames successfully decoded */
-  int frames_decoded = 0;
-  /* Target timestamp in microseconds */
-  int64_t seek_target_us = 0;
-  /* Target timestamp in streams time base (tick) */
-  int64_t seek_target_sb = 0;
-
-  uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
-  /* Video stream */
-  AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
-
-  for (size_t i = 0; i < total_video_segments; i++) {
-
-    seek_target_us = (int64_t) (i * frame_step_us);
-    /* NOTE: As long as our duration values are positive, all of this casting is fine */
-    seek_target_sb =
-        av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
-
-    log_debug("[%s] --- Segment [%zu/%zu] ---", fname, i + 1,
-              total_video_segments);
-    log_debug("[%s] Seeking to PTS %ld (%.1f seconds)", fname, seek_target_sb,
-              anu_time_microseconds_to_seconds((size_t) seek_target_us));
-
-    /* Seek to timestamp */
-    if (vreader_seek_pts(&vreader, seek_target_sb) < 0) {
-      log_warn("[%s] Could not seek to segment `%zu`", fname, i);
-      continue; /* Try next segment */
-    }
-
-    if (video_reader_get_frame(&vreader) != 1) {
-      log_warn("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
-               seek_target_sb, i);
-      continue;
-    }
-
-    if (scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
-                    ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS)) != 0) {
-      log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
-      continue;
-    }
-
-    hashes_out[frames_decoded] =
-        hash_decoded_frame(matrix, config->hash_algorithm);
-
-    log_debug("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
-              hashes_out[frames_decoded]);
-    frames_decoded++;
-  }
-
-  /* Cleanup */
-  vreader_close(&vreader);
-
-#ifdef ANU_DEBUG
-  char hashes[1024];
-  int total_len = 0;
-  for (int i = 0; i < frames_decoded; i++) {
-    int end = sprintf(&hashes[total_len], " %lX,", hashes_out[i]);
-    total_len += end;
-    hashes[total_len] = ' ';
-  }
-  hashes[total_len] = '\0';
-  log_debug("[%s] DONE => {%s}\n", fname, hashes);
-#endif
-  log_trace("[%s] DONE. Processed %d frames.", fname, frames_decoded);
-  return 0;
-}
-
 /* This is the function called ONLY when a valid frame is fully decoded */
-uint64_t hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-                             anu_hash_type hash_algo) {
+static uint64_t hash_decoded_frame (
+    uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
+    anu_hash_type hash_algo) {
+
   uint64_t hash = 0;
   switch (hash_algo) {
     case ANU_HASH_ALGO_DCT:
@@ -277,18 +368,6 @@ uint64_t hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
   }
 
   return hash;
-}
-
-ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
-  assert(pts >= 0);
-  return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
-}
-
-MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts,
-                                                        AVRational timebase) {
-  assert(pts >= 0);
-  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) /
-          ANU_TIME_ONE_SEC_IN_US);
 }
 
 static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
@@ -451,213 +530,109 @@ static int video_reader_get_frame (anu_vreader *vreader) {
   }
 }
 
-/**
- * @brief Open video and initialise video struct.
- *
- * This will open a video given by the param 'filename'.
- *
- * You need to call the complimentary function to close and destroy the struct
- * once you are done with it.
- *
- * @param[in] f_path File path.
- * @param[in][out] vreader Structure to initialise.
- * @return 0 if success, non-zero for anything else.
- *
- */
-int vreader_init (char *f_path, anu_vreader *vreader) {
+int anu_video_hash (anu_file *file,
+                    anukrta_config *config,
+                    uint64_t *hashes_out) {
 
-  /* Initialise VideoReader */
-  memset(vreader, 0, sizeof(anu_vreader));
-  vreader->video_stream_idx = -1;
+  assert(config->segments > 0);
+  assert(file);
+  assert(hashes_out);
 
-  log_debug("Opening `%s`", f_path);
+  anu_vreader vreader = {0};
 
-  bool got_info = true;
-
-  /* Opens input file and guesses format of file */
-  int errcode = 0;
-  errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
-  if (errcode < 0) {
-    log_error("Could not open file (`%s`): `%s`", f_path, av_err2str(errcode));
+  /* Setup video reader */
+  if (vreader_init(file->path, &vreader)) {
+    vreader_close(&vreader);
     return -1;
   }
 
-  /* Will read bytes from file/decode a few frames to fill out context that the
-     method above missed (`avformat_open_input` will only read header of file)
-   */
-  errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
-  if (errcode < 0) {
-    log_warn("Could not find stream info: `%s`", av_err2str(errcode));
-    got_info = false;
-  }
-
-  if (!got_info) {
-    log_error("Failed to read header/stream for file %s", f_path);
+  file->duration_us = vreader_get_duration(&vreader);
+  /* Return early if duration is 0 */
+  if (file->duration_us == 0) {
+    vreader_close(&vreader);
     return -1;
   }
+  char *fname = anu_file_get_filename(file);
 
-  /* Find Video Stream & Codec */
-  bool decoder_found = true;
-  bool stream_found = true;
-  const AVCodec *codec = NULL;
+  assert(file->duration_us > config->segments);
 
-  /* Finds best stream that matches our specifications */
-  vreader->video_stream_idx = av_find_best_stream(
-      vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
+  /* As long as this is true we won't break anything when we cast for libav */
+  assert(file->duration_us < INT64_MAX);
 
-  if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
-    log_error("No decoder found for stream.");
-    decoder_found = false;
-  } else if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
-    log_error("No video stream found.");
-    stream_found = false;
+  /* Check if file duration is longer than the skip threshold */
+  if (file->duration_us <=
+      (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
+    log_debug("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
+              fname, anu_time_microseconds_to_seconds(file->duration_us),
+              anu_time_microseconds_to_seconds(config->skip_duration));
+
+    vreader_close(&vreader);
+    return -2;
   }
 
-  if (!stream_found || !decoder_found) {
-    return -1;
+  size_t frame_step_us = file->duration_us / config->segments;
+  /* Counter for # of frames successfully decoded */
+  int frames_decoded = 0;
+  /* Target timestamp in microseconds */
+  int64_t seek_target_us = 0;
+  /* Target timestamp in streams time base (tick) */
+  int64_t seek_target_sb = 0;
+
+  uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
+  /* Video stream */
+  AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
+
+  for (size_t i = 0; i < config->segments; i++) {
+
+    seek_target_us = (int64_t) (i * frame_step_us);
+    /* NOTE: As long as our duration values are positive, all of this casting is fine */
+    seek_target_sb =
+        av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
+
+    log_debug("[%s] --- Segment [%zu/%zu] ---", fname, i + 1, config->segments);
+    log_trace("[%s] Seeking to PTS %ld (%.1f seconds)", fname, seek_target_sb,
+              anu_time_microseconds_to_seconds((size_t) seek_target_us));
+
+    /* Seek to timestamp */
+    if (vreader_seek_pts(&vreader, seek_target_sb) < 0) {
+      log_warn("[%s] Could not seek to segment `%zu`", fname, i);
+      continue; /* Try next segment */
+    }
+
+    if (video_reader_get_frame(&vreader) != 1) {
+      log_warn("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
+               seek_target_sb, i);
+      continue;
+    }
+
+    if (scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
+                    ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS)) != 0) {
+      log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
+      continue;
+    }
+
+    hashes_out[frames_decoded] =
+        hash_decoded_frame(matrix, config->hash_algorithm);
+
+    log_trace("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
+              hashes_out[frames_decoded]);
+    frames_decoded++;
   }
 
-  log_trace("Found video stream at index `%d`", vreader->video_stream_idx);
+  /* Cleanup */
+  vreader_close(&vreader);
 
-  AVCodecParameters *codec_params = NULL;
-  /* Get codec parameters */
-  codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
-  /* Get codec to decode frames */
-  codec = avcodec_find_decoder(codec_params->codec_id);
-
-  if (!codec) {
-    log_error("No codec found.");
-    return -1;
+#ifdef ANU_DEBUG
+  char hashes[1024];
+  int total_len = 0;
+  for (int i = 0; i < frames_decoded; i++) {
+    int end = sprintf(&hashes[total_len], " %lX,", hashes_out[i]);
+    total_len += end;
+    hashes[total_len] = ' ';
   }
-
-  /* Init Codec Context */
-  vreader->codec_ctx = avcodec_alloc_context3(codec);
-
-  if (!vreader->codec_ctx) {
-    log_error("Failed to allocate memory for codec context");
-    return -1;
-  }
-
-  if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
-    log_error("Could not retrieve codec context.");
-    return -1;
-  }
-
-  if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
-    log_error("Failed to initialise codec context for `%s`", codec->long_name);
-    return -1;
-  }
-
-  /* Alloc Buffers */
-  vreader->frame = av_frame_alloc();
-  vreader->packet = av_packet_alloc();
-
-  if (vreader->frame == NULL || vreader->packet == NULL) {
-    log_error("Failed to allocate memory for packet/frame.");
-    return -1;
-  }
-
+  hashes[total_len] = '\0';
+  log_debug("[%s] DONE => {%s}\n", fname, hashes);
+#endif
+  log_trace("[%s] DONE. Processed %d frames.", fname, frames_decoded);
   return 0;
-}
-
-void vreader_close (anu_vreader *vreader) {
-  if (vreader->packet) {
-    av_packet_free(&vreader->packet);
-  }
-  if (vreader->sws_ctx) {
-    sws_freeContext(vreader->sws_ctx);
-  }
-
-  if (vreader->frame) {
-    av_frame_free(&vreader->frame);
-  }
-  if (vreader->codec_ctx) {
-    /* Drain decoder */
-    avcodec_send_packet(vreader->codec_ctx, NULL);
-    /* Free context */
-    avcodec_free_context(&vreader->codec_ctx);
-  }
-  if (vreader->fmt_ctx) {
-    avformat_close_input(&vreader->fmt_ctx);
-  }
-}
-
-/**
- * @brief Get duration of video.
- *
- * Retrieves duration of video either using container duration (if found) or by
- * using the video stream specified.
- *
- * @param fmt_ctx Format (container) context.
- * @param vid_stream Video stream.
- * @return Duration of video in microseconds.
- *
- */
-size_t vreader_get_duration (anu_vreader *vreader) {
-  AVStream *vid_stream = vreader_video_stream(vreader);
-
-  /* duration in stream-base */
-  int64_t duration_in_sb = vid_stream->duration;
-  AVRational stream_timebase = vid_stream->time_base;
-  log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
-            stream_timebase.den);
-
-  if (duration_in_sb > 0) {
-    return pts_to_useconds(duration_in_sb, stream_timebase);
-  }
-
-  if (duration_in_sb == AV_NOPTS_VALUE) {
-    duration_in_sb =
-        (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
-    log_warn(
-        "[%s] Video stream omitting duration, using container values as "
-        "fallback (%.2fs)",
-        vreader->fmt_ctx->url,
-        anu_time_microseconds_to_seconds((size_t) duration_in_sb));
-    return (size_t) duration_in_sb;
-  }
-
-  return 0;
-}
-
-/**
- * @brief Seek to timestamp.
- *
- * Seeks to a specified timestamp.
- *
- * @param vreader VideoReader instance.
- * @param target_ts Target time stamp (in streams own time base).
- * @return 0 on success, anything else on failure.
- *
- * @note When `av_seek_frame` fails, this function returns its value.
- */
-int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
-
-  /* Perform seek
-   *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
-   jump to the nearest keyframe BEFORE this timestamp.
-   *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
-   * frame number (rarely works well), so we stick to TimeStamp seeking. */
-  int ret;
-  ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts,
-                      AVSEEK_FLAG_BACKWARD);
-
-  if (ret < 0) {
-    log_warn("Error seeking to timestamp %ld: %s", target_pts, av_err2str(ret));
-    return ret;
-  }
-
-  /* Flush the decoder buffers after a SUCCESSFUL seek.
-   * If we don't do this, the decoder might return cached frames from the
-   * old position before decoding frames from the new position. */
-  avcodec_flush_buffers(vreader->codec_ctx);
-
-  return ret;
-}
-
-ALWAYS_INLINE AVStream *vreader_video_stream (anu_vreader *vreader) {
-  assert(vreader);
-  assert(vreader->video_stream_idx >= 0);
-  assert(vreader->fmt_ctx);
-  return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }
