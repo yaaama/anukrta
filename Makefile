@@ -1,16 +1,41 @@
 MAKEFLAGS += --no-print-directory
 
-USE_MOLD ?= 1
 VARIANT ?= debug
 SANITIZER ?= none
 DEBUG ?= 1
 
+USE_CCACHE ?= 1
+USE_MOLD ?= 1
+USE_LOCAL_FFMPEG ?= 0
+SKIP_TESTS ?= 0
+
+V ?= 0
+ifeq ($(V),1)
+		Q :=
+		ECHO_V := @echo
+else
+		Q := @
+		ECHO_V := @true
+endif
+
+CC ?= clang
 LDFLAGS ?=
 
+# ==========================================
+#   Toolchain Setup
+# ==========================================
 ifeq ($(USE_MOLD), 1)
 	LDFLAGS += -fuse-ld=mold
 endif
 
+ifeq ($(USE_CCACHE), 1)
+	CCACHE_BIN := $(shell command -v ccache 2> /dev/null)
+	ifneq ($(CCACHE_BIN),)
+		CC := $(CCACHE_BIN) $(CC)
+	endif
+endif
+
+# Load config
 include config.mk
 
 # ==========================================
@@ -23,22 +48,22 @@ SRC_DIR := src
 BUILD_ROOT := build
 BUILD_DIR := $(BUILD_ROOT)/$(VARIANT)
 OBJ_DIR := $(BUILD_DIR)/objs
-INCLUDE_DIR := src
 VENDOR_DIR := vendor
 TEST_DIR := tests
 
 # DEFAULT C FLAGS
 CFLAGS := -std=gnu23 \
--Wall -Wextra \
--Wstrict-prototypes -Wmissing-prototypes \
--Wshadow -Wvla \
--Wconversion -Wsign-conversion -Wdouble-promotion \
--Wmissing-include-dirs \
--Wnested-externs \
--Wredundant-decls -Wold-style-definition \
+-Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Wshadow -Wvla \
+-Wconversion -Wsign-conversion -Wdouble-promotion -Wmissing-include-dirs \
+-Wnested-externs -Wredundant-decls -Wold-style-definition \
 -Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes \
 -Wjump-misses-init -Wuninitialized -Warray-parameter -Winit-self -Wundef
-# -Wpadded
+
+# Inject Compiler-specific flags from config.mk
+CFLAGS += $(COMPILER_CFLAGS)
+LDFLAGS += $(COMPILER_LDFLAGS)
+INCLUDES := $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
+CPPFLAGS := $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 
 # Release or Profile
 ifneq ($(filter profile release,$(VARIANT)),)
@@ -50,40 +75,43 @@ ifneq ($(filter profile release,$(VARIANT)),)
 	else ifeq ($(VARIANT), profile)
 		CFLAGS += $(PROFILE_FLAGS)
 	endif
-endif
 
-# Inject Compiler-specific flags from config.mk
-CFLAGS += $(COMPILER_CFLAGS)
-LDFLAGS += $(COMPILER_LDFLAGS)
-
-# Development build
-ifeq ($(DEBUG), 1)
+else ifeq ($(VARIANT), asan)
+	CFLAGS += $(DEV_FLAGS) -fno-optimize-sibling-calls -fno-omit-frame-pointer
+	CPPFLAGS += -DANU_DEBUG
+	SAN_FLAGS := -fsanitize=address,undefined,unreachable -fsanitize-address-use-after-scope $(CLANG_EXTRA_SANS)
+else ifeq ($(VARIANT), tsan)
+	CFLAGS += $(DEV_FLAGS) -fno-omit-frame-pointer
+	CPPFLAGS += -DANU_DEBUG
+	SAN_FLAGS := -fsanitize=thread,undefined,unreachable $(CLANG_EXTRA_SANS)
+# Debug Build
+else
 	CFLAGS += $(DEV_FLAGS)
 	PREPROC_DEFS += -DANU_DEBUG
-else
-	CFLAGS += $(RELEASE_FLAGS)
 endif
 
-# Profiling build
-ifeq ($(PROFILE), 1)
-	CFLAGS += $(PROFILE_FLAGS)
-endif
+# ==========================================
+# Sanitisers
+# ==========================================
+SAN_FLAGS :=
 
-# Release or profile
-ifneq (,$(filter 1,$(PROFILE) $(RELEASE)))
-	PREPROC_DEFS += -DNDEBUG
-endif
+ifneq ($(SAN_FLAGS),)
+	CFLAGS += $(SAN_FLAGS)
+	LDFLAGS += $(SAN_FLAGS)
 
-INCLUDES = $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
-CPPFLAGS = $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
+  # Sanitizer runtime options
+  ASAN_LOG_FILE := etc/asan.log
+  export ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:$(ASAN_OPTIONS)
+  export LSAN_OPTIONS := log_threads=1:$(LSAN_OPTIONS)
+  export UBSAN_OPTIONS := abort_on_error=1:halt_on_error=1:print_stacktrace=1:$(UBSAN_OPTIONS)
+  export TSAN_OPTIONS := enable_adaptive_delay=1:adaptive_delay_aggressiveness=50:halt_on_error=1:$(TSAN_OPTIONS)
+endif
 
 # ==========================================
 #   FFmpeg Configuration
 # ==========================================
 # --- Local FFmpeg Configuration ---
 # Set to 1 to use a custom locally-built FFmpeg instead of the system one
-USE_LOCAL_FFMPEG ?= 0
-
 FFMPEG_MODULES := libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil
 
 ifeq ($(USE_LOCAL_FFMPEG), 1)
@@ -92,10 +120,8 @@ ifeq ($(USE_LOCAL_FFMPEG), 1)
   LOCAL_FFMPEG_DIR ?=
   # Point pkg-config to our local FFmpeg installation
 	PKG_CONFIG_CMD := PKG_CONFIG_PATH="$(LOCAL_FFMPEG_DIR)/lib/pkgconfig" pkg-config
-
   # Tell the resulting binary where to find the local shared libraries at runtime
 	LDFLAGS += -Wl,-rpath=$(LOCAL_FFMPEG_DIR)/lib
-
   $(info [INFO] Using LOCAL FFmpeg located at: $(LOCAL_FFMPEG_DIR))
 else
 # Use standard system pkg-config
@@ -103,10 +129,8 @@ else
 endif
 # Get the raw flags from pkg-config (e.g., "-I/usr/include -D_GNU_SOURCE")
 FFMPEG_CFLAGS_RAW := $(shell $(PKG_CONFIG_CMD) --cflags $(FFMPEG_MODULES))
-
 # Replace "-I/path" to "-isystem /path" to silence third-party warnings
 FFMPEG_CFLAGS := $(patsubst -I%,-isystem %,$(FFMPEG_CFLAGS_RAW))
-
 FFMPEG_LIBS := $(shell $(PKG_CONFIG_CMD) --libs $(FFMPEG_MODULES))
 
 CFLAGS += $(FFMPEG_CFLAGS)
@@ -114,43 +138,12 @@ LDFLAGS += -Wl,--as-needed
 LDLIBS := $(FFMPEG_LIBS) -lm -lpthread
 
 # ==========================================
-# Sanitisers
-# ==========================================
-SAN_FLAGS :=
-
-ifeq ($(SANITIZER), asan)
-	CFLAGS += -fno-optimize-sibling-calls
-	SAN_FLAGS := -fsanitize=address,undefined,unreachable -fsanitize-address-use-after-scope
-else ifeq ($(SANITIZER), tsan)
-	SAN_FLAGS := -fsanitize=thread,undefined,unreachable
-endif
-
-ifneq ($(filter asan tsan, $(SANITIZER)),)
-# Add Clang's extra sanitizers if using Clang
-	ifeq ($(CC), clang)
-		SAN_FLAGS += $(CLANG_EXTRA_SANS)
-	endif
-
-	CFLAGS += $(SAN_FLAGS) -fno-omit-frame-pointer
-	LDFLAGS += $(SAN_FLAGS)
-# Runtime Options
-	ASAN_LOG_FILE := etc/asan.log
-	DEFAULT_ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
-	DEFAULT_LSAN_OPTIONS := log_threads=1
-	DEFAULT_UBSAN_OPTIONS := abort_on_error=1:halt_on_error=1:print_stacktrace=1
-	DEFAULT_TSAN_OPTIONS := enable_adaptive_delay=1:adaptive_delay_aggressiveness=50:halt_on_error=1
-endif
-
-# ==========================================
 #   Vendor Compilation Flags
 # ==========================================
 # We want vendor code to be optimised + no warnings + no debugging
-VENDOR_CFLAGS := -O3 -g -w -DNDEBUG $(COMPILER_CFLAGS)
+VENDOR_CFLAGS := -O3 -g -w -DNDEBUG $(COMPILER_CFLAGS) $(SAN_FLAGS)
 
-# Inherit sanitizers if they are active
-ifneq ($(filter asan tsan, $(SANITIZER)),)
-	VENDOR_CFLAGS += $(SAN_FLAGS) -fno-omit-frame-pointer
-endif
+TEST_CFLAGS := $(CFLAGS) -w $(TEST_COMPILER_CFLAGS)
 
 # ==========================================
 #   Programmatic File Discovery
@@ -160,8 +153,6 @@ SRC_SOURCES := $(shell find $(SRC_DIR) -name '*.c')
 TEST_SOURCES := $(shell find $(TEST_DIR) -name '*.c' 2>/dev/null)
 VENDOR_SOURCES := $(wildcard $(VENDOR_DIR)/*.c)
 
-SOURCES := $(SRC_SOURCES) $(VENDOR_SOURCES)
-
 # Create object file names (src/main.c -> obj/main.o)
 SRC_OBJECTS    := $(SRC_SOURCES:%.c=$(OBJ_DIR)/%.o)
 VENDOR_OBJECTS := $(VENDOR_SOURCES:%.c=$(OBJ_DIR)/%.o)
@@ -169,60 +160,48 @@ TEST_OBJECTS := $(TEST_SOURCES:%.c=$(OBJ_DIR)/%.o)
 
 OBJECTS := $(SRC_OBJECTS) $(VENDOR_OBJECTS)
 
-# Helper to remove main.o from the library link for tests
+# Helper for testing (filter out main.o)
 MAIN_OBJ := $(OBJ_DIR)/$(SRC_DIR)/main.o
 LIB_OBJECTS := $(filter-out $(MAIN_OBJ), $(OBJECTS))
-
-# Dependency files (generated by compiler)
+# Dependency files
 DEPS := $(OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d)
 
-FILES := $(shell find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/dev/null)
 
 # ==========================================
 #   Build Rules
 # ==========================================
 
-# Skip building tests when refactoring etc
-SKIP_TESTS ?= 0
 # Determine which targets to build
 TARGETS_TO_BUILD := $(BUILD_DIR)/$(TARGET_NAME)
 
-# Skip building tests for sanitizer builds
-ifeq ($(SANITIZER), none)
+# Skip building tests when refactoring etc
+SKIP_TESTS ?= 0
+
+#  Skip building tests for release/profile or if explicitly skipped
+ifeq ($(filter release profile,$(VARIANT)),)
 	ifneq ($(SKIP_TESTS), 1)
 		TARGETS_TO_BUILD += $(BUILD_DIR)/$(TEST_TARGET_NAME)
 	endif
 endif
 
+$(info [INFO] Compiler: $(COMPILER_ID))
+$(info [INFO] Variant:  $(VARIANT))
 
-$(info [INFO] Using $(CC), with flags $(CFLAGS))
-
-.PHONY: all run clean test run lint check release release-debug debug format memcheck analyze
-
+.PHONY: all build-variant run test clean clean-debug bear analyze cppcheck format lint memcheck
 .DEFAULT_GOAL := debug
 
 # ALL
 all: debug asan tsan profile release
 
-asan:
-	@echo "=== Building ASAN (Address + UBSAN) Variant ==="
-	$(Q)$(MAKE) -s VARIANT=asan SANITIZER=asan DEBUG=1 build-variant 2>/dev/null
+debug:   ; $(Q)$(MAKE) VARIANT=debug build-variant
+profile: ; $(Q)$(MAKE) VARIANT=profile build-variant
+release: ; $(Q)$(MAKE) VARIANT=release build-variant
+asan:    ; $(Q)$(MAKE) VARIANT=asan build-variant
+tsan:    ; $(Q)$(MAKE) VARIANT=tsan build-variant
 
-tsan:
-	@echo "=== Building TSAN (Thread + UBSAN) Variant ==="
-	$(Q)$(MAKE) -s VARIANT=tsan SANITIZER=tsan DEBUG=1 build-variant 2>/dev/null
-
-debug:
-	@echo "=== Building Default Debug Variant ==="
-	$(Q)$(MAKE) VARIANT=debug SANITIZER=none DEBUG=1 build-variant
-
-profile:
-	@echo "=== Building Profile Variant ==="
-	$(Q)$(MAKE) VARIANT=profile SANITIZER=none DEBUG=0 build-variant 2>/dev/null
-
-release:
-	@echo "=== Building Release Variant ==="
-	$(Q)$(MAKE) VARIANT=release SANITIZER=none DEBUG=0 build-variant 2>/dev/null
+# Shorthands for running variants directly
+run-asan:  ; $(MAKE) VARIANT=asan run
+run-tsan:  ; $(MAKE) VARIANT=tsan run
 
 build-variant: $(TARGETS_TO_BUILD)
 
@@ -236,6 +215,11 @@ $(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS)
 	$(ECHO_V) "Linking $(VARIANT) -> $(TEST_TARGET_NAME)..."
 	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -lcriterion -o $@
 
+$(OBJ_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(ECHO_V) "Compiling Test [no-warnings] $<..."
+	$(Q)$(CC) $(TEST_CFLAGS) $(CPPFLAGS) -c $< -o $@
+
 $(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Compiling Vendor [optimized] $<..."
@@ -248,28 +232,15 @@ $(OBJ_DIR)/%.o: %.c
 
 .PHONY: run test run-asan test-asan run-tsan test-tsan
 
-# Helpers so we don't have to type out variable names to test specific builds
-run-asan:  ; $(MAKE) VARIANT=asan SANITIZER=asan run
-run-tsan:  ; $(MAKE) VARIANT=tsan SANITIZER=tsan run
 
 run: build-variant
-ifneq ($(filter asan tsan, $(SANITIZER)),)
-	@echo '--- Running $(TARGET_NAME) [$(SANITIZER)] ---'
-	@env ASAN_OPTIONS="$(DEFAULT_ASAN_OPTIONS):$(ASAN_OPTIONS)" \
-		LSAN_OPTIONS="$(DEFAULT_LSAN_OPTIONS):$(LSAN_OPTIONS)" \
-		UBSAN_OPTIONS="$(DEFAULT_UBSAN_OPTIONS):$(UBSAN_OPTIONS)" \
-		TSAN_OPTIONS="$(DEFAULT_TSAN_OPTIONS):$(TSAN_OPTIONS)" \
-		./$(BUILD_DIR)/$(TARGET_NAME)
-else
-	@echo '--- Running $(TARGET_NAME) [$(VARIANT)] ---'
+	@echo "--- Running $(TARGET_NAME) [$(VARIANT)] ---"
 	@./$(BUILD_DIR)/$(TARGET_NAME)
-endif
 
 test: build-variant
 	@echo "--- Testing [$(VARIANT)] ---"
 	./$(BUILD_DIR)/$(TEST_TARGET_NAME) -j$(shell nproc)
 
-.PHONY: clean bear analyze check format lint memcheck
 # Clean
 clean:
 	@echo "Cleaning up all build variants..."
@@ -283,13 +254,13 @@ clean-debug:
 bear:
 	@mkdir -p $(BUILD_ROOT)/debug
 	@echo "Generating compile_commands.json..."
-	$(Q)bear -- $(MAKE) -B CC=clang debug
+	$(Q)bear -- $(MAKE) -B CC=clang VARIANT=debug USE_CCACHE=0
 
 analyze: clean-debug
-	@scan-build --force-analyze-debug-code -analyze-headers --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE)
+	scan-build --use-cc=clang --force-analyze-debug-code -analyze-headers --exclude ./$(TEST_DIR) --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE) VARIANT=debug USE_CCACHE=0
 
 cppcheck:
-	@cppcheck -q --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c11 \
+	@cppcheck -q --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c23 \
 	--suppress=missingIncludeSystem \
 	--template='{file}:{line}:{column}: {severity}: {message} [{id}]' \
 	-I $(VENDOR_DIR) -i $(VENDOR_DIR) $(SRC_DIR)
