@@ -387,6 +387,14 @@ int scale_frame (anu_vreader *vr,
   return 0;
 }
 
+/**
+ * @brief Get a video frame.
+ * @param [in] vreader An instance of a vreader.
+ * @return Integer.
+ * @retval 1 Successfully decoded packet.
+ * @retval 0 End of file.
+ * @retval -1 Decoding error.
+ */
 static int video_reader_get_frame (anu_vreader *vreader) {
   int decoding_status = 0;
 
