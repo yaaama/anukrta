@@ -32,6 +32,14 @@
 /* Hardcode this so I don't have to include another header */
 #define ANU_EAGAIN 11
 
+typedef struct cropping {
+  int x;
+  int y;
+  int w;
+  int h;
+
+} cropping;
+
 static int video_reader_get_frame(anu_vreader *vreader);
 static int scale_frame(anu_vreader *vr,
                        uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
@@ -40,7 +48,6 @@ static int scale_frame(anu_vreader *vr,
 static uint64_t hash_decoded_frame(
     uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
     anu_hash_type hash_algo);
-static int decode_avpacket(anu_vreader *vreader);
 static int normalise_sws_colourspace(AVFrame *frame, SwsContext *context);
 static int vreader_init(char *f_path, anu_vreader *vreader);
 static void vreader_close(anu_vreader *vreader);
@@ -51,10 +58,17 @@ static ALWAYS_INLINE double frame_pts_to_seconds(long pts, AVRational timebase);
 static ALWAYS_INLINE size_t vreader_get_duration(anu_vreader *vreader);
 static ALWAYS_INLINE AVStream *vreader_video_stream(anu_vreader *vreader);
 
-/* Helper to check if a row contains non-black pixels */
-static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
-                                         int width,
-                                         int threshold) {
+/**
+ * Helper to check if a row contains non-black pixels.
+ * @param row An array of pixels in the row.
+ * @param width Width of row (e.g. length of row array).
+ * @param threshold Pixel value must be above this threshold to return true.
+ *
+ * @return bool Whether there is a pixel in that row that has a pixel value above the threshold.
+ */
+static inline bool row_has_video (const uint8_t *const row,
+                                  const int width,
+                                  const int threshold) {
   uint8_t max_val = 0;
   for (int i = 0; i < width; i++) {
     max_val = max_val > row[i] ? max_val : row[i];
@@ -63,12 +77,9 @@ static ALWAYS_INLINE bool row_has_video (const uint8_t *row,
 }
 
 /* Detects the bounding box of non-black pixels */
-static bool anu_detect_black_borders (AVFrame *frame,
-                                      int threshold,
-                                      int *restrict out_x,
-                                      int *restrict out_y,
-                                      int *restrict out_w,
-                                      int *restrict out_h) {
+static inline bool anu_detect_black_borders (AVFrame *frame,
+                                             const int threshold,
+                                             cropping *crop) {
 
   int w = frame->width;
   int h = frame->height;
@@ -126,10 +137,10 @@ static bool anu_detect_black_borders (AVFrame *frame,
     }
   }
 
-  *out_x = left;
-  *out_y = top;
-  *out_w = (right - left) + 1;
-  *out_h = (bottom - top) + 1;
+  crop->x = left;
+  crop->y = top;
+  crop->w = (right - left) + 1;
+  crop->h = (bottom - top) + 1;
   return true;
 }
 
@@ -269,13 +280,15 @@ uint64_t hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
 }
 
 ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
-  ASSUME(pts >= 0);
+  assert(pts >= 0);
   return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
-ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
-  ASSUME(pts >= 0);
-  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / 1000000);
+MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (int64_t pts,
+                                                        AVRational timebase) {
+  assert(pts >= 0);
+  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) /
+          ANU_TIME_ONE_SEC_IN_US);
 }
 
 static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
@@ -313,23 +326,19 @@ static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
   return 0;
 }
 
-int scale_frame (anu_vreader *vr,
-                 uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-                 int matrix_size,
-                 bool crop_black) {
+static int scale_frame (anu_vreader *vr,
+                        uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
+                        int matrix_size,
+                        bool crop_black) {
 
   AVFrame *src = vr->frame;
   char *fname = vr->fmt_ctx->url;
 
-  int crop_x = 0;
-  int crop_y = 0;
-  int crop_w = src->width;
-  int crop_h = src->height;
+  cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
 
   if (crop_black) {
     /* 24 is a safe threshold for limited-range YUV "black" */
-    bool workable_frame =
-        anu_detect_black_borders(src, 24, &crop_x, &crop_y, &crop_w, &crop_h);
+    bool workable_frame = anu_detect_black_borders(src, 24, &crop);
     /* If returning false, then we have a fully black frame */
     if (!workable_frame) {
       log_warn("%s: Frame is completely black", fname);
@@ -340,7 +349,7 @@ int scale_frame (anu_vreader *vr,
   /* Initialize the Scaler (SwsContext) */
   /* Convert from Source Format -> Gray8 @ 8x8 */
   vr->sws_ctx = sws_getCachedContext(
-      vr->sws_ctx, crop_w, crop_h, AV_PIX_FMT_GRAY8, matrix_size, matrix_size,
+      vr->sws_ctx, crop.w, crop.h, AV_PIX_FMT_GRAY8, matrix_size, matrix_size,
       AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
@@ -368,15 +377,15 @@ int scale_frame (anu_vreader *vr,
   int src_linesizes[4] = {0};
 
   /* Advance Y-plane safely based on bytes per pixel */
-  src_slices[0] = src->data[0] + ((ptrdiff_t) crop_y * src->linesize[0]) +
-                  ((ptrdiff_t) crop_x * bytes_per_pixel);
+  src_slices[0] = src->data[0] + ((ptrdiff_t) crop.y * src->linesize[0]) +
+                  ((ptrdiff_t) crop.x * bytes_per_pixel);
   src_linesizes[0] = src->linesize[0];
 
   /* Setup destination pointers to write DIRECTLY into flat matrix */
   uint8_t *dst_slices[4] = {matrix, NULL, NULL, NULL};
   int dst_linesizes[4] = {matrix_size, 0, 0, 0};
 
-  int scaling_ret = sws_scale(vr->sws_ctx, src_slices, src_linesizes, 0, crop_h,
+  int scaling_ret = sws_scale(vr->sws_ctx, src_slices, src_linesizes, 0, crop.h,
                               dst_slices, dst_linesizes);
 
   if (scaling_ret <= 0) {
@@ -396,65 +405,50 @@ int scale_frame (anu_vreader *vr,
  * @retval -1 Decoding error.
  */
 static int video_reader_get_frame (anu_vreader *vreader) {
-  int decoding_status = 0;
+  int ret = 0;
 
-  while (av_read_frame(vreader->fmt_ctx, vreader->packet) >= 0) {
+  while (1) {
+    /* Try to receive a frame first */
+    ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
 
+    /* Successfully got a frame */
+    if (ret == 0) {
+      return 1;
+    }
+
+    if (ret == AVERROR(EOF)) {
+      return 0;
+    }
+    if (ret != AVERROR(EAGAIN)) {
+      /* If it's not EAGAIN and not EOF, it's a real error */
+      log_error("Error receiving frame: %s", av_err2str(ret));
+      return -1;
+    }
+
+    /* Read a frame */
+    ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
+
+    if (ret < 0) {
+      /* EOF reached on the container
+         We need to send a NULL packet to the decoder
+         to "flush" out any delayed or cached frames. */
+      avcodec_send_packet(vreader->codec_ctx, NULL);
+      /* Loop back to receive the flushed frames */
+      continue;
+    }
+    /* Ignore non-video streams */
     if (vreader->packet->stream_index != vreader->video_stream_idx) {
       av_packet_unref(vreader->packet);
       continue;
     }
-
-    decoding_status = decode_avpacket(vreader);
-
-    if (decoding_status == 1) {
-      av_packet_unref(vreader->packet);
-      return 1; /* Success, Keyframe found */
-    }
-
-    if (decoding_status < 0) {
-      av_packet_unref(vreader->packet);
-      return -1; /* Decoding Error */
-    }
-
+    ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
     av_packet_unref(vreader->packet);
+
+    if (ret < 0) {
+      log_error("Failed sending packet: %s", av_err2str(ret));
+      return -1;
+    }
   }
-  return 0; /* EOF */
-}
-
-int decode_avpacket (anu_vreader *vreader) {
-  /* Send packet to decoder */
-  int ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
-
-  /* Check if it was successful */
-  if (ret != 0) {
-    log_error("Failed sending packet: %s", av_err2str(ret));
-    return ret;
-  }
-
-  /* NOTE: A single may contain 0 frames, or MANY frames. */
-  ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
-
-  if (ret == AVERROR(ANU_EAGAIN) || ret == AVERROR_EOF) {
-    /* Not an error. Just means we need more packets or stream is done. */
-    return 0;
-  }
-
-  if (ret == AVERROR_INVALIDDATA) {
-    return -1;
-  }
-
-  if (ret < 0) {
-    log_error("Error receiving frame: %s", av_err2str(ret));
-    return ret;
-  }
-
-  if (ret == 0) {
-    /* We have a frame. */
-    /* printf("Frame number: %ld\n", vreader->codec_ctx->frame_num); */
-    return 1;
-  }
-  return ret;
 }
 
 /**
