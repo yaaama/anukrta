@@ -218,20 +218,33 @@ static inline int anu_util_tolower (int c) {
 #define ZERO_MEMORY(pointer, count, type) \
   memset((pointer), 0, (count) * sizeof(type))
 
-/** Hint to compiler that the branch is most likely *TRUE*. */
-#define LIKELY(x) __builtin_expect(!!(x), 1)
-
-/** Hint to the compiler the condition is most likely *FALSE*. */
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
-
-#define ALWAYS_INLINE inline __attribute__((always_inline))
-
-#define HOT_FUNCTION __attribute__((hot))
-
 #if defined(__GNUC__) || defined(__clang__)
+
 #  define MAYBE_UNUSED __attribute__((unused))
+#  define ALWAYS_INLINE inline __attribute__((always_inline))
+#  define FLATTEN __attribute__((flatten))
+#  define HOT_FUNC __attribute__((hot))
+#  define COLD_FUNC __attribute__((cold))
+
+/** @def LIKELY
+ * Hint to compiler that the branch is most likely *TRUE*.
+ */
+#  define LIKELY(x) __builtin_expect(!!(x), 1)
+
+/** @def UNLIKELY
+ * Hint to the compiler the condition is most likely *FALSE*.
+ */
+#  define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
 #else
+
 #  define MAYBE_UNUSED
+#  define ALWAYS_INLINE
+#  define FLATTEN
+#  define HOT_FUNC
+#  define COLD_FUNC
+#  define LIKELY(x) (x)
+#  define UNLIKELY(x) (x)
 #endif
 
 #define STRINGIFY(s) TOSTRING(s)
