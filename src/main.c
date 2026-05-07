@@ -60,7 +60,7 @@ static void *hash_worker_thread (void *arg) {
   worker_args *targs = (worker_args *) arg;
 
   const size_t file_count = targs->file_count;
-  const size_t segments = (size_t) targs->config->segments;
+  const size_t segments = targs->config->segments;
 
   while (1) {
     size_t my_idx;

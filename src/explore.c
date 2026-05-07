@@ -1,7 +1,7 @@
 /**
  * explore.c
  *
- * Searches paths recursively to retrieve files to analyse
+ * File searching/ paths recursively to retrieve files to analyse
  **/
 #include "explore.h"
 
@@ -9,7 +9,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
-#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,16 +168,6 @@ int anu_file_ext_supported (char *filename) {
   return 0;
 }
 
-/* TODO Resolve tilde into absolute path */
-ALWAYS_INLINE static int anu_resolve_tilde (char *path) {
-
-  if (!path) {
-    return -1;
-  }
-
-  return 0;
-}
-
 /**
  * @brief Resolve a relative path.
  *
@@ -284,7 +273,8 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
   anu_file file = {0};
   file.ctime = statb.st_ctime;
   file.mtime = statb.st_mtime;
-  assert(statb.st_size > 0);
+  /* Files can be 0 size */
+  assert(statb.st_size >= 0);
   file.size = (size_t) statb.st_size;
   file.path = realpath(path, NULL);
   char *base_ptr = anu_file_basename(path);
@@ -296,20 +286,6 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
 
   anu_fileq_enqueue(files_out, &file);
   return 0;
-}
-
-static ALWAYS_INLINE size_t filename_index (char *path) {
-  assert(path);
-  char *last_slash = strrchr(path, '/');
-
-  if (!last_slash) {
-    return 0;
-  }
-
-  /* last_slash points to '/'. */
-  /* We want the character AFTER the slash. */
-  /* Subtract pointers: (End Address) - (Start Address) = Index */
-  return (size_t) ((last_slash + 1) - path);
 }
 
 /**

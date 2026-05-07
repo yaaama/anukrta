@@ -91,11 +91,11 @@ static const char *get_long_opt_name (int val, const struct option *opts) {
 }
 
 /* Parses a string to a long, assigns out param (size_t) */
-static int parse_arg_integer (const char *restrict arg_name,
-                              const char *restrict arg_str,
-                              int min,
-                              int max,
-                              int *out) {
+[[maybe_unused]] static int parse_arg_integer (const char *restrict arg_name,
+                                               const char *restrict arg_str,
+                                               int min,
+                                               int max,
+                                               int *out) {
 
   if (!arg_name || !arg_str || !out) {
     return -1;
@@ -134,7 +134,7 @@ static int parse_arg_integer (const char *restrict arg_name,
   return 0;
 }
 
-/* Parses a string to a long, assigns out param (size_t) */
+/** Parses a string to a size_t, putting value into *out param */
 static int parse_numeric_arg_sizet (const char *restrict arg_name,
                                     const char *restrict arg_str,
                                     size_t min,
@@ -179,7 +179,7 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
     return -1;
   }
 
-  *out = (size_t) val;
+  *out = val;
   return 0;
 }
 
