@@ -201,14 +201,17 @@ static int anukrta_driver (anukrta_config *config) {
 
 static inline anukrta_config default_config (void) {
 
-  anukrta_config config = {.segments = 2,
-                           .threshold = 15,
-                           .hash_algorithm = ANU_HASH_ALGO_DCT,
-                           .skip_duration = 3,
-                           .thread_count = 1,
-                           .runtime_flags = 0,
-                           .detect_flags = 0,
-                           .report_flags = 0};
+  anukrta_config config = {
+    .segments = 2,
+    .threshold = 15,
+    .hash_algorithm = ANU_HASH_ALGO_DCT,
+    .skip_duration = 3,
+    .thread_count = 1,
+    .runtime_flags = 0,
+    .detect_flags = 0,
+    .report_flags = 0,
+    .best_file_strategy = BEST_FILE_LONGEST,
+  };
 
   ANU_SET_FLAG(config.detect_flags, DETECT_ROTATION);
   ANU_SET_FLAG(config.detect_flags, DETECT_BARS);

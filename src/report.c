@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "config.h"
@@ -119,6 +120,112 @@ static void print_file_hashes (uint64_t *hashes, size_t hash_count) {
   printf("]\n");
 }
 
+/**
+ * @brief Elect the best file based on strategy.
+ * @todo Make this accept a function pointer and write our strategies separately.
+ */
+static void elect_best_file (dupe_group_vector *group,
+                             anu_file_q *files,
+                             anukrta_config *config) {
+
+  const best_file_strat strat = config->best_file_strategy;
+  /* Exit early if no strategy or if group is just 1 file */
+  if (group->count == 1 || strat == BEST_FILE_NONE) {
+    return;
+  }
+
+  size_t best_index = 0;
+  anu_file *best_file = &(files->items[group->file_ids[0]]);
+
+  for (usize i = 1; i < group->count; i++) {
+
+    bool better = false;
+    anu_file *candidate = &(files->items[group->file_ids[i]]);
+    switch (strat) {
+      case BEST_FILE_SMALLEST:
+        {
+          better = (candidate->size < best_file->size);
+          break;
+        }
+      case BEST_FILE_LARGEST:
+        {
+          better = (candidate->size > best_file->size);
+          break;
+        }
+
+      case BEST_FILE_CTIME_OLDEST:
+        {
+          better = (candidate->ctime < best_file->ctime);
+          break;
+        }
+      case BEST_FILE_CTIME_NEWEST:
+        {
+          better = (candidate->ctime > best_file->ctime);
+          break;
+        }
+      case BEST_FILE_MTIME_OLDEST:
+        {
+          better = (candidate->mtime < best_file->mtime);
+          break;
+        }
+      case BEST_FILE_MTIME_NEWEST:
+        {
+          better = (candidate->mtime > best_file->mtime);
+          break;
+        }
+      case BEST_FILE_LONGEST:
+        {
+          better = (candidate->duration_us > best_file->duration_us);
+          break;
+        }
+      case BEST_FILE_SHORTEST:
+        {
+          better = (candidate->duration_us < best_file->duration_us);
+          break;
+        }
+      default:
+        {
+          UNREACHABLE("Strategy enum is not fully accounted.");
+        }
+    }
+
+    /* Resolve tie's (e.g. if both files are the same size) */
+    if (!better) {
+      bool is_tied = false;
+      if (strat == BEST_FILE_LARGEST || strat == BEST_FILE_SMALLEST) {
+        is_tied = (candidate->size == best_file->size);
+      } else if (strat == BEST_FILE_MTIME_OLDEST ||
+                 strat == BEST_FILE_MTIME_NEWEST) {
+        is_tied = (candidate->mtime == best_file->mtime);
+      } else if (strat == BEST_FILE_CTIME_OLDEST ||
+                 strat == BEST_FILE_CTIME_NEWEST) {
+        is_tied = (candidate->ctime == best_file->ctime);
+      } else if (strat == BEST_FILE_LONGEST || strat == BEST_FILE_SHORTEST) {
+        is_tied = (candidate->duration_us == best_file->duration_us);
+      }
+
+      if (is_tied) {
+        better = (strcmp(candidate->path, best_file->path) < 0);
+      }
+    }
+
+    if (better) {
+      best_index = i;
+      best_file = candidate;
+    }
+  }
+
+  /*
+   * TODO 08-05-2026 09:20
+   * Extract swapping logic and place elsewhere
+   */
+  if (best_index) {
+    u64 temp = group->file_ids[0];
+    group->file_ids[0] = group->file_ids[best_index];
+    group->file_ids[best_index] = temp;
+  }
+}
+
 void anu_print_report (anukrta_config *config,
                        anu_report *report,
                        anu_file_q *files,
@@ -133,25 +240,37 @@ void anu_print_report (anukrta_config *config,
   printf("Found %zu duplicate groups from %zu files\n", report->count,
          files->count);
   printf("\n----------------------------------------");
+  printf("\nMaster file was chosen using: '%s'\n",
+         BEST_FILE_STRAT_STRINGS[config->best_file_strategy]);
   printf("----------------------------------------\n");
 
   for (size_t i = 0; i < report->count; i++) {
     dupe_group_vector *group = &report->groups[i];
 
+    elect_best_file(group, files, config);
+
     printf("\n[+] Group #%zu (%zu items):\n", i + 1, group->count);
+
     for (size_t j = 0; j < group->count; j++) {
+
       size_t file_id = group->file_ids[j];
       anu_file *file = &files->items[file_id];
+
       char human_sizing[32];
       get_human_sizing_iec(file->size, human_sizing);
-      /* time_t change_t = file->ctime; */
+
       time_t modification_t = file->mtime;
       char time_str[64];
       get_date_from_epoch(&modification_t, sizeof(time_str), time_str);
-      printf("  %s", file->path);
-      printf("\n");
 
-      printf("\t-> [%zu] | size: %-10s | time: %-15s | duration: %-.2fs\n",
+      /* Label Best and dupes if strategy is not none */
+      if (config->best_file_strategy != BEST_FILE_NONE) {
+        printf("%s %s\n", (j == 0 ? "  [BEST]" : "    [DUPE]"), file->path);
+      } else {
+        printf("  %s\n", file->path);
+      }
+
+      printf("\t[%zu] | size: %-10s | time: %-15s | duration: %-.2fs\n",
              file_id, human_sizing, time_str,
              anu_time_microseconds_to_seconds(file->duration_us));
 

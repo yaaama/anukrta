@@ -29,6 +29,35 @@ typedef enum runtime_flags : uint32_t {
 
 } runtime_flags;
 
+/* START: BEST_FILE_STRATEGIES */
+#define BEST_FILE_STRATEGIES(X)                                 \
+  X(BEST_FILE_NONE, "No strategy")                              \
+  X(BEST_FILE_LARGEST, "Largest file")                          \
+  X(BEST_FILE_SMALLEST, "Smallest file")                        \
+  X(BEST_FILE_CTIME_OLDEST, "Oldest change time (ctime)")       \
+  X(BEST_FILE_CTIME_NEWEST, "Newest change time (ctime)")       \
+  X(BEST_FILE_MTIME_OLDEST, "Oldest modification time (mtime)") \
+  X(BEST_FILE_MTIME_NEWEST, "Newest modification time (mtime)") \
+  X(BEST_FILE_LONGEST, "Longest video duration")                \
+  X(BEST_FILE_SHORTEST, "Shortest video duration")
+
+#define GENERATE_ENUM(ENUM_NAME, STRING_VAL) ENUM_NAME,
+
+typedef enum best_file_strat {
+  BEST_FILE_STRATEGIES(GENERATE_ENUM)
+} best_file_strat;
+
+#undef GENERATE_ENUM
+
+#define GENERATE_STRING(ENUM_NAME, STRING_VAL) [ENUM_NAME] = (STRING_VAL),
+
+static const char *const BEST_FILE_STRAT_STRINGS[] = {
+  BEST_FILE_STRATEGIES(GENERATE_STRING)};
+
+#undef GENERATE_STRING
+
+/* END: BEST_FILE_STRATEGIES */
+
 typedef enum report_flags : uint32_t {
   REPORT_PRINT_HASHES = (1U << 0),
 } report_flags;
@@ -55,6 +84,9 @@ typedef struct anukrta_config {
   bflag32 report_flags;
   /** Hashing algorithm to use. */
   anu_hash_type hash_algorithm;
+  /** Strategy for determining the 'best' file out of a group of duplicates.
+   * @see `best_file_strat`. */
+  best_file_strat best_file_strategy;
 } anukrta_config;
 
 #endif  // ANU_CONFIG_H
