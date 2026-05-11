@@ -76,13 +76,17 @@ typedef struct anukrta_config {
   usize segments;
   /** Number of concurrent threads to spawn. */
   usize thread_count;
-  /** Bitmask flags for similarity detection @see `detection_flags`*/
+  /** Bitmask flags for similarity detection.
+   * @see `detection_flags`. */
   bflag32 detect_flags;
-  /** Bitmask flags for runtime settings @see runtime_flags */
+  /** Bitmask flags for runtime settings.
+   * @see `runtime_flags`. */
   bflag32 runtime_flags;
-  /** Bitmask flags determining the final report format and contents. */
+  /** Bitmask flags determining the final report format and contents.
+   * @see `report_flags`. */
   bflag32 report_flags;
-  /** Hashing algorithm to use. */
+  /** Hashing algorithm to use.
+   * @see `anu_hash_type`.*/
   anu_hash_type hash_algorithm;
   /** Strategy for determining the 'best' file out of a group of duplicates.
    * @see `best_file_strat`. */
