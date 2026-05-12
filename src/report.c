@@ -76,23 +76,15 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
   }
   MAYBE_UNUSED int c;
 
-  switch (unit_index) {
-    case 0:
-      {
-        c = sprintf(buf, "%" PRIu64 " %s", n_bytes, units_iec[unit_index]);
-        break;
-      }
-    default:
-      {
-        /* Calculate the 2-digit decimal part using pure integer math.
-         * We multiply the remainder by 100, then divide by 1024 (by shifting).
-         * This gives us a perfectly safe 0-99 value. */
-        size_t decimals = (remainder * 100) >> 10;
-
-        c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals,
-                    units_iec[unit_index]);
-        break;
-      }
+  if (unit_index > 0) {
+    /* Calculate the 2-digit decimal part using pure integer math.
+     We multiply the remainder by 100, then divide by 1024 (by shifting).
+     This gives us a perfectly safe 0-99 value. */
+    size_t decimals = (remainder * 100) >> 10;
+    c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals,
+                units_iec[unit_index]);
+  } else {
+    c = sprintf(buf, "%" PRIu64 " %s", n_bytes, units_iec[unit_index]);
   }
   assert(c > 0);
   return buf;
