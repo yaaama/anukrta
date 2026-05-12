@@ -199,8 +199,9 @@ static_assert(
  * @retval 64 `X` and `Y` are compliments of one another.
  * @retval k `X` and `Y` differ by `k` number of bits.
  */
-static inline int hamming_distance (const uint64_t a, const uint64_t b) {
-  return __builtin_popcountll(a ^ b);
+static inline unsigned int hamming_distance (const uint64_t a,
+                                             const uint64_t b) {
+  return (unsigned) __builtin_popcountll(a ^ b);
 }
 
 void print_matrix_float(FILE *fp, const float *matrix, int rows, int cols);

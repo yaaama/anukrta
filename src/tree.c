@@ -55,9 +55,9 @@ static void bkTree_insert_internal (bk_node *node,
                                     uint64_t file_id) {
   // NOLINTEND
   uint64_t node_hash = node->hash;
-  int hamming_dist = hamming_distance(node_hash, hash);
+  unsigned int hamming_dist = hamming_distance(node_hash, hash);
   /* If this is not true, then something horrible has gone wrong. */
-  ASSUME(hamming_dist >= 0 && hamming_dist <= 64);
+  ASSUME(hamming_dist <= 64);
   size_t dist = (size_t) hamming_dist;
 
   if (!dist) {
