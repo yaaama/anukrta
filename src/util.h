@@ -211,8 +211,27 @@ static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
 
-/** Array size macro. */
-#define ANU_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+/**
+ * @brief Calculate the length of a C array
+ *
+ * This should be called with a real array.
+ * Calling this with a pointer is an *error*.
+ * A mechanism to detect many (though not all) of those errors at
+ * compile time is implemented. It works by the second division producing
+ * a division by zero in those cases (-Wdiv-by-zero in GCC).
+ * Renamed to `ANU_ARRAY_SIZE`.
+ */
+#define ANU_ARRAY_SIZE(array)             \
+  ((sizeof(array) / sizeof((array)[0])) / \
+   ((size_t) (!(sizeof(array) % sizeof((array)[0])))))
+
+/**
+ * @brief Get last array entry
+ *
+ * @note This should be called with a real array.
+ * @warning Calling this with a pointer is an *error*.
+ */
+#define ARRAY_LAST_ENTRY(array) (array)[ANU_ARRAY_SIZE(array) - 1]
 
 /** Zero out memory. */
 #define ZERO_MEMORY(pointer, count, type) \
