@@ -212,14 +212,17 @@ static inline int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
 
-/**
+/** @def ANU_ARRAY_SIZE
  * @brief Calculate the length of a C array
  *
- * This should be called with a real array.
- * Calling this with a pointer is an *error*.
- * A mechanism to detect many (though not all) of those errors at
- * compile time is implemented. It works by the second division producing
- * a division by zero in those cases (-Wdiv-by-zero in GCC).
+ * @note This should be called with a real array.
+ * @warning Calling this with a pointer is an error.
+ * A mechanism to detect many (though not all) of those errors at compile
+ * time is implemented. It works by the second division producing a division by
+ * zero in those cases (-Wdiv-by-zero in GCC).
+ *
+ * Snippet derived from neovim (neovim/src/nvim/macros_defs.h)
+ * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0/
  * Renamed to `ANU_ARRAY_SIZE`.
  */
 #define ANU_ARRAY_SIZE(array)             \
@@ -227,10 +230,14 @@ static inline int anu_util_tolower (int c) {
    ((size_t) (!(sizeof(array) % sizeof((array)[0])))))
 
 /**
+ * @def ARRAY_LAST_ENTRY
  * @brief Get last array entry
  *
  * @note This should be called with a real array.
  * @warning Calling this with a pointer is an *error*.
+ *
+ * Snippet derived from neovim (neovim/src/nvim/macros_defs.h)
+ * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0
  */
 #define ARRAY_LAST_ENTRY(array) (array)[ANU_ARRAY_SIZE(array) - 1]
 
