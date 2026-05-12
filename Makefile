@@ -269,10 +269,10 @@ format:
 	@find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/dev/null | xargs -P $(shell nproc) clang-format -i --verbose
 
 lint:
-	@run-clang-tidy -quiet -hide-progress -config-file .clang-tidy -fix -j $(shell nproc) -format -source-filter '^src/*'
+	@run-clang-tidy -quiet -hide-progress -config-file .clang-tidy $(SRC_DIR)
 
 memcheck: debug
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/debug/$(TARGET_NAME)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/profile/$(TARGET_NAME)
 
 print-%: ; @echo $*=$($*)
 
