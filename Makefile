@@ -3,11 +3,11 @@ MAKEFLAGS += --no-print-directory
 VARIANT ?= debug
 SANITIZER ?= none
 DEBUG ?= 1
+SKIP_TESTS ?= 0
 
 USE_CCACHE ?= 1
 USE_MOLD ?= 1
 USE_LOCAL_FFMPEG ?= 0
-SKIP_TESTS ?= 0
 
 V ?= 0
 ifeq ($(V),1)
