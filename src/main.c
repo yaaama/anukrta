@@ -171,11 +171,11 @@ static int anukrta_driver (anukrta_config *config) {
     int result = results[i * CACHE_STRIDE_INT];
     /* Check the result saved by the thread */
     if (result == -1) {
-      log_debug("Failed to hash file %s", anu_file_get_filename(file));
+      log_debug("Failed to hash file '%s'", anu_file_get_filename(file));
     }
     if (result == -2) {
       /* We skipped this hash so lets move onto the next file. */
-      log_trace("Skipped over file %s", anu_file_get_filename(file));
+      log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 
     if (result == 0) {
