@@ -1,3 +1,4 @@
+# -clang-diagnostic-missing-prototypes,
 ---
 Checks: >
   *,
@@ -11,12 +12,11 @@ Checks: >
   concurrency-*,
   misc-*,
   clang-analyzer-*,
-  -clang-diagnostic-missing-prototypes,
   -clang-analyzer-security.insecureAPI.*,
   -*cert-err33-c,
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
-  -readability-identifier-length,
+  -readability-identifier-naming,
   -readability-magic-numbers,
   -readability-avoid-unconditional-preprocessor-if,
   -readability-non-const-parameter,
@@ -33,7 +33,7 @@ Checks: >
   -bugprone-inc-dec-in-conditions,
   -bugprone-reserved-identifier, We use underscore prefix to indicate private names (e.g. "_shada_mark"),
   -bugprone-swapped-arguments,
-  -llvm-header-guard, We use #pragma once,
+  -llvm-header-guard, We use #ANU_...,
   -llvmlibc-restrict-system-libc-headers, We want to use glibc,
   -misc-include-cleaner, Looks useful but redundant with IWYU. We may replace IWYU with this one day,
   -cppcoreguidelines-macro-to-enum,
@@ -58,9 +58,6 @@ CheckOptions:
   - key: concurrency-mt-unsafe.FunctionSet
     value: glibc
   # Naming conventions (C style)
-  - key: readability-identifier-naming.GlobalConstantCase
-    value: UPPER_CASE
-
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
     value: "(log_.*|'^_.*')"
     # - key: readability-identifier-naming.MacroDefinitionCase

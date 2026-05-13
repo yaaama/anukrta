@@ -5,8 +5,8 @@ SANITIZER ?= none
 DEBUG ?= 1
 SKIP_TESTS ?= 0
 
-USE_CCACHE ?= 1
-USE_MOLD ?= 1
+USE_CCACHE ?= 0
+USE_MOLD ?= 0
 USE_LOCAL_FFMPEG ?= 0
 
 V ?= 0
@@ -93,7 +93,6 @@ endif
 # ==========================================
 # Sanitisers
 # ==========================================
-SAN_FLAGS :=
 
 ifneq ($(SAN_FLAGS),)
 	CFLAGS += $(SAN_FLAGS)
