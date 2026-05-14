@@ -1,5 +1,6 @@
 /* Video similarity tool */
 
+#include "cache.h"
 #include "config.h"
 #ifdef ANU_DEBUG
 #  pragma message "Compilation in DEBUG mode."
@@ -25,6 +26,7 @@
 #include "explore.h"
 #include "log.h"
 #include "report.h"
+#include "sqlite3.h"
 #include "tree.h"
 #include "util.h"
 #include "video.h"
