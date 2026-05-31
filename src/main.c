@@ -115,12 +115,9 @@ static int anukrta_driver (anukrta_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   uint64_t *hashes = calloc(hash_collection_len, sizeof(*hashes));
-  if (!hashes) {
-    ANU_DIE("Failed to allocate memory.");
-  }
-
   int *results = calloc((file_count * CACHE_STRIDE_INT), sizeof(*results));
-  if (!results) {
+
+  if (!results || !hashes) {
     ANU_DIE("Failed to allocate memory.");
   }
 

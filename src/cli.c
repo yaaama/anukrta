@@ -17,7 +17,8 @@
 #define CLI_NAME "anukrta"
 #define ANU_VERSION "0.0.1"
 
-static const char *get_program_name (const char *arg_zero) {
+/* TODO: Remove this later... */
+MAYBE_UNUSED static const char *get_program_name (const char *arg_zero) {
   const char *last_slash = strrchr(arg_zero, '/');
   return last_slash ? last_slash + 1 : arg_zero;
 }

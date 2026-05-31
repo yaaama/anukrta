@@ -38,7 +38,7 @@ inline static int anu_vector_is_empty (anu_vector *v) {
 void anu_vector_destroy(anu_vector *v);
 /* Get item in vector at index */
 int anu_vector_get(anu_vector *v, size_t index, void *out);
-/* TODO Perform an operation on all items in vector */
+/* TODO: Perform an operation on all items in vector */
 void anu_vector_for_all(anu_vector *v, void (*operation)(void *));
 
 void anu_stack_init(anu_stack *s, size_t capacity, size_t elem_size);

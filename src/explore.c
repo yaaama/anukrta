@@ -445,7 +445,7 @@ static inline int compare_strings (const void *a, const void *b) {
   return strcmp(*(const char *const *) a, *(const char *const *) b);
 }
 
-/* TODO Add a check for hard linked files (files with same inode number) */
+/* TODO: Add a check for hard linked files (files with same inode number) */
 void scan_dirs (anukrta_config *config, anu_file_q *files) {
   /* Scan current directory */
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR)) {

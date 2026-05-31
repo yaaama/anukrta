@@ -136,8 +136,7 @@ void anu_vector_destroy (anu_vector *v) {
   v->_elem_size = 0;
 }
 
-/* TODO */
-/* void anu_vector_for_all(anu_vector *v, void (*operation)(void *)) */
+/* TODO: void anu_vector_for_all(anu_vector *v, void (*operation)(void *)) */
 
 /*****************************************************************************/
 

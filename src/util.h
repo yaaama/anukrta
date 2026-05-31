@@ -318,7 +318,6 @@ static inline int anu_util_tolower (int c) {
   } while (0)
 
 #ifdef ANU_DEBUG  // If its in DEBUG MODE
-
 /* Debug builds should crash when reaching unreachable code. */
 #  define UNREACHABLE(message)                                          \
     do {                                                                \

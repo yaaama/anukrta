@@ -207,10 +207,7 @@ static void elect_best_file (dupe_group_vector *group,
     }
   }
 
-  /*
-   * TODO 08-05-2026 09:20
-   * Extract swapping logic and place elsewhere
-   */
+  /* TODO: Extract swapping logic and place elsewhere */
   if (best_index) {
     u64 temp = group->file_ids[0];
     group->file_ids[0] = group->file_ids[best_index];
