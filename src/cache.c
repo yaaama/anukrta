@@ -327,11 +327,17 @@ int cache_get_hashes (uint64_t file_id,
     if (count < max_hashes) {
       out_hashes[count] = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 0);
     }
-    count++;
+    ++count;
   }
 
   *out_count = count;
   sqlite3_reset(stmt_get_hashes);
+  if (ret != SQLITE_DONE) {
+    log_error("Database error while retrieving hashes: '%s'",
+              sqlite3_errstr(ret));
+    return ret;
+  }
+
   return 0;
 }
 
