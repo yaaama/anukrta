@@ -79,13 +79,13 @@ typedef struct anukrta_config {
   usize thread_count;
   /** Bitmask flags for similarity detection.
    * @see `detection_flags`. */
-  bflag32 detect_flags;
+  flags32 detect_flags;
   /** Bitmask flags for runtime settings.
    * @see `runtime_flags`. */
-  bflag32 runtime_flags;
+  flags32 runtime_flags;
   /** Bitmask flags determining the final report format and contents.
    * @see `report_flags`. */
-  bflag32 report_flags;
+  flags32 report_flags;
   /** Hashing algorithm to use.
    * @see `anu_hash_type`.*/
   anu_hash_type hash_algorithm;

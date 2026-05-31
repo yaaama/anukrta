@@ -22,7 +22,7 @@ typedef uint8_t byte;
 typedef uintptr_t uptr;
 typedef ptrdiff_t size;
 typedef size_t usize;
-typedef uint32_t bflag32;
+typedef uint32_t flags32;
 
 /**
  * @name BitMacros Flag Macros

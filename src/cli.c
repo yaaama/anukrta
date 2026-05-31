@@ -82,9 +82,9 @@ void anu_cli_print_configuration (anukrta_config *config) {
 #define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "YES" : "NO")
 
   /* clang-format off */
-  bflag32 rtflags = config->runtime_flags;
-  bflag32 detflags = config->detect_flags;
-  bflag32 reportflags = config->report_flags;
+  flags32 rtflags = config->runtime_flags;
+  flags32 detflags = config->detect_flags;
+  flags32 reportflags = config->report_flags;
 
   fprintf(stdout, "\n===== Runtime Configuration =====\n");
   PRINT_HEADING("General");
