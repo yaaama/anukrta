@@ -26,7 +26,8 @@ typedef enum runtime_flags : uint32_t {
   RT_SCAN_CURR_DIR = (1U << 2),
   /** List the files that would be hashed if run. */
   RT_DRY_RUN = (1U << 3),
-
+  /** Store results in cache */
+  RT_CACHE = (1U << 4),
 } runtime_flags;
 
 /* START: BEST_FILE_STRATEGIES */

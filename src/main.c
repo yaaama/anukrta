@@ -218,6 +218,7 @@ static inline anukrta_config default_config (void) {
   ANU_SET_FLAG(config.detect_flags, DETECT_ROTATION);
   ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
   ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
+  ANU_SET_FLAG(config.runtime_flags, RT_CACHE);
   return config;
 }
 

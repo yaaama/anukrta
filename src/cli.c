@@ -43,6 +43,7 @@ static void print_help (const char *program_name) {
   fprintf(stderr, "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to 64 (0 being the most similar).\n");
   fprintf(stderr, "\t--skip-duration\t\tSkip videos shorter than N seconds.\n");
   fprintf(stderr, "\t--threads\t\tNumber of threads to use.\n");
+  fprintf(stderr, "\t--cache=bool\t\tResults should be stored in cache (default: yes).\n");
   fprintf(stderr, "\t--version\t\tPrint version and exit.\n");
   fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes.\n");
   fprintf(stderr, "\t--detect-black\t\tDetect black frames and skip over them.\n");
@@ -227,6 +228,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     ARG_THREADS,
     ARG_SKIP_DURATION,
     FLAG_DRY_RUN,
+    FLAG_CACHE,
     FLAG_DETECT_BLACK_FRAME,
     FLAG_DETECT_BARS,
     FLAG_DETECT_ROTATION,
@@ -264,6 +266,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     {"detect-black",       optional_argument,    NULL,                FLAG_DETECT_BLACK_FRAME},    // --detect-black
     {"detect-rotation",    optional_argument,    NULL,                FLAG_DETECT_ROTATION},       // --detect-rotation
     {"detect-bars",        optional_argument,    NULL,                FLAG_DETECT_BARS},           // --detect-bars
+    {"cache",        optional_argument,    NULL,                FLAG_CACHE},           // --cache
 
     {0,                    0,                    0,                   0}};                // END
   /* clang-format on */
@@ -373,6 +376,27 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       case FLAG_DRY_RUN:
         {
           ANU_SET_FLAG(config->runtime_flags, RT_DRY_RUN);
+          break;
+        }
+
+      /* --cache */
+      case FLAG_CACHE:
+        {
+          /* No arg after opt */
+          if (optarg == NULL) {
+            ANU_SET_FLAG(config->runtime_flags, RT_CACHE);
+          }
+
+          int cache_results_bool = parse_bool_arg(arg_invoked, optarg);
+          if (cache_results_bool == -1) {
+            goto exit_error;
+          }
+          if (cache_results_bool) {
+            ANU_SET_FLAG(config->runtime_flags, RT_CACHE);
+          } else {
+            ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
+          }
+
           break;
         }
 
