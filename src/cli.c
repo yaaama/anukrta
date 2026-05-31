@@ -33,52 +33,84 @@ static long get_available_threads (void) {
   return MAXIMUM(cores, 1);
 }
 
-static void print_help (const char *program_name) {
+static void print_help (void) {
+  const int OPT_W = 30;
+#define PRINT_HEADING(text) fprintf(stderr, "\n%s:\n", text)
+#define PRINT_OPT(opt, desc) fprintf(stderr, "  %-*s %s\n", OPT_W, opt, desc)
 
   /* clang-format off */
-  fprintf(stderr, "\nUsage: %s [OPTIONS...] [PATH]\n", program_name);
-  fprintf(stderr, "\t-h, --help\t\tShow this help message.\n");
-  fprintf(stderr, "\t-v, --verbose\t\tEnable verbose output.\n");
-  fprintf(stderr, "\t-s, --segments\t\tNumber of segments to hash for each video.\n");
-  fprintf(stderr, "\t-t, --threshold\t\tMaximum distance threshold. Ranges from 0 to 64 (0 being the most similar).\n");
-  fprintf(stderr, "\t--skip-duration\t\tSkip videos shorter than N seconds.\n");
-  fprintf(stderr, "\t--threads\t\tNumber of threads to use.\n");
-  fprintf(stderr, "\t--cache=bool\t\tResults should be stored in cache (default: yes).\n");
-  fprintf(stderr, "\t--version\t\tPrint version and exit.\n");
-  fprintf(stderr, "\t--dry-run\t\tSimulate the run without making changes.\n");
-  fprintf(stderr, "\t--detect-black\t\tDetect black frames and skip over them.\n");
-  fprintf(stderr, "\t--detect-bars\t\tDetect bars around video (e.g. letterboxing).\n");
-  fprintf(stderr, "\t--detect-rotation\t\tDetect rotated videos.\n");
+  fprintf(stderr, "\nUsage: " CLI_NAME " [OPTIONS...] [PATH]\n\n");
+
+  PRINT_HEADING("General Options");
+  PRINT_OPT("-h, --help", "Show this help message.");
+  PRINT_OPT("--version", "Print version and exit.");
+  PRINT_OPT("-v, --verbose", "Enable verbose output.");
+  PRINT_OPT("--dry-run", "Simulate the run without making changes.");
+
+  PRINT_HEADING("Algorithm & Tuning");
+  PRINT_OPT("-s, --segments=integer", "Number of segments to hash for each video (default: 3).");
+  PRINT_OPT("-t, --threshold=integer", "Maximum distance threshold (default 15).");
+  PRINT_OPT("", "Ranges from 0 to 64 (0 being the most similar).");
+  PRINT_OPT("--skip-duration=integer", "Skip videos shorter than N seconds (default 3).");
+
+  PRINT_HEADING("Detection");
+  PRINT_OPT("--detect-black=bool", "Detect black frames and skip over them (default: yes).");
+  PRINT_OPT("--detect-bars=bool", "Detect bars around video (e.g. letterboxing) (default: yes).");
+  PRINT_OPT("--detect-rotation=bool", "Detect rotated videos (default: yes).");
+
+  PRINT_HEADING("Execution & Storage");
+  PRINT_OPT("--threads=integer", "Number of threads to use (default ALL).");
+  PRINT_OPT("--cache=bool", "Results should be stored in cache (default: yes).");
+
+  fprintf(stderr, "\n");
   /* clang-format on */
+
+#undef PRINT_HEADING
+#undef PRINT_OPT
 }
 
 void anu_cli_print_configuration (anukrta_config *config) {
 
+  const int OPT_W = 30;
+
+#define PRINT_HEADING(text) fprintf(stdout, "\n----- %s -----\n", text)
+#define PRINT_CONFIG_STR(cfg, val) \
+  fprintf(stdout, "  %-*s : %s\n", OPT_W, cfg, val)
+#define PRINT_CONFIG_ZU(cfg, val) \
+  fprintf(stdout, "  %-*s : %zu\n", OPT_W, cfg, val)
+#define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "YES" : "NO")
+
+  /* clang-format off */
   bflag32 rtflags = config->runtime_flags;
   bflag32 detflags = config->detect_flags;
   bflag32 reportflags = config->report_flags;
-  printf("\n===== Configuration =====\n");
-  printf("Verbose: %s\n", ANU_HAS_ANY_FLAG(rtflags, RT_VERBOSE) ? "YES" : "NO");
-  printf("Dry Run: %s\n", ANU_HAS_ANY_FLAG(rtflags, RT_DRY_RUN) ? "YES" : "NO");
-  printf("Scan Current Directory: %s\n",
-         ANU_HAS_ANY_FLAG(rtflags, RT_SCAN_CURR_DIR) ? "YES" : "NO");
 
-  printf("Segments to hash: %zu\n", config->segments);
-  printf("Maximum Distance Threshold: %zu\n", config->threshold);
-  printf("Skip videos shorter than: %zu seconds\n", config->skip_duration);
-  printf("Thread Count: %zu\n", config->thread_count);
+  fprintf(stdout, "\n===== Runtime Configuration =====\n");
+  PRINT_HEADING("General");
+  PRINT_CONFIG_STR("Verbose", FLAG_VAL(rtflags, RT_VERBOSE));
+  PRINT_CONFIG_STR("Dry Run", FLAG_VAL(rtflags, RT_DRY_RUN));
+  PRINT_CONFIG_STR("Scan Current Directory", FLAG_VAL(rtflags, RT_SCAN_CURR_DIR));
+  PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, RT_CACHE));
 
-  printf("= Report Flags =\n");
-  printf("Print hashes alongside duplicates: %s\n",
-         ANU_HAS_ANY_FLAG(reportflags, REPORT_PRINT_HASHES) ? "YES" : "NO");
+    PRINT_HEADING("Algorithm Settings");
+  PRINT_CONFIG_ZU("Segments to hash", config->segments);
+  PRINT_CONFIG_ZU("Maximum Distance Threshold", config->threshold);
+  PRINT_CONFIG_ZU("Skip videos shorter than", config->skip_duration);
+  PRINT_CONFIG_ZU("Thread Count", config->thread_count);
 
-  printf("= Detection Flags =\n");
-  printf("Detect Bars (Letterboxing | Windowboxing | Pillarboxing): %s\n",
-         ANU_HAS_ANY_FLAG(detflags, DETECT_BARS) ? "YES" : "NO");
-  printf("Detect Black Frames: %s\n",
-         ANU_HAS_ANY_FLAG(detflags, DETECT_BLACK_FRAME) ? "YES" : "NO");
-  printf("Detect Rotation: %s\n",
-         ANU_HAS_ANY_FLAG(detflags, DETECT_ROTATION) ? "YES" : "NO");
+  PRINT_HEADING("Report Flags");
+  PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, REPORT_PRINT_HASHES));
+
+  PRINT_HEADING("Detection Flags");
+  PRINT_CONFIG_STR("Detect Bars", FLAG_VAL(detflags, DETECT_BARS));
+  PRINT_CONFIG_STR("Detect Black Frames", FLAG_VAL(detflags, DETECT_BLACK_FRAME));
+  PRINT_CONFIG_STR("Detect Rotatation", FLAG_VAL(detflags, DETECT_ROTATION));
+  /* clang-format on */
+  fprintf(stdout, "\n");
+#undef PRINT_HEADING
+#undef PRINT_CONFIG_STR
+#undef PRINT_CONFIG_ZU
+#undef FLAG_VAL
 }
 
 /* Helper to reverse-lookup long option names */
@@ -214,7 +246,7 @@ static int parse_bool_arg (const char *restrict arg_name,
 
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
-  const char *program_name = get_program_name(argv[0]);
+  const char *program_name = CLI_NAME;
 
   enum anu_options {  // NOLINT (*enum-initial-value)
     AUTO_HANDLE = 0,
@@ -260,7 +292,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 /*
  * FLAGS
  */
-    /* TODO Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
+    /* TODO: Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
     {"verbose",            no_argument,          NULL,                FLAG_VERBOSE},               // -v | --verbose
     {"dry-run",            no_argument,          NULL,                FLAG_DRY_RUN},               // --dry-run
     {"detect-black",       optional_argument,    NULL,                FLAG_DETECT_BLACK_FRAME},    // --detect-black
@@ -353,7 +385,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* -h | --help */
       case CMD_HELP:
         {
-          print_help(program_name);
+          print_help();
           ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
           return 0;
         }
