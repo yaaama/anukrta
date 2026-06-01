@@ -27,15 +27,19 @@ static long get_available_threads (void) {
   errno = 0;
   long cores = sysconf(_SC_NPROCESSORS_ONLN);
 
-  if (cores < 1 && errno) {
-    perror("Error encountered whilst getting available cores.");
+  if (cores < 1) {
+    if (errno != 0) {
+      perror("Failed to retrieve core-count: ");
+    } else {
+      fprintf(stderr, "Could not determine core-count.\n");
+    }
   }
-
   return MAXIMUM(cores, 1);
 }
 
 static void print_help (void) {
   const int OPT_W = 30;
+
 #define PRINT_HEADING(text) fprintf(stderr, "\n%s:\n", text)
 #define PRINT_OPT(opt, desc) fprintf(stderr, "  %-*s %s\n", OPT_W, opt, desc)
 
@@ -49,10 +53,10 @@ static void print_help (void) {
   PRINT_OPT("--dry-run", "Simulate the run without making changes.");
 
   PRINT_HEADING("Algorithm & Tuning");
-  PRINT_OPT("-s, --segments=integer", "Number of segments to hash for each video (default: 3).");
-  PRINT_OPT("-t, --threshold=integer", "Maximum distance threshold (default 15).");
+  PRINT_OPT("-s, --segments=int", "Number of segments to hash for each video (default: 3).");
+  PRINT_OPT("-t, --threshold=int", "Maximum distance threshold (default 15).");
   PRINT_OPT("", "Ranges from 0 to 64 (0 being the most similar).");
-  PRINT_OPT("--skip-duration=integer", "Skip videos shorter than N seconds (default 3).");
+  PRINT_OPT("--skip-duration=int", "Skip videos shorter than N seconds (default 3).");
 
   PRINT_HEADING("Detection");
   PRINT_OPT("--detect-black=bool", "Detect black frames and skip over them (default: yes).");
@@ -60,8 +64,10 @@ static void print_help (void) {
   PRINT_OPT("--detect-rotation=bool", "Detect rotated videos (default: yes).");
 
   PRINT_HEADING("Execution & Storage");
-  PRINT_OPT("--threads=integer", "Number of threads to use (default ALL).");
+  PRINT_OPT("--threads=int", "Number of threads to use (default ALL).");
   PRINT_OPT("--cache=bool", "Results should be stored in cache (default: yes).");
+
+  fprintf(stderr, "\nExample usage:\n  anukrta --cache=no --verbose --segments=5 /dir/one/ /dir/two/ videoFile.mp4\n");
 
   fprintf(stderr, "\n");
   /* clang-format on */
@@ -105,7 +111,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
   PRINT_HEADING("Detection Flags");
   PRINT_CONFIG_STR("Detect Bars", FLAG_VAL(detflags, DETECT_BARS));
   PRINT_CONFIG_STR("Detect Black Frames", FLAG_VAL(detflags, DETECT_BLACK_FRAME));
-  PRINT_CONFIG_STR("Detect Rotatation", FLAG_VAL(detflags, DETECT_ROTATION));
+  PRINT_CONFIG_STR("Detect Rotation", FLAG_VAL(detflags, DETECT_ROTATION));
   /* clang-format on */
   fprintf(stdout, "\n");
 #undef PRINT_HEADING
@@ -125,11 +131,11 @@ static const char *get_long_opt_name (int val, const struct option *opts) {
 }
 
 /* Parses a string to a long, assigns out param (size_t) */
-[[maybe_unused]] static int parse_arg_integer (const char *restrict arg_name,
-                                               const char *restrict arg_str,
-                                               int min,
-                                               int max,
-                                               int *out) {
+MAYBE_UNUSED static int parse_arg_integer (const char *restrict arg_name,
+                                           const char *restrict arg_str,
+                                           int min,
+                                           int max,
+                                           int *out) {
 
   if (!arg_name || !arg_str || !out) {
     return -1;
@@ -245,6 +251,36 @@ static int parse_bool_arg (const char *restrict arg_name,
   return -1;
 }
 
+static inline int handle_bool_flag (flags32 *flag_var,
+                                    flags32 flag_mask,
+                                    bool default_value,
+                                    const char *restrict arg_name,
+                                    const char *restrict arg_val) {
+  /* No argument provided: default to whatever */
+  if (arg_val == NULL) {
+    /* If default value of flag is TRUE */
+    if (default_value) {
+      ANU_SET_FLAG(*flag_var, flag_mask);
+    } else {
+      ANU_CLEAR_FLAG(*flag_var, flag_mask);
+    }
+    return 0;
+  }
+
+  int res = parse_bool_arg(arg_name, arg_val);
+  if (res == -1) {
+    return -1; /* Parsing failed */
+  }
+
+  if (res) {
+    ANU_SET_FLAG(*flag_var, flag_mask);
+  } else {
+    ANU_CLEAR_FLAG(*flag_var, flag_mask);
+  }
+
+  return 0;
+}
+
 int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
   const char *program_name = CLI_NAME;
@@ -299,9 +335,9 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     {"detect-black",       optional_argument,    NULL,                FLAG_DETECT_BLACK_FRAME},    // --detect-black
     {"detect-rotation",    optional_argument,    NULL,                FLAG_DETECT_ROTATION},       // --detect-rotation
     {"detect-bars",        optional_argument,    NULL,                FLAG_DETECT_BARS},           // --detect-bars
-    {"cache",        optional_argument,    NULL,                FLAG_CACHE},           // --cache
+    {"cache",              optional_argument,    NULL,                FLAG_CACHE},                 // --cache
 
-    {0,                    0,                    0,                   0}};                // END
+    {0,                    0,                    0,                   0         }};                // END
   /* clang-format on */
 
   /* Short options */
@@ -415,21 +451,11 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* --cache */
       case FLAG_CACHE:
         {
-          /* No arg after opt */
-          if (optarg == NULL) {
-            ANU_SET_FLAG(config->runtime_flags, RT_CACHE);
-          }
-
-          int cache_results_bool = parse_bool_arg(arg_invoked, optarg);
-          if (cache_results_bool == -1) {
+          /* --cache defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->runtime_flags, RT_CACHE, true,
+                               arg_invoked, optarg) != 0) {
             goto exit_error;
           }
-          if (cache_results_bool) {
-            ANU_SET_FLAG(config->runtime_flags, RT_CACHE);
-          } else {
-            ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
-          }
-
           break;
         }
 
@@ -480,57 +506,30 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         }
       case FLAG_DETECT_BARS: /* --detect-bars */
         {
-          /* No arg after opt */
-          if (optarg == NULL) {
-            ANU_SET_FLAG(config->detect_flags, DETECT_BARS);
-          }
-          int detect_bars_arg = parse_bool_arg(arg_invoked, optarg);
-
-          if (detect_bars_arg == -1) {
+          /* --detect-bars defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->detect_flags, DETECT_BARS, true,
+                               arg_invoked, optarg) != 0) {
             goto exit_error;
           }
-          if (detect_bars_arg) {
-            ANU_SET_FLAG(config->detect_flags, DETECT_BARS);
-          } else {
-            ANU_CLEAR_FLAG(config->detect_flags, DETECT_BARS);
-          }
-
           break;
         }
       case FLAG_DETECT_BLACK_FRAME: /* --detect-black */
         {
-          /* No arg after opt */
-          if (optarg == NULL) {
-            ANU_SET_FLAG(config->detect_flags, DETECT_BLACK_FRAME);
-          }
-          int detect_blackframe_arg = parse_bool_arg(arg_invoked, optarg);
 
-          if (detect_blackframe_arg == -1) {
+          /* --detect-black defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->detect_flags, DETECT_BLACK_FRAME, true,
+                               arg_invoked, optarg) != 0) {
             goto exit_error;
-          }
-          if (detect_blackframe_arg) {
-            ANU_SET_FLAG(config->detect_flags, DETECT_BLACK_FRAME);
-          } else {
-            ANU_CLEAR_FLAG(config->detect_flags, DETECT_BLACK_FRAME);
           }
           break;
         }
 
-      case FLAG_DETECT_ROTATION:
-        {  // --detect-black
-          if (optarg == NULL) {
-            ANU_SET_FLAG(config->detect_flags,
-                         DETECT_ROTATION);  // Just --detect-blackframe
-          }
-          int detect_rotation_arg = parse_bool_arg(arg_invoked, optarg);
-
-          if (detect_rotation_arg == -1) {
+      case FLAG_DETECT_ROTATION: /* --detect-rotation */
+        {
+          /* --detect-rotation defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->detect_flags, DETECT_ROTATION, true,
+                               arg_invoked, optarg) != 0) {
             goto exit_error;
-          }
-          if (detect_rotation_arg == 0) {
-            ANU_CLEAR_FLAG(config->detect_flags, DETECT_ROTATION);
-          } else {
-            ANU_SET_FLAG(config->detect_flags, DETECT_ROTATION);
           }
           break;
         }
