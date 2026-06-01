@@ -24,6 +24,10 @@ typedef ptrdiff_t size;
 typedef size_t usize;
 typedef uint32_t flags32;
 
+#ifndef __has_builtin
+#  define __has_builtin(x) 0
+#endif
+
 /**
  * @name BitMacros Flag Macros
  * Macros for safe bitflag manipulation.
@@ -140,8 +144,16 @@ static inline size_t anu_time_seconds_to_microseconds (double seconds) {
 /** Return larger value from X and Y. */
 #define MAXIMUM(X, Y) ((X) > (Y) ? (X) : (Y))
 
+/** Return largest number between X, Y, and Z*/
+#define MAXIMUM_3(X, Y, Z) \
+  ((X) > (Y) ? ((X) > (Z) ? (X) : (Z)) : ((Y) > (Z) ? (Y) : (Z)))
+
 /** Return smallest number between X and Y */
 #define MINIMUM(X, Y) ((X) < (Y) ? (X) : (Y))
+
+/** Return smallest number between X, Y, and Z*/
+#define MININUM_3(X, Y, Z) \
+  ((X) < (Y) ? ((X) < (Z) ? (X) : (Z)) : ((Y) < (Z) ? (Y) : (Z)))
 
 /** Absolute value of X */
 #define ABSOLUTE(X) ((X) > 0 ? (X) : -(X))
@@ -193,7 +205,7 @@ static_assert(
 
 /**
  * @brief Calculate hamming distance between two **unsigned** 64-bit integers.
- * Makes use of `__builtin_popcountll()`.
+ * Makes use of `__builtin_popcountll() (if available).`.
  * @return Number of bits that differ between `X` and `Y` as an integer.
  * @retval 0 `X` and `Y` are the exact same.
  * @retval 64 `X` and `Y` are compliments of one another.
@@ -201,7 +213,19 @@ static_assert(
  */
 static inline unsigned int hamming_distance (const uint64_t a,
                                              const uint64_t b) {
-  return (unsigned) __builtin_popcountll(a ^ b);
+  uint64_t x = a ^ b;
+
+  /* Use popcountll if builtin */
+#if __has_builtin(__builtin_popcountll) || (defined(__GNUC__) && __GNUC__ >= 4)
+  return (unsigned) __builtin_popcountll(x);
+
+  /* SWAR method is quickest to compute hamming distance if no hardware builtins available */
+#else
+  x = x - ((x >> 1) & 0x5555555555555555ULL);
+  x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
+  x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
+  return (unsigned) ((x * 0x0101010101010101ULL) >> 56);
+#endif
 }
 
 void print_matrix_float(FILE *fp, const float *matrix, int rows, int cols);
@@ -253,9 +277,22 @@ static inline int anu_util_tolower (int c) {
 #  define HOT_FUNC __attribute__((hot))
 #  define COLD_FUNC __attribute__((cold))
 
-/** @def LIKELY
- * Hint to compiler that the branch is most likely *TRUE*.
+/**
+ * @def LIKELY
+ * @brief Hint to compiler that the branch is most likely *TRUE*.
+ * @note The `!!` converts expression `x` into a boolean value. The first `!`
+ * negates it into a boolean, and then the second `!` will return it back to its
+ * actual value. This is essential due to the fact that `__builtin_expect(x, y)`
+ * instructs to the compiler that `x` is exactly equal to `y`.
+ * E.g.
+ * ```c
+ * int x = 42;
+ * if (__builtin_expect(x, 1)) { ... }
+ * ```
+ * Would not work in this case, however when we do `!!(42)`, it evaluates to `1`
+ * (as it is non-zero/non-null).
  */
+
 #  define LIKELY(x) __builtin_expect(!!(x), 1)
 
 /** @def UNLIKELY
