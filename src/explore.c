@@ -194,7 +194,7 @@ int anu_file_resolve_relative_path (char *restrict path, char *restrict out) {
   return 0;
 }
 
-ALWAYS_INLINE static int anu_file_opendir (char *dir_path, DIR **out) {
+static ALWAYS_INLINE int anu_file_opendir (char *dir_path, DIR **out) {
   assert(dir_path && out);
 
   *out = opendir(dir_path);
