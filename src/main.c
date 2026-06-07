@@ -31,16 +31,38 @@
 #include "util.h"
 #include "video.h"
 
+/**
+ * @brief Struct returned by threads.
+ */
 typedef struct {
+  alignas(CACHE_LINE_SIZE) int value; /**< Result code. */
+} worker_result;
+
+/**
+ * @brief Context data passed to threads.
+ */
+typedef struct {
+  /** Pointer to file queue that needs to be hashed. */
   anu_file_q *files;
+
+  /** Pointer to program configuration. */
   anukrta_config *config;
+
+  /** Array of hashes that are produced during thread execution. */
   uint64_t *hashes;
-  int *results; /* To store the return value of hash_video */
+
+  /** Array of result codes from threads. */
+  worker_result *results; /* To store the return value of hash_video */
+
+  /** Number of files to prodcess. */
   size_t file_count;
+  /** Index of file to process by thread worker. */
   atomic_size_t *current_idx; /* Shared index */
 } worker_args;
 
-/* callback function for logger */
+/**
+ * @brief Callback function for logger.
+ */
 static void log_lock_callback (bool lock, void *udata) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) udata;
   if (lock) {
@@ -65,23 +87,24 @@ static void *hash_worker_thread (void *arg) {
   const size_t segments = targs->config->segments;
 
   while (1) {
-    size_t my_idx;
-    my_idx = atomic_fetch_add(targs->current_idx, 1);
+    /* Get index of next file */
+    size_t next_idx = atomic_fetch_add(targs->current_idx, 1);
 
-    if (my_idx >= file_count) {
+    /* Check if next index exceeds file count */
+    if (next_idx >= file_count) {
       break;
     }
 
-    /* Get the specific file and hash pointer for this index */
-    anu_file *file = (targs->files->items + my_idx);
-    size_t hash_idx = my_idx * segments;
-    uint64_t *my_hashes = &targs->hashes[hash_idx];
+    /* Get the file and hash pointer for this index */
+    anu_file *file = &targs->files->items[next_idx];
+    size_t hash_idx = next_idx * segments;
+    uint64_t *file_hashes = &targs->hashes[hash_idx];
 
-    log_trace("Thread %lu processing file index %zu", pthread_self(), my_idx);
+    log_trace("Thread '%lu' processing file '%zu'", pthread_self(), next_idx);
 
-    /* Do the hashing */
-    targs->results[my_idx * CACHE_STRIDE_INT] =
-        anu_video_hash(file, targs->config, my_hashes);
+    /* Do the hashing and store return code */
+    targs->results[next_idx].value =
+        anu_video_hash(file, targs->config, file_hashes);
   }
 
   return NULL;
@@ -89,25 +112,27 @@ static void *hash_worker_thread (void *arg) {
 
 static int anukrta_driver (anukrta_config *config) {
 
-  /* Store the files we find in the path */
+  assert(config->segments > 0);
+
+  /* Initialise file queue */
   anu_file_q files;
-  /* Initialise the list to hold files we find */
   anu_fileq_init(&files, 16);
 
+  /* Scan path(s) and store in files queue */
   scan_dirs(config, &files);
 
-  const size_t file_count = files.count;
-  if (file_count < 1) {
+  /* Exit early if we do not find any files */
+  if (files.count < 1) {
     log_warn("No video files found!");
     anu_fileq_destroy(&files);
     return -1;
   }
-  assert(config->segments > 0);
-  const size_t segments_st = config->segments;
+
+  const size_t file_count = files.count;
 
   log_info("Found `%zu` files", file_count);
 
-  const size_t hash_collection_len = (file_count * segments_st);
+  const size_t hash_collection_len = (file_count * config->segments);
 
   /* Array of hashes
    * E.g. (N files with 2 segments) would look like this:
@@ -115,7 +140,7 @@ static int anukrta_driver (anukrta_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   uint64_t *hashes = calloc(hash_collection_len, sizeof(*hashes));
-  int *results = calloc((file_count * CACHE_STRIDE_INT), sizeof(*results));
+  worker_result *results = calloc(file_count, sizeof(*results));
 
   if (!results || !hashes) {
     ANU_DIE("Failed to allocate memory.");
@@ -162,12 +187,14 @@ static int anukrta_driver (anukrta_config *config) {
     pthread_join(threads[i], NULL);
   }
 
-  anu_file *file;
+  /* THREADING END */
+
   bk_node *filetree = NULL;
 
   for (size_t i = 0; i < file_count; i++) {
-    file = (files.items + i);
-    int result = results[i * CACHE_STRIDE_INT];
+    /* Current file */
+    anu_file *file = &files.items[i];
+    int result = results[i].value;
     /* Check the result saved by the thread */
     if (result == -1) {
       log_debug("Failed to hash file '%s'", anu_file_get_filename(file));
@@ -178,8 +205,8 @@ static int anukrta_driver (anukrta_config *config) {
     }
 
     if (result == 0) {
-      for (size_t j = 0; j < segments_st; j++) {
-        bk_tree_insert(&filetree, hashes[(i * segments_st) + j], i);
+      for (size_t j = 0; j < config->segments; j++) {
+        bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
       }
     }
   }
