@@ -37,6 +37,7 @@ typedef struct anu_vreader {
 
 int anu_video_hash(anu_file *file,
                    anukrta_config *config,
-                   uint64_t *hashes_out);
+                   uint64_t *hashes_out,
+                   uint64_t *frame_timestamps_out);
 
 #endif  // ANU_VIDEO_H

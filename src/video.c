@@ -532,7 +532,8 @@ static int video_reader_get_frame (anu_vreader *vreader) {
 
 int anu_video_hash (anu_file *file,
                     anukrta_config *config,
-                    uint64_t *hashes_out) {
+                    uint64_t *hashes_out,
+                    uint64_t *frame_timestamps_out) {
 
   assert(config->segments > 0);
   assert(file);
@@ -590,8 +591,10 @@ int anu_video_hash (anu_file *file,
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
     log_debug("[%s] --- Segment [%zu/%zu] ---", fname, i + 1, config->segments);
-    log_trace("[%s] Seeking to PTS %ld (%.1f seconds)", fname, seek_target_sb,
-              anu_time_microseconds_to_seconds((size_t) seek_target_us));
+    log_debug("  Seeking to PTS %ld (%.1f seconds/ %zu microseconds)",
+              seek_target_sb,
+              anu_time_microseconds_to_seconds((size_t) seek_target_us),
+              seek_target_us);
 
     /* Seek to timestamp */
     if (vreader_seek_pts(&vreader, seek_target_sb) < 0) {
@@ -613,6 +616,7 @@ int anu_video_hash (anu_file *file,
 
     hashes_out[frames_decoded] =
         hash_decoded_frame(matrix, config->hash_algorithm);
+    frame_timestamps_out[frames_decoded] = seek_target_us;
 
     log_trace("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
               hashes_out[frames_decoded]);

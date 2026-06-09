@@ -38,6 +38,11 @@ typedef struct {
   alignas(CACHE_LINE_SIZE) int value; /**< Result code. */
 } worker_result;
 
+typedef struct {
+  uint64_t frame_timestamp;
+  uint64_t hash;
+} hash_result;
+
 /**
  * @brief Context data passed to threads.
  */
@@ -50,12 +55,14 @@ typedef struct {
 
   /** Array of hashes that are produced during thread execution. */
   uint64_t *hashes;
+  uint64_t *frame_timestamps;
 
   /** Array of result codes from threads. */
   worker_result *results; /* To store the return value of hash_video */
 
   /** Number of files to prodcess. */
   size_t file_count;
+
   /** Index of file to process by thread worker. */
   atomic_size_t *current_idx; /* Shared index */
 } worker_args;
@@ -95,16 +102,16 @@ static void *hash_worker_thread (void *arg) {
       break;
     }
 
-    /* Get the file and hash pointer for this index */
+    /* Get the file for this index */
     anu_file *file = &targs->files->items[next_idx];
     size_t hash_idx = next_idx * segments;
-    uint64_t *file_hashes = &targs->hashes[hash_idx];
 
     log_trace("Thread '%lu' processing file '%zu'", pthread_self(), next_idx);
 
     /* Do the hashing and store return code */
     targs->results[next_idx].value =
-        anu_video_hash(file, targs->config, file_hashes);
+        anu_video_hash(file, targs->config, &targs->hashes[hash_idx],
+                       &targs->frame_timestamps[hash_idx]);
   }
 
   return NULL;
@@ -140,6 +147,8 @@ static int anukrta_driver (anukrta_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   uint64_t *hashes = calloc(hash_collection_len, sizeof(*hashes));
+  uint64_t *frame_timestamp_out =
+      calloc(hash_collection_len, sizeof(*frame_timestamp_out));
   worker_result *results = calloc(file_count, sizeof(*results));
 
   if (!results || !hashes) {
@@ -147,6 +156,9 @@ static int anukrta_driver (anukrta_config *config) {
   }
 
   /* THREADING START */
+
+  time_t curr_time = time(NULL);
+  log_debug("Current time: %ld", curr_time);
 
   /* NOTE: Thread count should not exceed file count or it is a waste of resources */
   config->thread_count = MINIMUM(config->thread_count, file_count);
@@ -163,6 +175,7 @@ static int anukrta_driver (anukrta_config *config) {
     .files = &files,
     .config = config,
     .hashes = hashes,
+    .frame_timestamps = frame_timestamp_out,
     .results = results,
     .file_count = file_count,
     .current_idx = &current_file_idx,
@@ -191,25 +204,47 @@ static int anukrta_driver (anukrta_config *config) {
 
   bk_node *filetree = NULL;
 
+  /* Initialise SQLite3 */
+  cache_init_once();
+  /* Open the database */
+  sqlite3 *db = cache_open_db("cache.db");
+  /* Begin transaction for upsertion */
+  cache_begin_transaction(db);
+  /* Row ID for inserted row */
+  u64 row_id = 0;
+
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
     anu_file *file = &files.items[i];
     int result = results[i].value;
     /* Check the result saved by the thread */
+
+    /* Failed to hash a file */
     if (result == -1) {
       log_debug("Failed to hash file '%s'", anu_file_get_filename(file));
     }
     if (result == -2) {
-      /* We skipped this hash so lets move onto the next file. */
+      /* We skipped this hash for one reason or another */
       log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 
     if (result == 0) {
+      cache_upsert_file(file->path, "v", file->size, (uint64_t) file->mtime,
+                        (uint64_t) file->ctime, file->duration_us,
+                        (uint64_t) curr_time, &row_id);
+
       for (size_t j = 0; j < config->segments; j++) {
+        /* TODO Get frame stamp into the arguments here */
+        cache_insert_hash(row_id, hashes[(i * config->segments) + j],
+                          frame_timestamp_out[(i * config->segments) + j]);
         bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
       }
     }
   }
+  /* Commit the transactions */
+  cache_commit_transaction(db);
+  /* Close the database */
+  cache_close_db(&db);
 
   anu_report report = anu_generate_report(&files, hashes, config, filetree);
   anu_print_report(config, &report, &files, hashes);
