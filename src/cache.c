@@ -217,7 +217,7 @@ static int init_db__prepare_statements (sqlite3 *db) {
      Because of ON DELETE CASCADE, it also automatically wipes the old hashes */
   PREPARE(
       "INSERT OR REPLACE INTO files (path, media_type, file_size, mtime, "
-      "ctime, duration_us, last_hashed) VALUES (?, ?, ?, ?, ?, ?)",
+      "ctime, duration_us, last_hashed) VALUES (?, ?, ?, ?, ?, ?, ?)",
       stmt_upsert_file);
 
   PREPARE(
