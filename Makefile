@@ -30,9 +30,9 @@ endif
 
 ifeq ($(USE_CCACHE), 1)
 	CCACHE_BIN := $(shell command -v ccache 2> /dev/null)
-	ifneq ($(CCACHE_BIN),)
+  ifneq ($(CCACHE_BIN),)
 		CC := $(CCACHE_BIN) $(CC)
-	endif
+  endif
 endif
 
 # Load config
@@ -136,7 +136,6 @@ CFLAGS += $(FFMPEG_CFLAGS)
 LDFLAGS += -Wl,--as-needed
 LDLIBS := $(FFMPEG_LIBS) -lm -lpthread
 
-
 # ==========================================
 #   SQLite Configuration
 # ==========================================
@@ -194,7 +193,6 @@ LIB_OBJECTS := $(filter-out $(MAIN_OBJ), $(OBJECTS))
 # Dependency files
 DEPS := $(OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d)
 
-
 # ==========================================
 #   Build Rules
 # ==========================================
@@ -213,7 +211,7 @@ ifeq ($(filter release profile,$(VARIANT)),)
 endif
 
 $(info [INFO] Compiler: $(COMPILER_ID))
-$(info [INFO] Variant:  $(VARIANT))
+$(info [INFO] Variant: $(VARIANT))
 
 .PHONY: all build-variant run test clean clean-debug clean-vendor bear analyze cppcheck format lint memcheck
 .DEFAULT_GOAL := debug
@@ -268,7 +266,6 @@ $(OBJ_DIR)/%.o: %.c
 	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 .PHONY: run test run-asan test-asan run-tsan test-tsan
-
 
 run: build-variant
 	@echo "--- Running $(TARGET_NAME) [$(VARIANT)] ---"
