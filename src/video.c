@@ -66,78 +66,90 @@ static MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (
  *
  */
 static int vreader_init (char *f_path, anu_vreader *vreader) {
+  assert(f_path && vreader);
 
-  /* Initialise VideoReader */
-  memset(vreader, 0, sizeof(anu_vreader));
+  /*
+   * Default video stream index to invalid number.
+   */
   vreader->video_stream_idx = -1;
 
-  log_trace("Opening `%s`", f_path);
-
+  /*
+   * Initialise FORMAT CONTEXT.
+   * This step will check if file is existent, can be opened, etc.
+   */
   /* Opens input file and guesses format of file */
   int errcode = 0;
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
-  if (errcode < 0) {
-    log_error("Could not open file (`%s`): `%s`", f_path, av_err2str(errcode));
+  if (errcode != 0) {
+    log_error("[%s] Could not open file: %s", f_path, av_err2str(errcode));
     return -1;
   }
 
-  /* Will read bytes from file/decode a few frames to fill out context that the
-     method above missed (`avformat_open_input` will only read header of file)
+  /*
+   * Read bytes from file / decode a few frames to fill out context that the
+     method above missed.
+   * `avformat_open_input` will only read header of file (which may not always be accurate).
    */
   errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
   if (errcode < 0) {
-    log_error("Failed to read both file header and stream info (`%s`): `%s`",
+    log_error("[%s] Failed to read both file header and stream info: `%s`",
               f_path, av_err2str(errcode));
     return -1;
   }
 
-  /* Find Video Stream & Codec */
+  /*
+   * FIND VIDEO STREAM AND DECODER FOR IT
+   * Find video stream stored in file.
+   * Stores decoder for that video stream in `codec`.
+   * Return value of `av_find_best_stream` is the stream index that we store in our struct.
+   */
+
   const AVCodec *codec = NULL;
 
-  /* Finds best stream that matches our specifications */
   vreader->video_stream_idx = av_find_best_stream(
       vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
   if (vreader->video_stream_idx < 0) {
     if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
-      log_error("No decoder found for stream.");
-    }
-
-    if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
-      log_error("No video stream found.");
+      log_error("[%s] No decoder found for stream.", f_path);
+    } else if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
+      log_error("[%s] No video stream found.", f_path);
+    } else {
+      log_error("[%s] Failed to find best stream: %s", f_path,
+                av_err2str(vreader->video_stream_idx));
     }
     return -1;
   }
 
-  log_trace("Found video stream at index `%d`", vreader->video_stream_idx);
+  log_trace("[%s] Found video stream at index `%d`", f_path,
+            vreader->video_stream_idx);
+
+  if (!codec) {
+    log_error("[%s] No codec found for stream.", f_path);
+    return -1;
+  }
 
   AVCodecParameters *codec_params = NULL;
   /* Get codec parameters */
   codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
-  /* Get codec to decode frames */
-  codec = avcodec_find_decoder(codec_params->codec_id);
-
-  if (!codec) {
-    log_error("No codec found.");
-    return -1;
-  }
 
   /* Init Codec Context */
   vreader->codec_ctx = avcodec_alloc_context3(codec);
 
   if (!vreader->codec_ctx) {
-    log_error("Failed to allocate memory for codec context");
+    log_error("[%s] Failed to allocate memory for codec context.", f_path);
     return -1;
   }
 
   if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
-    log_error("Could not retrieve codec context.");
+    log_error("[%s] Could not retrieve codec context.", f_path);
     return -1;
   }
 
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
-    log_error("Failed to initialise codec context for `%s`", codec->long_name);
+    log_error("[%s] Failed to initialise codec context %s", f_path,
+              codec->long_name);
     return -1;
   }
 
@@ -145,13 +157,13 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
   vreader->frame = av_frame_alloc();
 
   if (vreader->frame == NULL) {
-    log_error("Failed to allocate memory for frame.");
+    log_error("[%s] Failed to allocate memory for frame.", f_path);
     return -1;
   }
 
   vreader->packet = av_packet_alloc();
   if (vreader->packet == NULL) {
-    log_error("Failed to allocate memory for packet.");
+    log_error("[%s] Failed to allocate memory for packet.", f_path);
     return -1;
   }
 
