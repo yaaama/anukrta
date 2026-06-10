@@ -269,6 +269,10 @@ static inline int anu_util_tolower (int c) {
 #define ZERO_MEMORY(pointer, count, type) \
   memset((pointer), 0, (count) * sizeof(type))
 
+#if !defined(__GNUC__) && !defined(__clang__)
+static_assert(0, "We require GNUisms to build!");
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
 
 #  define MAYBE_UNUSED __attribute__((unused))

@@ -295,6 +295,7 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
 
   /* Check if path given actually exists */
   if (!anu_file_path_exists(path)) {
+    log_warn("%s not valid path.", path);
     return -1;
   }
   /* Resolve path if needed */
