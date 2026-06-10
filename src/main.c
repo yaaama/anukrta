@@ -147,8 +147,8 @@ static int anukrta_driver (anukrta_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   uint64_t *hashes = calloc(hash_collection_len, sizeof(*hashes));
-  uint64_t *frame_timestamp_out =
-      calloc(hash_collection_len, sizeof(*frame_timestamp_out));
+  uint64_t *frame_timestamp =
+      calloc(hash_collection_len, sizeof(*frame_timestamp));
   worker_result *results = calloc(file_count, sizeof(*results));
 
   if (!results || !hashes) {
@@ -175,7 +175,7 @@ static int anukrta_driver (anukrta_config *config) {
     .files = &files,
     .config = config,
     .hashes = hashes,
-    .frame_timestamps = frame_timestamp_out,
+    .frame_timestamps = frame_timestamp,
     .results = results,
     .file_count = file_count,
     .current_idx = &current_file_idx,
@@ -223,8 +223,9 @@ static int anukrta_driver (anukrta_config *config) {
     if (result == -1) {
       log_debug("Failed to hash file '%s'", anu_file_get_filename(file));
     }
+
+    /* We skipped this hash for one reason or another */
     if (result == -2) {
-      /* We skipped this hash for one reason or another */
       log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 
@@ -234,10 +235,11 @@ static int anukrta_driver (anukrta_config *config) {
                         (uint64_t) curr_time, &row_id);
 
       for (size_t j = 0; j < config->segments; j++) {
-        /* TODO Get frame stamp into the arguments here */
-        cache_insert_hash(row_id, hashes[(i * config->segments) + j],
-                          frame_timestamp_out[(i * config->segments) + j]);
-        bk_tree_insert(&filetree, hashes[(i * config->segments) + j], i);
+        u64 curr_hash = hashes[(i * config->segments) + j];
+        u64 curr_frame = frame_timestamp[(i * config->segments) + j];
+
+        cache_insert_hash(row_id, curr_hash, curr_frame);
+        bk_tree_insert(&filetree, curr_hash, i);
       }
     }
   }
@@ -254,7 +256,7 @@ static int anukrta_driver (anukrta_config *config) {
   bk_tree_node_free(filetree);
   anu_fileq_destroy(&files);
   free(hashes);
-  free(frame_timestamp_out);
+  free(frame_timestamp);
   free(results);
   free(threads);
 
