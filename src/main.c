@@ -254,6 +254,7 @@ static int anukrta_driver (anukrta_config *config) {
   bk_tree_node_free(filetree);
   anu_fileq_destroy(&files);
   free(hashes);
+  free(frame_timestamp_out);
   free(results);
   free(threads);
 
