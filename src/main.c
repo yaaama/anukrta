@@ -38,11 +38,6 @@ typedef struct {
   alignas(CACHE_LINE_SIZE) int value; /**< Result code. */
 } worker_result;
 
-typedef struct {
-  uint64_t frame_timestamp;
-  uint64_t hash;
-} hash_result;
-
 /**
  * @brief Context data passed to threads.
  */
@@ -55,6 +50,8 @@ typedef struct {
 
   /** Array of hashes that are produced during thread execution. */
   uint64_t *hashes;
+
+  /** Array of timestamps for each hash. */
   uint64_t *frame_timestamps;
 
   /** Array of result codes from threads. */
@@ -230,6 +227,7 @@ static int anukrta_driver (anukrta_config *config) {
     }
 
     if (result == 0) {
+
       cache_upsert_file(file->path, "v", file->size, (uint64_t) file->mtime,
                         (uint64_t) file->ctime, file->duration_us,
                         (uint64_t) curr_time, &row_id);
@@ -237,7 +235,6 @@ static int anukrta_driver (anukrta_config *config) {
       for (size_t j = 0; j < config->segments; j++) {
         u64 curr_hash = hashes[(i * config->segments) + j];
         u64 curr_frame = frame_timestamp[(i * config->segments) + j];
-
         cache_insert_hash(row_id, curr_hash, curr_frame);
         bk_tree_insert(&filetree, curr_hash, i);
       }
