@@ -16,8 +16,8 @@
 #include <time.h>
 
 #include "config.h"
+#include "kvec.h"
 #include "log.h"
-#include "stack.h"
 #include "util.h"
 
 void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
@@ -291,107 +291,79 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
 /**
  * @brief Recursively search path and return files found.
  **/
-int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
+int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
+                                                  anu_file_q *files_out) {
 
-  /* Check if path given actually exists */
   if (!anu_file_path_exists(path)) {
     log_warn("%s not valid path.", path);
     return -1;
   }
-  /* Resolve path if needed */
-  char *root_path = path;
-
-  size_t file_len = strlen(root_path);
 
   /* Check if we have received a path to a FILE with extension we support */
-  if (anu_file_ext_supported(root_path)) {
-    log_info("Received path for regular video file: %s", root_path);
-    return handle_path_pointing_to_file(root_path, files_out);
+  if (anu_file_ext_supported(path)) {
+    log_info("Received path for regular video file: %s", path);
+    return handle_path_pointing_to_file(path, files_out);
   }
 
-  /* Initialise first directory we will explore */
-  struct anu_dir_job dirjob;
-  memcpy(dirjob.path, root_path, file_len);
-  dirjob.path[file_len] = '\0';
+  /* Resolve path if needed */
 
-  /* Temp var to hold the directory we are currently in */
-  struct anu_dir_job currjob;
+  /* Stack to hold directories */
+  kvec_t(char *) dirstack = KV_INITIAL_VALUE;
+  /* Initialise with the path received */
+  kv_push(dirstack, strdup(path));
 
-  /* Stack containing directories to visit
-   * This lets us go through file hierarchies 'recursively'
-   * without actually using recursion in the implementation */
-  anu_stack dirstack;
-  /* Initialise stack */
-  anu_stack_init(&dirstack, 8, sizeof(struct anu_dir_job));
-  /* Push first item into stack (root directory) */
-  anu_stack_push(&dirstack, &dirjob);
+  while (kv_size(dirstack) > 0) {
 
-  while (anu_stack_pop(&dirstack, &currjob)) {
+    char *curr_path = kv_pop(dirstack);
+    ANU_ASSUME(curr_path != NULL);
 
     /* Directory stream */
-    DIR *dir;
 
-    /* Open directory for reading */
-    if (anu_file_opendir(currjob.path, &dir) != 0) {
-      log_warn("Could not open directory: %s", currjob.path);
-      continue;
-    };
-
-    /* Dir entry */
-    struct dirent *dp;
-    /* Directory file descriptor */
-    int dir_fd = dirfd(dir);
-    if (dir_fd == -1) {
-      perror("Could not get file descriptor for directory.");
+    DIR *dir = opendir(curr_path);
+    if (!dir) {
+      log_warn("Could not open directory: %s", curr_path);
+      free(curr_path);
       continue;
     }
 
+    int dir_fd = dirfd(dir);
+    struct dirent *dp;
+
     /* Path of current file */
-    char fullpath[PATH_MAX];
-    size_t base_len = strlen(currjob.path);
-    assert(base_len < PATH_MAX);
-    memcpy(fullpath, currjob.path, base_len);
-    fullpath[base_len] = '/';
-    char *name_ptr = fullpath + base_len + 1;  // Pointer to where filename goes
-    size_t max_name_len = PATH_MAX - base_len - 1;
-
-    log_trace("Reading directory: %s", currjob.path);
-
+    log_trace("Reading directory: '%s'", curr_path);
     while ((dp = readdir(dir)) != NULL) {
 
-      /* Skip over '.' and '..' */
-      if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
-        log_trace("Skipping DOT path: '%s'", dp->d_name);
-        continue;
+      char *name = dp->d_name;
+
+      if (name[0] == '.') {
+        if (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')) {
+          continue;
+        }
       }
 
       /* Ignore symlinks, sockets, devices, etc. */
-      if (dp->d_type != DT_REG && dp->d_type != DT_UNKNOWN &&
-          dp->d_type != DT_DIR) {
-        log_trace("Skipping over NON REGULAR PATH: %s", dp->d_name);
-        continue;
-      }
-
-      size_t name_len = strlen(dp->d_name);
-      assert(name_len <= NAME_MAX);
-
-      /* Prevents buffer overflow */
-      if (UNLIKELY(name_len > max_name_len)) {
-        log_warn("Name length is longer than maximum name length.");
-        continue;
-      }
-      memcpy(name_ptr, dp->d_name,
-             (name_len + 1)); /* +1 to copy the \0 terminator */
-
-      /* If its a directory */
-      if (dp->d_type == DT_DIR) {
-        memcpy(dirjob.path, fullpath, base_len + 1 + name_len + 1);
-        anu_stack_push(&dirstack, &dirjob);
+      if ((dp->d_type != DT_REG) && (dp->d_type != DT_DIR) &&
+          (dp->d_type != DT_UNKNOWN)) {
         continue;
       }
 
       /* Check path for supported extension */
-      if (!anu_file_ext_supported(dp->d_name)) {
+      if (dp->d_type != DT_DIR && dp->d_type == DT_REG &&
+          !anu_file_ext_supported(name)) {
+        continue;
+      }
+
+      size_t name_len = strlen(name);
+
+      char *full_path;
+
+      if (asprintf(&full_path, "%s/%s", curr_path, name) == -1) {
+        continue;
+      }
+
+      /* If its a directory push it to our directory stack */
+      if (dp->d_type == DT_DIR) {
+        kv_push(dirstack, full_path);
         continue;
       }
 
@@ -399,11 +371,12 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
       struct stat statb;
 
       /* Run stat on path */
-      if (fstatat(dir_fd, dp->d_name, &statb, 0) == -1) {
-        perror("Stat failed: ");
+      if (fstatat(dir_fd, dp->d_name, &statb, 0) != 0) {
+        log_warn("Failed to fstatat file '%s'", full_path);
         continue;
       }
-      if (UNLIKELY(statb.st_size == 0)) {
+      if (statb.st_size == 0) {
+        log_debug("File size is 0 '%s'", full_path);
         continue;
       }
 
@@ -413,27 +386,19 @@ int anu_file_recursive_filewalk (char *path, anu_file_q *files_out) {
         .mtime = statb.st_mtime,
         .ino = statb.st_ino,
         .dev = statb.st_dev,
+        .path = full_path,
+        .name_offset = (u32) (name_len + 1),
       };
-
-      /* Copy path */
-      size_t total_path_len = base_len + name_len + 1;
-      assert(total_path_len <= PATH_MAX);
-      newfile.path = malloc(total_path_len + 1);
-      if (newfile.path == NULL) {
-        ANU_DIE("Out of memory.");
-      }
-      memcpy(newfile.path, fullpath, total_path_len + 1);
-      newfile.name_offset =
-          (u32) base_len + 1; /* Index where the filename starts */
 
       if (anu_fileq_enqueue(files_out, &newfile)) {
         ANU_DIE("Out of memory.");
       }
     }
     closedir(dir);
+    free(curr_path);
   }
 
-  anu_stack_destroy(&dirstack);
+  kv_destroy(dirstack);
   return 0;
 }
 
@@ -448,7 +413,8 @@ static inline int compare_strings (const void *a, const void *b) {
 
 /* TODO: Add a check for hard linked files (files with same inode number) */
 void scan_dirs (anukrta_config *config, anu_file_q *files) {
-  /* Scan current directory */
+
+  /* Check if we need to scan current directory */
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR)) {
 
     char *resolved = realpath(".", NULL);
@@ -456,7 +422,7 @@ void scan_dirs (anukrta_config *config, anu_file_q *files) {
       ANU_DIE("Could not resolve current path.");
     }
 
-    log_info("Scanning current directory");
+    log_info("Scanning current directory (%s)", resolved);
     if (anu_file_recursive_filewalk(resolved, files)) {
       log_warn("Error searching for files in current directory.");
     }
@@ -469,40 +435,37 @@ void scan_dirs (anukrta_config *config, anu_file_q *files) {
   assert(config->paths_count > 0);
 
   /* Array to hold resolved absolute paths */
-  char **real_paths =
-      (char **) calloc(config->paths_count, sizeof(*real_paths));
-  if (!real_paths) {
-    ANU_DIE("Failed to allocate memory for paths.");
-  }
+  kvec_t(char *) real_paths;
+  kv_init(real_paths);
 
-  size_t valid_paths = 0;
   for (size_t i = 0; i < config->paths_count; i++) {
     /* realpath with NULL automatically allocates memory for the resolved path */
     char *resolved = realpath(config->paths[i], NULL);
     if (resolved != NULL) {
-      real_paths[valid_paths++] = resolved;
+      kv_push(real_paths, resolved);
     } else {
       log_warn("Could not resolve path '%s'", config->paths[i]);
     }
   }
 
+  size_t valid_paths = kv_size(real_paths);
   if (valid_paths == 0) {
     log_warn("No valid paths");
-    free((void *) real_paths);
+    kv_destroy(real_paths);
     return;
   }
 
   /* Sort paths lexicographically
    * so "/a/b" will be sorted before "/a/b/c"
-   * We can then remove redundant paths
-   */
-  qsort((void *) real_paths, valid_paths, sizeof(char *), compare_strings);
+   * We can then remove redundant paths */
+  qsort((void *) real_paths.items, valid_paths, sizeof(char *),
+        compare_strings);
 
   size_t unique_paths = 1;
 
   for (size_t i = 1; i < valid_paths; i++) {
-    const char *prev = real_paths[unique_paths - 1];
-    const char *current = real_paths[i];
+    char *prev = kv_A(real_paths, (unique_paths - 1));
+    char *current = kv_A(real_paths, i);
     size_t prev_len = strlen(prev);
 
     bool is_duplicate_or_subdir = false;
@@ -511,10 +474,11 @@ void scan_dirs (anukrta_config *config, anu_file_q *files) {
     if (strncmp(prev, current, prev_len) == 0) {
 
       /* Ensure it's an exact match or an actual subdirectory,
-       * avoiding similar names (e.g. prev="/dir", curr="/dir-2") */
-      if (current[prev_len] == '\0' || current[prev_len] == '/' ||
-          (prev[0] == '/' &&
-           prev_len == 1)) { /* Handle cases where path is '/' */
+       * avoiding similar names (e.g. prev="/dir", curr="/dir-2")
+       * Also handle cases where path is '/'
+       */
+      if ((current[prev_len] == '\0') || (current[prev_len] == '/') ||
+          (prev_len == 1 && prev[0] == '/')) {
         is_duplicate_or_subdir = true;
       }
     }
@@ -524,21 +488,25 @@ void scan_dirs (anukrta_config *config, anu_file_q *files) {
       log_debug(
           "Skipping overlapping or duplicate path: '%s' (covered by '%s')",
           current, prev);
-      free(real_paths[i]); /* Free the redundant path */
+      free(current); /* Free the redundant path */
     } else {
-      real_paths[unique_paths] = real_paths[i]; /* Keep the unique path */
+      kv_A(real_paths, unique_paths) = current; /* Keep the unique path */
       ++unique_paths;
     }
   }
 
+  real_paths.size = unique_paths;
+
   /* Now we scan only the unique paths */
   for (size_t i = 0; i < unique_paths; i++) {
-    if (anu_file_recursive_filewalk(real_paths[i], files)) {
-      log_warn("Error searching for files in '%s'", real_paths[i]);
+
+    char *path = kv_A(real_paths, i);
+    if (anu_file_recursive_filewalk(path, files)) {
+      log_warn("Error searching for files in '%s'", path);
     }
     /* Free path once we're done */
-    free(real_paths[i]);
+    free(path);
   }
 
-  free((void *) real_paths);
+  kv_destroy(real_paths);
 }
