@@ -118,8 +118,10 @@ Test (util, death_die, .signal = SIGABRT) {
   ANU_DIE("This is an expected fatal exit");
 }
 
-Test (util, death_todo, .signal = SIGABRT) { TODO("This feature isn't ready"); }
+Test (util, death_todo, .signal = SIGABRT) {
+  ANU_TODO("This feature isn't ready");
+}
 
 #ifdef ANU_DEBUG
-Test (util, death_assume_fail, .signal = SIGABRT) { ASSUME(1 == 2); }
+Test (util, death_assume_fail, .signal = SIGABRT) { ANU_ASSUME(1 == 2); }
 #endif

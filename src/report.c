@@ -177,7 +177,7 @@ static void elect_best_file (dupe_group_vector *group,
         }
       default:
         {
-          UNREACHABLE("Strategy enum is not fully accounted.");
+          ANU_UNREACHABLE("Strategy enum is not fully accounted.");
         }
     }
 
@@ -348,7 +348,7 @@ anu_report anu_generate_report (anu_file_q *files,
   for (size_t i = 0; i < file_count; i++) {
     size_t root = find_set(i, parent);
     /* Should never happen if logic is correct */
-    ASSUME(root < file_count);
+    ANU_ASSUME(root < file_count);
     if (!buckets[root].items) {
       anu_vector_init(&buckets[root], 2, sizeof(root));
     }

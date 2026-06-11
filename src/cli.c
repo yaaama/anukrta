@@ -536,7 +536,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 
       default:
         {
-          UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
+          ANU_UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
         }
     }
   }

@@ -10,23 +10,353 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
-typedef uint8_t u8;
-typedef int32_t i32;
-typedef int64_t i64;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef float f32;
-typedef double f64;
-typedef uint8_t byte;
-typedef uintptr_t uptr;
-typedef ptrdiff_t size;
-typedef size_t usize;
-typedef uint32_t flags32;
+/**
+ * @name Type Definitions
+ * Shorthand fixed-width integer and primitive type definitions used throughout the codebase.
+ * @{
+ */
+/* clang-format off */
+typedef uint8_t   u8;       /**< 8-bit unsigned integer */
+typedef int32_t   i32;      /**< 32-bit signed integer */
+typedef int64_t   i64;      /**< 64-bit signed integer */
+typedef uint32_t  u32;      /**< 32-bit unsigned integer */
+typedef uint64_t  u64;      /**< 64-bit unsigned integer */
+typedef float     f32;      /**< 32-bit floating-point number (single precision) */
+typedef double    f64;      /**< 64-bit floating-point number (double precision) */
+
+typedef uint8_t   byte;     /**< Raw byte representation (alias for u8/uint8_t) */
+typedef uintptr_t uptr;     /**< Unsigned integer capable of holding a pointer securely */
+typedef ptrdiff_t size;     /**< Signed integer for pointer arithmetic or negative sizes */
+typedef size_t    usize;    /**< Unsigned integer for object sizes, memory sizing, and array indexing */
+typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bitwise flags/masks */
+/* clang-format on */
+/** @} */  // END Type Definitions
 
 #ifndef __has_builtin
 #  define __has_builtin(x) 0
 #endif
+
+#if !defined(__GNUC__) && !defined(__clang__)
+static_assert(0, "We require GNUisms to build!");
+#endif
+
+/**
+ * @name Function Attributes/Compiler Built-ins
+ * Function attributes
+ * @{
+ */
+#if defined(__GNUC__) || defined(__clang__)
+
+/**
+ * @brief Suppresses compiler warnings about unused variables, parameters, or functions.
+ *
+ * Useful when a variable is only used in certain build configurations (e.g., `#ifdef DEBUG`)
+ * or for required function signatures where not all parameters are needed.
+ *
+ * @par Example Usage:
+ * @code
+ * void event_handler(int event_id, void* MAYBE_UNUSED context) {
+ *     printf("Event: %d\n", event_id);
+ * }
+ * @endcode
+ */
+#  define MAYBE_UNUSED __attribute__((unused))
+
+/**
+ * @brief Forces the compiler to inline the function, regardless of optimization limits.
+ *
+ * Bypasses the compiler's normal cost-benefit analysis for inlining. Use sparingly,
+ * typically for very small, performance-critical functions.
+ *
+ * @par Example Usage:
+ * @code
+ *  static ALWAYS_INLINE int get_fast_multiplier(int base) {
+ *     return base << 2;
+ * }
+ * @endcode
+ */
+#  define ALWAYS_INLINE inline __attribute__((always_inline))
+
+/**
+ * @brief Marks a function as "pure", meaning it has no side effects.
+ *
+ * The function's return value must depend ONLY on its parameters and/or global
+ * variables. It must not modify global state or perform I/O. This allows the
+ * compiler to optimize away redundant calls (e.g., in loops).
+ *
+ * @par Example Usage:
+ * @code
+ * int string_hash(const char* str) FUNC_PURE;
+ * @endcode
+ */
+#  define FUNC_PURE __attribute__((pure))
+
+/**
+ * @brief Marks a function as "const", a stricter version of pure.
+ *
+ * The function's return value must depend ONLY on its parameters. It cannot
+ * even read global variables or dereference pointers to global memory.
+ * Mathematical functions like `abs()` or `square()` are good examples.
+ *
+ * @par Example Usage:
+ * @code
+ * int square(int x) FUNC_CONST;
+ * @endcode
+ */
+#  define FUNC_CONST __attribute__((const))
+
+/**
+ * @brief Emits a compiler warning if the caller ignores the return value.
+ *
+ * Highly recommended for functions that allocate memory, return error codes,
+ * or acquire locks, where ignoring the result leads to memory leaks or bugs.
+ *
+ * @par Example Usage:
+ * @code
+ * int init_hardware_subsystem(void) FUNC_WARN_UNUSED_RESULT;
+ * @endcode
+ */
+#  define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+
+/**
+ * @brief Specifies that the compiler should warn if ANY pointer argument is NULL.
+ *
+ * Applies to all pointer arguments in the function signature. Enables
+ * aggressive optimizations by assuming pointers are always valid.
+ *
+ * @par Example Usage:
+ * @code
+ * void process_data(const char* input, char* output) FUNC_NONNULL_ALL;
+ * @endcode
+ */
+#  define FUNC_NONNULL_ALL __attribute__((nonnull))
+
+/**
+ * @brief Specifies that specific pointer arguments must not be NULL.
+ *
+ * @param ... A comma-separated list of 1-based parameter indices.
+ *
+ * @par Example Usage (Arguments 1 and 3 cannot be NULL):
+ * @code
+ * void safe_memcpy(void* dest, size_t len, const void* src) FUNC_NONNULL_ARG(1, 3);
+ * @endcode
+ */
+#  define FUNC_NONNULL_ARG(...) __attribute__((nonnull(__VA_ARGS__)))
+
+/**
+ * @brief Tells the compiler that the function returns a newly allocated pointer.
+ *
+ * Asserts that the returned pointer cannot alias (overlap) with any other
+ * valid pointer in the program. This allows the compiler to perform better
+ * alias analysis and optimization.
+ *
+ * @par Example Usage:
+ * @code
+ * void* custom_allocator(size_t size) FUNC_MALLOC;
+ * @endcode
+ */
+#  define FUNC_MALLOC __attribute__((malloc))
+
+/**
+ * @brief Indicates that the function will never return to its caller.
+ *
+ * Used for functions that terminate the program (e.g., `exit()`), enter an
+ * infinite loop, or throw longjmps/exceptions. Suppresses "reached end of
+ * non-void function" warnings.
+ *
+ * @par Example Usage:
+ * @code
+ * FUNC_NORETURN void fatal_panic(const char* reason);
+ * @endcode
+ */
+#  define FUNC_NORETURN __attribute__((noreturn))
+
+/**
+ * @brief Enables printf-style format string type checking by the compiler.
+ *
+ * @param x The 1-based index of the format string parameter.
+ * @param y The 1-based index of the first variadic argument (`...`).
+ *
+ * @par Example Usage:
+ * @code
+ * // Arg 1 is format string, Arg 2 is the first variadic argument
+ * void log_message(const char* fmt, ...) FUNC_PRINTF(1, 2);
+ * @endcode
+ */
+#  define FUNC_PRINTF(x, y) __attribute__((format(printf, x, y)))
+
+/**
+ * @brief Forces the compiler to inline every function called WITHIN this function.
+ *
+ * Useful for performance-critical wrapper functions where you want to eliminate
+ * all function call overhead inside the body of this specific function.
+ *
+ * @par Example Usage:
+ * @code
+ * void execute_tight_loop(void) FUNC_FLATTEN {
+ *     step_one(); // Will be inlined
+ *     step_two(); // Will be inlined
+ * }
+ * @endcode
+ */
+#  define FUNC_FLATTEN __attribute__((flatten))
+
+/**
+ * @brief Marks a function as a "hot spot" (executed very frequently).
+ *
+ * Instructs the compiler to optimize this function heavily for speed, and informs
+ * branch predictors that calls to this function are highly likely to happen.
+ *
+ * @par Example Usage:
+ * @code
+ * void process_audio_sample(float sample) HOT_FUNC;
+ * @endcode
+ */
+#  define HOT_FUNC __attribute__((hot))
+
+/**
+ * @brief Marks a function as "cold" (rarely executed).
+ *
+ * Instructs the compiler to optimize this function for size rather than speed,
+ * and to move its code out of the main execution path to improve CPU instruction
+ * caching for the hot code. Ideal for error handling.
+ *
+ * @par Example Usage:
+ * @code
+ * void handle_out_of_memory(void) COLD_FUNC;
+ * @endcode
+ */
+#  define COLD_FUNC __attribute__((cold))
+
+/**
+ * @brief Informs the compiler of the allocation size based on 1 or 2 arguments.
+ *
+ * @param ... A single 1-based index (like malloc), or TWO 1-based indices
+ *            (like calloc) where the total size is (arg1 * arg2).
+ *
+ * @par Example Usage:
+ * @code
+ * FUNC_ALLOC_SIZE(1)    void* custom_malloc(size_t size);
+ * FUNC_ALLOC_SIZE(1, 2) void* custom_calloc(size_t count, size_t size);
+ * @endcode
+ */
+#  define FUNC_ALLOC_SIZE(...) __attribute__((alloc_size(__VA_ARGS__)))
+
+#  if defined(__GNUC__) && (__GNUC__ >= 11)
+
+/**
+ * @def FUNC_MALLOC_DEALLOC
+ * @brief Associates an allocation function with its specific deallocation function.
+ *
+ * This extended version of the malloc attribute tells the compiler's static
+ * analyzer exactly how the allocated memory should be freed. This allows the
+ * compiler to detect memory leaks, use-after-free bugs, and mismatched
+ * allocator/deallocator pairs (e.g., allocating with `custom_malloc` but
+ * accidentally freeing with the standard `free()`).
+ *
+ * @param deallocator The name of the function used to free the returned pointer.
+ * @param ptr_index   The 1-based index of the argument in the deallocator
+ *                    function that receives the pointer to be freed.
+ *
+ * @par Example Usage:
+ * @code
+ * // Forward declaration of the deallocator is required first
+ * void custom_free(void* ptr);
+ *
+ * // Tell the compiler that custom_malloc pairs with custom_free,
+ * // and the pointer is passed as the 1st argument to custom_free.
+ * FUNC_MALLOC_DEALLOC(custom_free, 1) void* custom_malloc(size_t size);
+ *
+ * void test_function() {
+ *     void* ptr = custom_malloc(128);
+ *     free(ptr); // Compiler warning: 'ptr' should have been freed with 'custom_free'
+ * }              // Compiler warning if not freed at all: memory leak detected
+ * @endcode
+ */
+#    define FUNC_MALLOC_DEALLOC(dealloc, idx) \
+      __attribute__((malloc(dealloc, idx)))
+#  else
+#    define FUNC_MALLOC_DEALLOC(dealloc, idx)
+#  endif
+
+/**
+ * @def LIKELY
+ * @brief Hint to compiler that the branch is most likely *TRUE*.
+ * @note The `!!` converts expression `x` into a boolean value. The first `!`
+ * negates it into a boolean, and then the second `!` will return it back to its
+ * actual value. This is essential due to the fact that `__builtin_expect(x, y)`
+ * instructs to the compiler that `x` is exactly equal to `y`.
+ * E.g.
+ * ```c
+ * int x = 42;
+ * if (__builtin_expect(x, 1)) { ... }
+ * ```
+ * Would not work in this case, however when we do `!!(42)`, it evaluates to `1`
+ * (as it is non-zero/non-null).
+ */
+
+#  define LIKELY(x) __builtin_expect(!!(x), 1)
+
+/** @def UNLIKELY
+ * Hint to the compiler the condition is most likely *FALSE*.
+ */
+#  define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
+#else
+
+#  define MAYBE_UNUSED
+#  define ALWAYS_INLINE
+#  define FLATTEN
+#  define MAYBE_UNUSED
+#  define ALWAYS_INLINE inline
+#  define FUNC_PURE
+#  define FUNC_CONST
+#  define FUNC_WARN_UNUSED_RESULT
+#  define FUNC_NONNULL_ALL
+#  define FUNC_NONNULL_ARG(...)
+#  define FUNC_MALLOC
+#  define FUNC_NORETURN
+#  define FUNC_PRINTF(x, y)
+#  define FUNC_FLATTEN
+#  define HOT_FUNC
+#  define COLD_FUNC
+
+#  define LIKELY(x) (x)
+#  define UNLIKELY(x) (x)
+
+#endif
+/** @} */  // End Function Attributes
+
+/**
+ * @def CACHE_LINE_SIZE
+ * @brief Number of bytes in a single cache line.
+ */
+#ifndef CACHE_LINE_SIZE
+/* Apple Silicon (M1/M2/M3) uses 128-byte cache lines */
+#  if defined(__APPLE__) && defined(__aarch64__)
+#    define CACHE_LINE_SIZE 128
+/* IBM PowerPC and mainframes also often use 128 */
+#  elif defined(__powerpc__) || defined(__s390x__)
+#    define CACHE_LINE_SIZE 128
+/* x86, x86_64, and standard ARM all use 64 */
+#  else
+#    define CACHE_LINE_SIZE 64
+#  endif
+#endif
+/** Number of integer types that fit within a single cache line. */
+#define CACHE_STRIDE_INT (CACHE_LINE_SIZE / sizeof(int))
+/** Number of `long` types that fit within a single cache line. */
+#define CACHE_STRIDE_LONG (CACHE_LINE_SIZE / sizeof(long))
+/** Number of `long long` types that fit within a single cache line. */
+#define CACHE_STRIDE_LLONG (CACHE_LINE_SIZE / sizeof(long long))
+/** Number of `char` types that will fit within a single cache line. */
+#define CACHE_STRIDE_CHAR (CACHE_LINE_SIZE / sizeof(char))
+/** Number of `float` types that will fit within a single cache line. */
+#define CACHE_STRIDE_FLOAT (CACHE_LINE_SIZE / sizeof(float))
+/** Number of `double` types that will fit within a single cache line. */
+#define CACHE_STRIDE_DOUBLE (CACHE_LINE_SIZE / sizeof(double))
 
 /**
  * @name BitMacros Flag Macros
@@ -74,33 +404,47 @@ typedef uint32_t flags32;
 /** @} */  // End BitMacros group
 
 /**
- * @def CACHE_LINE_SIZE
- * @brief Number of bytes in a single cache line.
+ * @name Utility Macros
+ * Generally useful macros.
+ * @{
  */
-#ifndef CACHE_LINE_SIZE
-/* Apple Silicon (M1/M2/M3) uses 128-byte cache lines */
-#  if defined(__APPLE__) && defined(__aarch64__)
-#    define CACHE_LINE_SIZE 128
-/* IBM PowerPC and mainframes also often use 128 */
-#  elif defined(__powerpc__) || defined(__s390x__)
-#    define CACHE_LINE_SIZE 128
-/* x86, x86_64, and standard ARM all use 64 */
-#  else
-#    define CACHE_LINE_SIZE 64
-#  endif
-#endif
-/** Number of integer types that fit within a single cache line. */
-#define CACHE_STRIDE_INT (CACHE_LINE_SIZE / sizeof(int))
-/** Number of `long` types that fit within a single cache line. */
-#define CACHE_STRIDE_LONG (CACHE_LINE_SIZE / sizeof(long))
-/** Number of `long long` types that fit within a single cache line. */
-#define CACHE_STRIDE_LLONG (CACHE_LINE_SIZE / sizeof(long long))
-/** Number of `char` types that will fit within a single cache line. */
-#define CACHE_STRIDE_CHAR (CACHE_LINE_SIZE / sizeof(char))
-/** Number of `float` types that will fit within a single cache line. */
-#define CACHE_STRIDE_FLOAT (CACHE_LINE_SIZE / sizeof(float))
-/** Number of `double` types that will fit within a single cache line. */
-#define CACHE_STRIDE_DOUBLE (CACHE_LINE_SIZE / sizeof(double))
+
+/** @def ANU_ARRAY_SIZE
+ * @brief Calculate the length of a C array
+ *
+ * @note This should be called with a real array.
+ * @warning Calling this with a pointer is an error.
+ * A mechanism to detect many (though not all) of those errors at compile
+ * time is implemented. It works by the second division producing a division by
+ * zero in those cases (-Wdiv-by-zero in GCC).
+ *
+ * Snippet derived from neovim (neovim/src/nvim/macros_defs.h)
+ * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0/
+ * Renamed to `ANU_ARRAY_SIZE`.
+ */
+#define ANU_ARRAY_SIZE(array)             \
+  ((sizeof(array) / sizeof((array)[0])) / \
+   ((size_t) (!(sizeof(array) % sizeof((array)[0])))))
+
+/**
+ * @def ARRAY_LAST_ENTRY
+ * @brief Get last array entry.
+ *
+ * @note This should be called with a real array.
+ * @warning Calling this with a pointer is an *error*.
+ *
+ * Snippet derived from neovim (neovim/src/nvim/macros_defs.h)
+ * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0
+ */
+#define ARRAY_LAST_ENTRY(array) (array)[ANU_ARRAY_SIZE(array) - 1]
+
+/**
+ * @def ANU_ZERO_MEMORY
+ * @brief Zero out memory. */
+#define ZERO_MEMORY(pointer, count, type) \
+  memset((pointer), 0, (count) * sizeof(type))
+
+/** @} */
 
 /**
  * @name Time conversion utilities
@@ -119,7 +463,8 @@ typedef uint32_t flags32;
  * @param microseconds The value in us.
  * @return The equivalent value in seconds.
  */
-static inline double anu_time_microseconds_to_seconds (size_t microseconds) {
+static ALWAYS_INLINE FUNC_CONST double anu_time_microseconds_to_seconds (
+    size_t microseconds) {
   return (microseconds > 0) ? ((double) microseconds / ANU_TIME_ONE_SEC_IN_US)
                             : 0;
 }
@@ -129,7 +474,8 @@ static inline double anu_time_microseconds_to_seconds (size_t microseconds) {
  * @param seconds The value in decimal seconds.
  * @return The equivalent value in microseconds.
  */
-static inline size_t anu_time_seconds_to_microseconds (double seconds) {
+static ALWAYS_INLINE FUNC_CONST size_t
+anu_time_seconds_to_microseconds (double seconds) {
   return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
                        : 0;
 }
@@ -211,8 +557,9 @@ static_assert(
  * @retval 64 `X` and `Y` are compliments of one another.
  * @retval k `X` and `Y` differ by `k` number of bits.
  */
-static inline unsigned int hamming_distance (const uint64_t a,
-                                             const uint64_t b) {
+static ALWAYS_INLINE FUNC_CONST unsigned int hamming_distance (
+    const uint64_t a,
+    const uint64_t b) {
   uint64_t x = a ^ b;
 
   /* Use popcountll if builtin */
@@ -232,88 +579,12 @@ void print_matrix_float(FILE *fp, const float *matrix, int rows, int cols);
 
 void anu_util_print_indent(FILE *fp, int spaces, int depth);
 
-static inline int anu_util_tolower (int c) {
+/**
+ * @brief Convert ascii character to lower case
+ */
+static ALWAYS_INLINE FUNC_CONST int anu_util_tolower (int c) {
   return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
 }
-
-/** @def ANU_ARRAY_SIZE
- * @brief Calculate the length of a C array
- *
- * @note This should be called with a real array.
- * @warning Calling this with a pointer is an error.
- * A mechanism to detect many (though not all) of those errors at compile
- * time is implemented. It works by the second division producing a division by
- * zero in those cases (-Wdiv-by-zero in GCC).
- *
- * Snippet derived from neovim (neovim/src/nvim/macros_defs.h)
- * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0/
- * Renamed to `ANU_ARRAY_SIZE`.
- */
-#define ANU_ARRAY_SIZE(array)             \
-  ((sizeof(array) / sizeof((array)[0])) / \
-   ((size_t) (!(sizeof(array) % sizeof((array)[0])))))
-
-/**
- * @def ARRAY_LAST_ENTRY
- * @brief Get last array entry
- *
- * @note This should be called with a real array.
- * @warning Calling this with a pointer is an *error*.
- *
- * Snippet derived from neovim (neovim/src/nvim/macros_defs.h)
- * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0
- */
-#define ARRAY_LAST_ENTRY(array) (array)[ANU_ARRAY_SIZE(array) - 1]
-
-/** Zero out memory. */
-#define ZERO_MEMORY(pointer, count, type) \
-  memset((pointer), 0, (count) * sizeof(type))
-
-#if !defined(__GNUC__) && !defined(__clang__)
-static_assert(0, "We require GNUisms to build!");
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
-
-#  define MAYBE_UNUSED __attribute__((unused))
-#  define ALWAYS_INLINE inline __attribute__((always_inline))
-#  define FLATTEN __attribute__((flatten))
-#  define HOT_FUNC __attribute__((hot))
-#  define COLD_FUNC __attribute__((cold))
-
-/**
- * @def LIKELY
- * @brief Hint to compiler that the branch is most likely *TRUE*.
- * @note The `!!` converts expression `x` into a boolean value. The first `!`
- * negates it into a boolean, and then the second `!` will return it back to its
- * actual value. This is essential due to the fact that `__builtin_expect(x, y)`
- * instructs to the compiler that `x` is exactly equal to `y`.
- * E.g.
- * ```c
- * int x = 42;
- * if (__builtin_expect(x, 1)) { ... }
- * ```
- * Would not work in this case, however when we do `!!(42)`, it evaluates to `1`
- * (as it is non-zero/non-null).
- */
-
-#  define LIKELY(x) __builtin_expect(!!(x), 1)
-
-/** @def UNLIKELY
- * Hint to the compiler the condition is most likely *FALSE*.
- */
-#  define UNLIKELY(x) __builtin_expect(!!(x), 0)
-
-#else
-
-#  define MAYBE_UNUSED
-#  define ALWAYS_INLINE
-#  define FLATTEN
-#  define HOT_FUNC
-#  define COLD_FUNC
-#  define LIKELY(x) (x)
-#  define UNLIKELY(x) (x)
-#endif
 
 #define STRINGIFY(s) TOSTRING(s)
 #define TOSTRING(s) #s
@@ -347,10 +618,10 @@ static_assert(0, "We require GNUisms to build!");
   } while (0)
 
 /**
- * @def TODO
+ * @def ANU_TODO
  * @brief Print message and exit, as this section of code is not implemented yet.
  */
-#define TODO(message)                                               \
+#define ANU_TODO(message)                                           \
   do {                                                              \
     (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
                    (message));                                      \
@@ -360,16 +631,16 @@ static_assert(0, "We require GNUisms to build!");
 
 #ifdef ANU_DEBUG  // If its in DEBUG MODE
 /* Debug builds should crash when reaching unreachable code. */
-#  define UNREACHABLE(message)                                          \
-    do {                                                                \
-      (void) fprintf(stderr,                                            \
-                     "[PANIC] UNREACHABLE CODE REACHED AT %s:%d: %s\n", \
-                     __FILE__, __LINE__, (message));                    \
-      abort();                                                          \
+#  define ANU_UNREACHABLE(message)                                          \
+    do {                                                                    \
+      (void) fprintf(stderr,                                                \
+                     "[PANIC] ANU_UNREACHABLE CODE REACHED AT %s:%d: %s\n", \
+                     __FILE__, __LINE__, (message));                        \
+      abort();                                                              \
     } while (0)
 
 /* Assumption crashes when false. */
-#  define ASSUME(cond)                                                   \
+#  define ANU_ASSUME(cond)                                               \
     do {                                                                 \
       if (!(cond)) {                                                     \
         (void) fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", \
@@ -380,17 +651,17 @@ static_assert(0, "We require GNUisms to build!");
 
 /* ------------------------------------------------------------------------ */
 #else
-/* Optimise unreachable code away when in release builds. */
-#  define UNREACHABLE(message) __builtin_unreachable()
+/* Optimise ANU_unreachable code away when in release builds. */
+#  define ANU_UNREACHABLE(message) __builtin_unreachable()
 
 /* Tell compiler our assumptions are TRUE and optimise out anything contrary. */
-#  define ASSUME(cond) \
-    do {               \
-      if (!(cond)) {   \
-        UNREACHABLE(); \
-      }                \
+#  define ANU_ASSUME(cond) \
+    do {                   \
+      if (!(cond)) {       \
+        ANU_UNREACHABLE(); \
+      }                    \
     } while (0)
 
-#endif  // UNREACHABLE
+#endif  // ANU_UNREACHABLE
 
 #endif  // ANU_UTIL_H

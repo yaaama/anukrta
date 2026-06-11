@@ -371,7 +371,7 @@ static uint64_t hash_decoded_frame (
       }
     default:
       {
-        UNREACHABLE("Hashing algorithm not specified.");
+        ANU_UNREACHABLE("Hashing algorithm not specified.");
       }
   }
 
