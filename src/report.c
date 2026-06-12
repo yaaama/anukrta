@@ -11,6 +11,7 @@
 
 #include "config.h"
 #include "explore.h"
+#include "log.h"
 #include "stack.h"
 #include "tree.h"
 #include "util.h"
@@ -84,11 +85,18 @@ static char *get_date_from_epoch (time_t *epoch_time,
 
   MAYBE_UNUSED size_t ret =
       strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
-  assert(ret > 0);
+
+  if (ret == 0) {
+    log_warn("Date string exceeds buffer size.");
+    return NULL;
+  }
   return buf;
 }
 
-static void print_file_hashes (uint64_t *hashes, size_t hash_count) {
+static void print_file_hashes (u64 *hashes, usize hash_count) {
+  if (hash_count == 0) {
+    return;
+  }
   printf("\t-> Hashes: [ ");
 
   for (size_t i = 0; i < hash_count; i++) {
