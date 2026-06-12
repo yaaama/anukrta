@@ -15,19 +15,6 @@
 #include "tree.h"
 #include "util.h"
 
-#ifdef ANU__USE_RECURSIVE_SET_FIND  // Recursive 'find_set' implementation
-#  pragma message("Making use of recursive `find_set` implementation.")
-
-/* Finds the representative (or "root") of the set containing element 'i'
- *Implements path compression for efficiency. */
-static size_t find_set (size_t i, size_t *parent) {
-  if (parent[i] == i) {
-    return i;
-  }
-  /* Path compression: set parent directly to the root */
-  return parent[i] = find_set(parent[i], parent);
-}
-#else
 static size_t find_set (size_t i, size_t *parent) {
   size_t root = i;
 
@@ -46,7 +33,6 @@ static size_t find_set (size_t i, size_t *parent) {
 
   return root;
 }
-#endif  // ANU__USE_RECURSIVE_SET_FIND
 
 /* Merges the sets containing elements 'i' and 'j' */
 static void unite_sets (size_t i, size_t j, size_t *parent) {
