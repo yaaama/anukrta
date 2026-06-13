@@ -11,13 +11,13 @@
 
 #include "config.h"
 #include "explore.h"
+#include "kvec.h"
 #include "log.h"
-#include "stack.h"
 #include "tree.h"
 #include "util.h"
 
-static size_t find_set (size_t i, size_t *parent) {
-  size_t root = i;
+static usize find_set (usize i, usize *parent) {
+  usize root = i;
 
   /* Pass 1: Find the actual root */
   while (parent[root] != root) {
@@ -27,7 +27,7 @@ static size_t find_set (size_t i, size_t *parent) {
   /* Pass 2: Path compression
    * Traverse the path again, making every node point to the root */
   while (parent[i] != root) {
-    size_t next_node = parent[i];
+    usize next_node = parent[i];
     parent[i] = root;
     i = next_node;
   }
@@ -36,13 +36,22 @@ static size_t find_set (size_t i, size_t *parent) {
 }
 
 /* Merges the sets containing elements 'i' and 'j' */
-static void unite_sets (size_t i, size_t j, size_t *parent) {
-  size_t root_i = find_set(i, parent);
-  size_t root_j = find_set(j, parent);
+static void unite_sets (usize i,
+                        usize j,
+                        usize *restrict parent,
+                        usize *restrict rank) {
+  usize root_i = find_set(i, parent);
+  usize root_j = find_set(j, parent);
 
   if (root_i != root_j) {
-    /* Make the root of 'i's set a child of the root of 'j's set */
-    parent[root_i] = root_j;
+    if (rank[root_i] < rank[root_j]) {
+      parent[root_i] = root_j;
+    } else if (rank[root_i] > rank[root_j]) {
+      parent[root_j] = root_i;
+    } else {
+      parent[root_j] = root_i;
+      rank[root_i]++;
+    }
   }
 }
 
@@ -53,7 +62,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
 
   int unit_index = 0;
   /* We will use this to keep track of the fractional part */
-  size_t remainder = 0;
+  usize remainder = 0;
 
   /* >> 10 is equivalent to dividing by 1024 */
   while ((n_bytes >= 1024) && (unit_index < (UNITS_IEC_COUNT - 1))) {
@@ -67,7 +76,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
     /* Calculate the 2-digit decimal part using pure integer math.
      We multiply the remainder by 100, then divide by 1024 (by shifting).
      This gives us a perfectly safe 0-99 value. */
-    size_t decimals = (remainder * 100) >> 10;
+    usize decimals = (remainder * 100) >> 10;
     c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals,
                 units_iec[unit_index]);
   } else {
@@ -78,13 +87,12 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
 }
 
 static char *get_date_from_epoch (time_t *epoch_time,
-                                  size_t buf_size,
+                                  usize buf_size,
                                   char *buf) {
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
-  MAYBE_UNUSED size_t ret =
-      strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
+  MAYBE_UNUSED usize ret = strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
 
   if (ret == 0) {
     log_warn("Date string exceeds buffer size.");
@@ -99,101 +107,89 @@ static void print_file_hashes (u64 *hashes, usize hash_count) {
   }
   printf("\t-> Hashes: [ ");
 
-  for (size_t i = 0; i < hash_count; i++) {
+  for (usize i = 0; i < hash_count; i++) {
     printf("%016" PRIX64 " ", hashes[i]);
   }
 
   printf("]\n");
 }
 
+static bool is_better_file (const anu_file *restrict candidate,
+                            const anu_file *restrict current_best,
+                            best_file_strat strat) {
+  bool better = false;
+  bool tied = false;
+
+  switch (strat) {
+    case BEST_FILE_SMALLEST:
+      better = (candidate->size < current_best->size);
+      tied = (candidate->size == current_best->size);
+      break;
+    case BEST_FILE_LARGEST:
+      better = (candidate->size > current_best->size);
+      tied = (candidate->size == current_best->size);
+      break;
+    case BEST_FILE_CTIME_OLDEST:
+      better = (candidate->ctime < current_best->ctime);
+      tied = (candidate->ctime == current_best->ctime);
+      break;
+    case BEST_FILE_CTIME_NEWEST:
+      better = (candidate->ctime > current_best->ctime);
+      tied = (candidate->ctime == current_best->ctime);
+      break;
+    case BEST_FILE_MTIME_OLDEST:
+      better = (candidate->mtime < current_best->mtime);
+      tied = (candidate->mtime == current_best->mtime);
+      break;
+    case BEST_FILE_MTIME_NEWEST:
+      better = (candidate->mtime > current_best->mtime);
+      tied = (candidate->mtime == current_best->mtime);
+      break;
+    case BEST_FILE_LONGEST:
+      better = (candidate->duration_us > current_best->duration_us);
+      tied = (candidate->duration_us == current_best->duration_us);
+      break;
+    case BEST_FILE_SHORTEST:
+      better = (candidate->duration_us < current_best->duration_us);
+      tied = (candidate->duration_us == current_best->duration_us);
+      break;
+    default:
+      ANU_UNREACHABLE("Strategy enum is not fully accounted.");
+  }
+
+  /* Universal string tie-breaker for deterministic outputs */
+  if (tied) {
+    return strcmp(candidate->path, current_best->path) < 0;
+  }
+  return better;
+}
+
 /**
  * @brief Elect the best file based on strategy.
  * @todo Make this accept a function pointer and write our strategies separately.
  */
-static void elect_best_file (dupe_group_vector *group,
+static void elect_best_file (file_id_vec *group,
                              anu_file_q *files,
                              anukrta_config *config) {
 
-  const best_file_strat strat = config->best_file_strategy;
   /* Exit early if no strategy or if group is just 1 file */
-  if (group->count == 1 || strat == BEST_FILE_NONE) {
+  usize group_count = kv_size(*group);
+
+  if (group_count <= 1 || config->best_file_strategy == BEST_FILE_NONE) {
     return;
   }
 
-  size_t best_index = 0;
-  anu_file *best_file = &(files->items[group->file_ids[0]]);
+  const best_file_strat strat = config->best_file_strategy;
 
-  for (usize i = 1; i < group->count; i++) {
+  usize best_index = 0;
+  anu_file *best_file = &(files->items[kv_A(*group, 0)]);
+  bool better = false;
 
-    bool better = false;
-    anu_file *candidate = &(files->items[group->file_ids[i]]);
-    switch (strat) {
-      case BEST_FILE_SMALLEST:
-        {
-          better = (candidate->size < best_file->size);
-          break;
-        }
-      case BEST_FILE_LARGEST:
-        {
-          better = (candidate->size > best_file->size);
-          break;
-        }
+  for (usize i = 1; i < group_count; i++) {
 
-      case BEST_FILE_CTIME_OLDEST:
-        {
-          better = (candidate->ctime < best_file->ctime);
-          break;
-        }
-      case BEST_FILE_CTIME_NEWEST:
-        {
-          better = (candidate->ctime > best_file->ctime);
-          break;
-        }
-      case BEST_FILE_MTIME_OLDEST:
-        {
-          better = (candidate->mtime < best_file->mtime);
-          break;
-        }
-      case BEST_FILE_MTIME_NEWEST:
-        {
-          better = (candidate->mtime > best_file->mtime);
-          break;
-        }
-      case BEST_FILE_LONGEST:
-        {
-          better = (candidate->duration_us > best_file->duration_us);
-          break;
-        }
-      case BEST_FILE_SHORTEST:
-        {
-          better = (candidate->duration_us < best_file->duration_us);
-          break;
-        }
-      default:
-        {
-          ANU_UNREACHABLE("Strategy enum is not fully accounted.");
-        }
-    }
-
-    /* Resolve tie's (e.g. if both files are the same size) */
-    if (!better) {
-      bool is_tied = false;
-      if (strat == BEST_FILE_LARGEST || strat == BEST_FILE_SMALLEST) {
-        is_tied = (candidate->size == best_file->size);
-      } else if (strat == BEST_FILE_MTIME_OLDEST ||
-                 strat == BEST_FILE_MTIME_NEWEST) {
-        is_tied = (candidate->mtime == best_file->mtime);
-      } else if (strat == BEST_FILE_CTIME_OLDEST ||
-                 strat == BEST_FILE_CTIME_NEWEST) {
-        is_tied = (candidate->ctime == best_file->ctime);
-      } else if (strat == BEST_FILE_LONGEST || strat == BEST_FILE_SHORTEST) {
-        is_tied = (candidate->duration_us == best_file->duration_us);
-      }
-
-      if (is_tied) {
-        better = (strcmp(candidate->path, best_file->path) < 0);
-      }
-    }
+    usize curr_file_id = kv_A(*group, i);
+    anu_file *candidate = &(files->items[curr_file_id]);
+    better = is_better_file(candidate, best_file, strat);
 
     if (better) {
       best_index = i;
@@ -203,9 +199,9 @@ static void elect_best_file (dupe_group_vector *group,
 
   /* TODO: Extract swapping logic and place elsewhere */
   if (best_index) {
-    u64 temp = group->file_ids[0];
-    group->file_ids[0] = group->file_ids[best_index];
-    group->file_ids[best_index] = temp;
+    u64 temp = kv_A(*group, 0);
+    kv_A(*group, 0) = kv_A(*group, best_index);
+    kv_A(*group, best_index) = temp;
   }
 }
 
@@ -213,30 +209,31 @@ void anu_print_report (anukrta_config *config,
                        anu_report *report,
                        anu_file_q *files,
                        u64 *hashes) {
-
+  usize group_count = kv_size(report->groups);
   printf("\n=== Duplicate Report: ===\n");
-  if (report->count == 0) {
+  if (group_count == 0) {
     printf("No duplicate groups found.\n");
     return;
   }
 
-  printf("Found %zu duplicate groups from %zu files\n", report->count,
+  printf("Found %zu duplicate groups from %zu files\n", group_count,
          files->count);
   printf("\n----------------------------------------");
   printf("\nMaster file was chosen using: '%s'\n",
          BEST_FILE_STRAT_STRINGS[config->best_file_strategy]);
   printf("----------------------------------------\n");
 
-  for (size_t i = 0; i < report->count; i++) {
-    dupe_group_vector *group = &report->groups[i];
+  for (usize i = 0; i < group_count; i++) {
+    file_id_vec *group = &(kv_A(report->groups, i));
+    usize items_in_group = kv_size(*group);  // <-- Get the right count
 
     elect_best_file(group, files, config);
 
-    printf("\n[+] Group #%zu (%zu items):\n", i + 1, group->count);
+    printf("\n[+] Group #%zu (%zu items):\n", i + 1, items_in_group);
 
-    for (size_t j = 0; j < group->count; j++) {
+    for (usize j = 0; j < items_in_group; j++) {
 
-      size_t file_id = group->file_ids[j];
+      usize file_id = kv_A(*group, j);
       anu_file *file = &files->items[file_id];
 
       char human_sizing[32];
@@ -265,119 +262,97 @@ void anu_print_report (anukrta_config *config,
   }
 }
 
-void anu_report_destroy (anu_report *report) {
-  if (!report) {
-    return;
-  }
-  for (size_t i = 0; i < report->count; i++) {
-    free(report->groups[i].file_ids);
-  }
-  free(report->groups);
-}
-
 anu_report anu_generate_report (anu_file_q *files,
-                                uint64_t *hashes,
+                                u64 *hashes,
                                 anukrta_config *config,
                                 bk_node *tree) {
-  size_t file_count = files->count;
+  usize file_count = files->count;
   anu_report report = {0};
 
   if (file_count == 0 || tree == NULL) {
     return report;
   }
 
-  report.count = 0;
-
   /* Union-Find to identify the groups */
-  size_t *parent = calloc(file_count, sizeof(*parent));
-  if (!parent) {
+  usize *parent = calloc(file_count, sizeof(*parent));
+  usize *rank = calloc(file_count, sizeof(*rank));
+  if (!parent || !rank) {
     ANU_DIE("Failed to allocate memory.");
   }
 
   /* Initially, each file is in its own set */
-  for (size_t i = 0; i < file_count; i++) {
+  for (usize i = 0; i < file_count; i++) {
     parent[i] = i;
   }
 
-  /* Important to zero-initialize */
-  anu_vector segment_results = {0};
-  anu_vector_init(&segment_results, 32, sizeof(uint64_t));
-  const size_t segments = config->segments;
+  bk_search_results segment_results;
+  kvi_init(segment_results);
 
-  for (size_t i = 0; i < file_count; i++) {
-    for (size_t seg = 0; seg < segments; seg++) {
-      segment_results.count = 0;
+  const usize segment_count = config->segments;
 
-      size_t cur_hash_idx = ((i * segments) + seg);
-      uint64_t current_hash = hashes[cur_hash_idx];
+  for (usize i = 0; i < file_count; i++) {
+    for (usize seg = 0; seg < segment_count; seg++) {
+      /* Reset segments_result vector to 0 */
+      segment_results.size = 0;
+
+      u64 current_hash = hashes[((i * segment_count) + seg)];
       bk_tree_search(tree, current_hash, config->threshold, &segment_results);
 
-      uint64_t *matched_files = (uint64_t *) segment_results.items;
       /* Process matches for this segment */
-      for (size_t k = 0; k < segment_results.count; k++) {
-        size_t match_id = matched_files[k];
+      for (usize k = 0; k < segment_results.size; k++) {
+        u64 match_id = kv_A(segment_results, k);
         assert(match_id < file_count);
-        unite_sets(i, match_id, parent);
+        unite_sets(i, match_id, parent, rank);
       }
     }
   }
-  anu_vector_destroy(&segment_results);  // Destroy intermediate results
+  /* Destroy intermediate results */
+  kvi_destroy(segment_results);
 
   /* Convert the Union-Find result into a list of groups */
 
-  /* Initial capacity of report */
-  report.capacity = 8;
-  report.groups = calloc(report.capacity, sizeof(dupe_group_vector));
-  if (!report.groups) {
-    ANU_DIE("Failed to allocate memory.");
-  }
-
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
-  anu_vector *buckets = calloc(file_count, sizeof(*buckets));
+  file_id_vec *buckets = calloc(file_count, sizeof(*buckets));
   if (!buckets) {
     ANU_DIE("Failed to allocate memory.");
   }
 
-  for (size_t i = 0; i < file_count; i++) {
-    size_t root = find_set(i, parent);
+  for (u64 i = 0; i < file_count; i++) {
+    usize root = find_set(i, parent);
     /* Should never happen if logic is correct */
     ANU_ASSUME(root < file_count);
-    if (!buckets[root].items) {
-      anu_vector_init(&buckets[root], 2, sizeof(root));
-    }
-    anu_vector_append(&buckets[root], &i);
+
+    kv_push(buckets[root], (u64) i);
   }
 
   /* NOTE: If a bucket has more than one file, it's a duplicate group */
   /* Populate final report struct */
-  for (size_t i = 0; i < file_count; i++) {
+  for (usize i = 0; i < file_count; i++) {
+
+    usize bucket_size = kv_size(buckets[i]);
 
     /* Destroy any buckets with less than 1 file */
-    if (buckets[i].count <= 1) {
-      anu_vector_destroy(&buckets[i]);
+    if (bucket_size <= 1) {
+      kv_destroy(buckets[i]);
       continue;
     }
 
-    /* Check if we have reached report capcity before filling it */
-    if (report.count == report.capacity) {
-      report.capacity *= 2;
-      dupe_group_vector *temp =
-          realloc(report.groups, report.capacity * sizeof(dupe_group_vector));
-      if (!temp) {
-        ANU_DIE("Failed to allocate memory.");
-      }
-      report.groups = temp;
-    }
-
-    dupe_group_vector *new_group = &report.groups[report.count];
-    ++report.count;
-    new_group->count = buckets[i].count;
-    /* Steal the memory from the stack */
-    new_group->file_ids = buckets[i].items;
+    kv_push(report.groups, buckets[i]);
   }
 
   free(buckets);
   free(parent);
+  free(rank);
   return report;
+}
+
+void anu_report_destroy (anu_report *report) {
+  /* Free all file id vectors */
+  usize group_count = report->groups.size;
+  for (usize i = 0; i < group_count; i++) {
+    file_id_vec *vec = &(kv_A(report->groups, i));
+    kv_destroy(*vec);
+  }
+  kv_destroy(report->groups);
 }

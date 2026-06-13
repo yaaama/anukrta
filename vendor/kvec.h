@@ -75,7 +75,7 @@
 #ifndef KVEC_FREE_CLEAR
 #  define KVEC_FREE_CLEAR(ptr)   \
     do {                         \
-      KVEC_FREE((ptr)); \
+  KVEC_FREE((void *)(ptr)); \
       (ptr) = NULL;              \
     } while (0)
 #endif
@@ -126,6 +126,8 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
   KVEC_FREE_CLEAR(src);
   return dest;
 }
+
+
 
 /**
  * @brief Rounds an integer up to the next highest power of 2.
@@ -253,7 +255,7 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
       kv_resize(v1, (v0).size);                                        \
     }                                                                  \
     (v1).size = (v0).size;                                             \
-    memcpy((v1).items, (v0).items, sizeof((v1).items[0]) * (v0).size); \
+  memcpy((void *)(v1).items, (const void *)(v0).items, sizeof((v1).items[0]) * (v0).size); \
   } while (0)
 
 /**
@@ -280,7 +282,7 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
   if ((len) > 0) {                                                    \
     kv_ensure_space(v, len);                                          \
     assert((v).items);                                                \
-    memcpy((v).items + (v).size, data, sizeof((v).items[0]) * (len)); \
+  memcpy((void *)((v).items + (v).size), (const void *) (data), sizeof((v).items[0]) * (len)); \
     (v).size = (v).size + (len);                                      \
   }
 
@@ -347,7 +349,7 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
  */
 #define kv_shift(v, i, n)                                        \
   ((v).size -= (n),                                              \
-   (i) < (v).size && memmove(&kv_A(v, (i)), &kv_A(v, (i) + (n)), \
+  (i) < (v).size && memmove((void *)&kv_A(v, (i)), (const void *)&kv_A(v, (i) + (n)), \
                              ((v).size - (i)) * sizeof(kv_A(v, i))))
 
 /* ========================================================================= */
@@ -406,16 +408,16 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
   ((v).capacity =                                                             \
        ((s) > KV_ARRAY_SIZE((v).init_array) ? (s)                             \
                                             : KV_ARRAY_SIZE((v).init_array)), \
-   (v).items =                                                                \
+   (v).items = (__typeof__((v).items))                                        \
        ((v).capacity == KV_ARRAY_SIZE((v).init_array)                         \
             ? ((v).items == (v).init_array                                    \
                    ? (v).items                                                \
-                   : _memcpy_free((v).init_array, (v).items,                  \
-                                  (v).size * sizeof((v).items[0])))           \
-            : ((v).items == (v).init_array                                    \
-                   ? memcpy(KVEC_MALLOC((v).capacity * sizeof((v).items[0])), \
-                            (v).items, (v).size * sizeof((v).items[0]))       \
-                   : KVEC_REALLOC((v).items,                                  \
+  : (__typeof__((v).items)) _memcpy_free((void*) (v).init_array, \
+  (void *)(v).items, (v).size * sizeof((v).items[0])))           \
+  : (__typeof__((v).items)) ((v).items == (v).init_array                                    \
+  ? (__typeof__((v).items)) memcpy(KVEC_MALLOC((v).capacity * sizeof((v).items[0])), \
+  (const void *) (v).items, (v).size * sizeof((v).items[0]))       \
+  :(__typeof__((v).items)) KVEC_REALLOC((void *)(v).items,                                  \
                                   (v).capacity * sizeof((v).items[0])))))
 
 /**
@@ -455,7 +457,7 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
   if ((len) > 0) {                                                    \
     kvi_ensure_more_space(v, len);                                    \
     assert((v).items);                                                \
-    memcpy((v).items + (v).size, data, sizeof((v).items[0]) * (len)); \
+  memcpy((void *)(v).items + (v).size, (void *)(data), sizeof((v).items[0]) * (len)); \
     (v).size = (v).size + (len);                                      \
   }
 
@@ -501,7 +503,7 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
       kvi_resize(v1, (v0).size);                                       \
     }                                                                  \
     (v1).size = (v0).size;                                             \
-    memcpy((v1).items, (v0).items, sizeof((v1).items[0]) * (v0).size); \
+  memcpy((void *)(v1).items, (const void *)(v0).items, sizeof((v1).items[0]) * (v0).size); \
   } while (0)
 
 /**

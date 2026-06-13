@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "kvec.h"
 #include "stack.h"
 #include "util.h"
 
@@ -107,33 +108,35 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
   bkTree_insert_internal(*tree_ptr, hash, file_id);
 }
 
+typedef kvec_withinit_t(const bk_node *, 32) bk_node_stack;
+
 void bk_tree_search (bk_node *root,
                      uint64_t hash,
                      size_t tolerance,
-                     anu_vector *groups_out) {
+                     bk_search_results *groups_out) {
 
   assert(tolerance <= 64);
 
-  if (UNLIKELY(!root)) {
+  if (!root) {
     return;
   }
 
   const ptrdiff_t tol = (ptrdiff_t) tolerance;
 
-  const bk_node *stack[64];
-  size_t top = 0;
-  stack[top++] = root;
+  bk_node_stack stack;
+  kvi_init(stack);
+  kvi_push(stack, root);
 
-  while (top > 0) {
-    const bk_node *node = stack[--top];
-    uint64_t node_hash = node->hash;
-    ptrdiff_t distance = (ptrdiff_t) hamming_distance(node_hash, hash);
+  while (kv_size(stack) > 0) {
+    const bk_node *node = kv_pop(stack);
+    ptrdiff_t distance = (ptrdiff_t) hamming_distance(node->hash, hash);
+
     ANU_ASSUME(distance >= 0 && distance <= 64);
 
     /* Found a match */
     if (distance <= tol) {
-      anu_vector_extend(groups_out, node->exact_dupe_file_ids.items,
-                        node->exact_dupe_file_ids.count);
+      kvi_concat_len(*groups_out, node->exact_dupe_file_ids.items,
+                     node->exact_dupe_file_ids.count);
     }
 
     ptrdiff_t min_search = distance - tol;
@@ -142,11 +145,11 @@ void bk_tree_search (bk_node *root,
     for (size_t i = 0; i < node->child_count; i++) {
       ptrdiff_t d = (ptrdiff_t) node->children[i].distance;
       if (d >= min_search && d <= max_search) {
-        stack[top] = node->children[i].node;
-        ++top;
+        kvi_push(stack, node->children[i].node);
       }
     }
   }
+  kvi_destroy(stack);  // Clean up
 }
 
 // NOLINTBEGIN (*recursion)

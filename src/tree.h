@@ -4,7 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "kvec.h"
 #include "stack.h"
+#include "util.h"
 
 typedef struct bk_child_edge {
   struct bk_node *node;
@@ -20,6 +22,8 @@ typedef struct bk_node {
   size_t child_capacity;
 } bk_node;
 
+typedef kvec_withinit_t(u64, 32) bk_search_results;
+
 /* Create new BK node */
 bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 
@@ -27,7 +31,7 @@ bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 void bk_tree_search(bk_node *root,
                     uint64_t hash,
                     size_t tolerance,
-                    anu_vector *groups_out);
+                    bk_search_results *groups_out);
 
 /* Insert hash into tree */
 void bk_tree_insert(bk_node **tree_ptr, uint64_t hash, uint64_t file_id);

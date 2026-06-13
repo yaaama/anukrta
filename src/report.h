@@ -13,14 +13,21 @@ typedef struct {
   usize capacity;
 } dupe_group_vector;
 
+typedef uint64_t file_id;
+
+/* Vector of file ids */
+typedef kvec_t(uint64_t) file_id_vec;
+
+/* List of a list of file ids */
+/* [0 : [id1,id2], 1: [id2,id3]] */
+typedef kvec_t(file_id_vec) group_vector;
+
 /*
  * Represents the entire report, containing multiple groups.
  * This will be printed after the program has hashed all files.
  */
 typedef struct {
-  dupe_group_vector *groups;
-  usize count;
-  usize capacity;
+  group_vector groups;
 } anu_report;
 
 void anu_print_report(anukrta_config *config,
