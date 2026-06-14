@@ -6,35 +6,23 @@
 #include "tree.h"
 #include "util.h"
 
-/* A dynamic array of file IDs */
-typedef struct {
-  u64 *file_ids;
-  usize count;
-  usize capacity;
-} dupe_group_vector;
-
-typedef uint64_t file_id;
-
-/* Vector of file ids */
-typedef kvec_t(uint64_t) file_id_vec;
-
 /* List of a list of file ids */
 /* [0 : [id1,id2], 1: [id2,id3]] */
-typedef kvec_t(file_id_vec) group_vector;
+typedef kvec_t(u64_vec) anu_report_groups;
 
 /*
  * Represents the entire report, containing multiple groups.
  * This will be printed after the program has hashed all files.
  */
 typedef struct {
-  group_vector groups;
+  anu_report_groups groups;
 } anu_report;
 
 void anu_print_report(anukrta_config *config,
                       anu_report *report,
-                      anu_file_q *files,
+                      anu_file_vec *files,
                       u64 *hashes);
-anu_report anu_generate_report(anu_file_q *files,
+anu_report anu_generate_report(anu_file_vec *files,
                                u64 *hashes,
                                anukrta_config *config,
                                bk_node *tree);

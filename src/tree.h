@@ -5,8 +5,9 @@
 #include <stdint.h>
 
 #include "kvec.h"
-#include "stack.h"
-#include "util.h"
+
+/* Vector of file ids */
+typedef kvec_t(uint64_t) u64_vec;
 
 typedef struct bk_child_edge {
   struct bk_node *node;
@@ -14,15 +15,13 @@ typedef struct bk_child_edge {
 } bk_child_edge;
 
 typedef struct bk_node {
-  anu_vector exact_dupe_file_ids;
+  u64_vec exact_dupe_file_ids;
   /* Children of node */
   bk_child_edge *children;
   uint64_t hash;
   size_t child_count;
   size_t child_capacity;
 } bk_node;
-
-typedef kvec_withinit_t(u64, 32) bk_search_results;
 
 /* Create new BK node */
 bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
@@ -31,7 +30,7 @@ bk_node *bk_tree_node_new(uint64_t hash, uint64_t file_id);
 void bk_tree_search(bk_node *root,
                     uint64_t hash,
                     size_t tolerance,
-                    bk_search_results *groups_out);
+                    u64_vec *groups_out);
 
 /* Insert hash into tree */
 void bk_tree_insert(bk_node **tree_ptr, uint64_t hash, uint64_t file_id);

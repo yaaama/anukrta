@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,76 +20,6 @@
 #include "kvec.h"
 #include "log.h"
 #include "util.h"
-
-void anu_fileq_init (anu_file_q *q, size_t init_capacity) {
-  assert(init_capacity);
-  if (!q) {
-    return;
-  }
-  q->capacity = init_capacity;
-  q->count = 0;
-  q->items = calloc(q->capacity, sizeof(anu_file));
-  if (!q->items) {
-    ANU_DIE("Failure to allocate memory for file queue.");
-  }
-  q->head = 0;
-  q->tail = 0;
-}
-
-int anu_fileq_enqueue (anu_file_q *q, anu_file *file_in) {
-
-  /* should return an error */
-  if ((!file_in) || (!q)) {
-    return -1;
-  }
-
-  if (q->capacity <= q->count) {
-    q->capacity *= 2;
-    anu_file *temp = realloc(q->items, (sizeof(anu_file) * q->capacity));
-    if (!temp) {
-      /* probs out of mem */
-      return -1;
-    }
-    q->items = temp;
-    q->head = 0;
-    q->tail = q->count;
-  }
-
-  q->items[q->count] = *file_in;
-  q->tail = (q->tail + 1) % q->capacity;
-  ++q->count;
-
-  return 0;
-}
-
-int anu_fileq_dequeue (anu_file_q *q, anu_file *file_out) {
-
-  if (!q || q->count == 0 || !file_out) {
-    return 0;
-  }
-
-  *file_out = q->items[q->head];
-  q->head = (q->head + 1) % q->capacity;
-  q->count--;
-  return 1;
-}
-
-void anu_fileq_destroy (anu_file_q *q) {
-
-  if (!q || !q->items) {
-    return;
-  }
-
-  for (size_t i = 0; i < q->count; i++) {
-    anu_file *item = &q->items[i];
-    free(item->path);
-  }
-  free(q->items);
-}
-
-struct anu_dir_job {
-  char path[PATH_MAX];
-};
 
 /* Video extensions */
 static const char *video_extensions[] = {
@@ -113,12 +44,12 @@ ALWAYS_INLINE bool anu_file_path_is_dir (char *path) {
 }
 
 /* Check extension of filename */
-int anu_file_ext_supported (char *filename) {
-  assert(filename);
-  char *dot = strrchr(filename, '.');
+int anu_file_ext_supported (char *path) {
+  assert(path);
+  char *dot = strrchr(path, '.');
 
   /* Check for '.' */
-  if (!dot || dot == filename) {
+  if (!dot || dot == path) {
     return 0;
   }
 
@@ -259,7 +190,8 @@ char *anu_file_basename_stem (char *path, char *out, size_t out_size) {
  *
  * Adds the file pointed to by 'path' to the 'files_out' struct.
  **/
-static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
+static int FUNC_NONNULL_ALL
+handle_path_pointing_to_file (char *path, anu_file_vec *files_out) {
 
   struct stat statb = {0};
   int stat_return = 0;
@@ -270,29 +202,40 @@ static int handle_path_pointing_to_file (char *path, anu_file_q *files_out) {
     return -1;
   }
 
-  anu_file file = {0};
-  file.ctime = statb.st_ctime;
-  file.mtime = statb.st_mtime;
-  /* Files can be 0 size */
-  assert(statb.st_size >= 0);
-  file.size = (size_t) statb.st_size;
-  file.path = realpath(path, NULL);
+  anu_file file = {
+    .ctime = statb.st_ctime,
+    .mtime = statb.st_mtime,
+    .size = (size_t) statb.st_size,
+    .path = path,
+  };
+
   char *base_ptr = anu_file_basename(path);
-  if (UNLIKELY(base_ptr == path)) {
+  if (base_ptr == path) {
     log_error("Could not determine basename from path...");
     return 1;
   }
   file.name_offset = (u32) (base_ptr - path);
 
-  anu_fileq_enqueue(files_out, &file);
+  kv_push(*files_out, file);
   return 0;
+}
+
+void anu_file_vec_destroy (anu_file_vec *v) {
+
+  for (size_t i = 0; i < kv_size(*v); i++) {
+    anu_file *file = &kv_A(*v, i);
+    /* Must free the dynamically allocated path strings */
+    free(file->path);
+  }
+
+  kv_destroy(*v);
 }
 
 /**
  * @brief Recursively search path and return files found.
  **/
 int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
-                                                  anu_file_q *files_out) {
+                                                  anu_file_vec *files_out) {
 
   if (!anu_file_path_exists(path)) {
     log_warn("%s not valid path.", path);
@@ -308,7 +251,8 @@ int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
   /* Resolve path if needed */
 
   /* Stack to hold directories */
-  kvec_t(char *) dirstack = KV_INITIAL_VALUE;
+  kvec_t(char *) dirstack;
+  kv_init(dirstack);
   /* Initialise with the path received */
   kv_push(dirstack, strdup(path));
 
@@ -323,18 +267,24 @@ int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
     if (!dir) {
       log_warn("Could not open directory: %s", curr_path);
       free(curr_path);
+      closedir(dir);
       continue;
     }
 
     int dir_fd = dirfd(dir);
+    if (dir_fd < 0) {
+      dir_fd = AT_FDCWD;
+    }
     struct dirent *dp;
 
     /* Path of current file */
     log_trace("Reading directory: '%s'", curr_path);
+
     while ((dp = readdir(dir)) != NULL) {
 
       char *name = dp->d_name;
 
+      /* Check for whether file is '.' or '..' */
       if (name[0] == '.') {
         if (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')) {
           continue;
@@ -353,11 +303,10 @@ int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
         continue;
       }
 
-      size_t name_len = strlen(name);
-
       char *full_path;
 
       if (asprintf(&full_path, "%s/%s", curr_path, name) == -1) {
+        log_error("Failed to allocate memory for path variable?");
         continue;
       }
 
@@ -373,12 +322,16 @@ int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
       /* Run stat on path */
       if (fstatat(dir_fd, dp->d_name, &statb, 0) != 0) {
         log_warn("Failed to fstatat file '%s'", full_path);
+        free(full_path);
         continue;
       }
       if (statb.st_size == 0) {
         log_debug("File size is 0 '%s'", full_path);
+        free(full_path);
         continue;
       }
+
+      size_t name_len = strlen(name);
 
       anu_file newfile = {
         .size = (usize) statb.st_size,
@@ -390,9 +343,7 @@ int FUNC_NONNULL_ALL anu_file_recursive_filewalk (char *path,
         .name_offset = (u32) (name_len + 1),
       };
 
-      if (anu_fileq_enqueue(files_out, &newfile)) {
-        ANU_DIE("Out of memory.");
-      }
+      kv_push(*files_out, newfile);
     }
     closedir(dir);
     free(curr_path);
@@ -412,7 +363,7 @@ static inline int compare_strings (const void *a, const void *b) {
 }
 
 /* TODO: Add a check for hard linked files (files with same inode number) */
-void scan_dirs (anukrta_config *config, anu_file_q *files) {
+void scan_dirs (anukrta_config *config, anu_file_vec *files) {
 
   /* Check if we need to scan current directory */
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR)) {

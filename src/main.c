@@ -2,6 +2,7 @@
 
 #include "cache.h"
 #include "config.h"
+#include "kvec.h"
 #ifdef ANU_DEBUG
 #  pragma message "Compilation in DEBUG mode."
 #  ifdef NDEBUG
@@ -43,7 +44,7 @@ typedef struct {
  */
 typedef struct {
   /** Pointer to file queue that needs to be hashed. */
-  anu_file_q *files;
+  anu_file_vec *files;
 
   /** Pointer to program configuration. */
   anukrta_config *config;
@@ -119,24 +120,24 @@ static int anukrta_driver (anukrta_config *config) {
   assert(config->segments > 0);
 
   /* Initialise file queue */
-  anu_file_q files;
-  anu_fileq_init(&files, 16);
+  anu_file_vec files;
+  kv_init(files);
 
   /* Scan path(s) and store in files queue */
   scan_dirs(config, &files);
 
   /* Exit early if we do not find any files */
-  if (files.count < 1) {
+  if (kv_size(files) < 1) {
     log_warn("No video files found!");
-    anu_fileq_destroy(&files);
+    kv_destroy(files);
     return -1;
   }
 
-  const size_t file_count = files.count;
+  const usize file_count = kv_size(files);
 
   log_info("Found `%zu` files", file_count);
 
-  const size_t hash_collection_len = (file_count * config->segments);
+  const usize hash_collection_len = (file_count * config->segments);
 
   /* Array of hashes
    * E.g. (N files with 2 segments) would look like this:
@@ -212,7 +213,7 @@ static int anukrta_driver (anukrta_config *config) {
 
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
-    anu_file *file = &files.items[i];
+    anu_file *file = &kv_A(files, i);
     int result = results[i].value;
     /* Check the result saved by the thread */
 
@@ -251,7 +252,7 @@ static int anukrta_driver (anukrta_config *config) {
   /* CLEANUP */
   anu_report_destroy(&report);
   bk_tree_node_free(filetree);
-  anu_fileq_destroy(&files);
+  anu_file_vec_destroy(&files);
   free(hashes);
   free(frame_timestamp);
   free(results);

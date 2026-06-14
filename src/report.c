@@ -168,8 +168,8 @@ static bool is_better_file (const anu_file *restrict candidate,
  * @brief Elect the best file based on strategy.
  * @todo Make this accept a function pointer and write our strategies separately.
  */
-static void elect_best_file (file_id_vec *group,
-                             anu_file_q *files,
+static void elect_best_file (u64_vec *group,
+                             anu_file_vec *files,
                              anukrta_config *config) {
 
   /* Exit early if no strategy or if group is just 1 file */
@@ -182,13 +182,13 @@ static void elect_best_file (file_id_vec *group,
   const best_file_strat strat = config->best_file_strategy;
 
   usize best_index = 0;
-  anu_file *best_file = &(files->items[kv_A(*group, 0)]);
+  anu_file *best_file = &kv_A(*files, (kv_A(*group, 0)));
   bool better = false;
 
   for (usize i = 1; i < group_count; i++) {
 
     usize curr_file_id = kv_A(*group, i);
-    anu_file *candidate = &(files->items[curr_file_id]);
+    anu_file *candidate = &kv_A(*files, curr_file_id);
     better = is_better_file(candidate, best_file, strat);
 
     if (better) {
@@ -207,9 +207,10 @@ static void elect_best_file (file_id_vec *group,
 
 void anu_print_report (anukrta_config *config,
                        anu_report *report,
-                       anu_file_q *files,
+                       anu_file_vec *files,
                        u64 *hashes) {
   usize group_count = kv_size(report->groups);
+  usize file_count = kv_size(*files);
   printf("\n=== Duplicate Report: ===\n");
   if (group_count == 0) {
     printf("No duplicate groups found.\n");
@@ -217,14 +218,14 @@ void anu_print_report (anukrta_config *config,
   }
 
   printf("Found %zu duplicate groups from %zu files\n", group_count,
-         files->count);
+         file_count);
   printf("\n----------------------------------------");
   printf("\nMaster file was chosen using: '%s'\n",
          BEST_FILE_STRAT_STRINGS[config->best_file_strategy]);
   printf("----------------------------------------\n");
 
   for (usize i = 0; i < group_count; i++) {
-    file_id_vec *group = &(kv_A(report->groups, i));
+    u64_vec *group = &(kv_A(report->groups, i));
     usize items_in_group = kv_size(*group);  // <-- Get the right count
 
     elect_best_file(group, files, config);
@@ -233,6 +234,8 @@ void anu_print_report (anukrta_config *config,
 
     for (usize j = 0; j < items_in_group; j++) {
 
+      /* NOTE: We rely on the fact that groups/file_ids are generated on runtime
+       * We assume that they will be sequential (`file_id` indexes to get the actual file) */
       usize file_id = kv_A(*group, j);
       anu_file *file = &files->items[file_id];
 
@@ -262,11 +265,18 @@ void anu_print_report (anukrta_config *config,
   }
 }
 
-anu_report anu_generate_report (anu_file_q *files,
+typedef struct u64_bucket {
+  u64_vec bucket_items;
+} u64_bucket;
+
+typedef kvec_withinit_t(u64_bucket, 8) u64_bucket_vec;
+
+anu_report anu_generate_report (anu_file_vec *files,
                                 u64 *hashes,
                                 anukrta_config *config,
                                 bk_node *tree) {
-  usize file_count = files->count;
+
+  usize file_count = kv_size(*files);
   anu_report report = {0};
 
   if (file_count == 0 || tree == NULL) {
@@ -285,8 +295,8 @@ anu_report anu_generate_report (anu_file_q *files,
     parent[i] = i;
   }
 
-  bk_search_results segment_results;
-  kvi_init(segment_results);
+  u64_vec segment_results;
+  kv_init(segment_results);
 
   const usize segment_count = config->segments;
 
@@ -296,28 +306,29 @@ anu_report anu_generate_report (anu_file_q *files,
       segment_results.size = 0;
 
       u64 current_hash = hashes[((i * segment_count) + seg)];
+      /* Search for matches for this hash */
       bk_tree_search(tree, current_hash, config->threshold, &segment_results);
 
       /* Process matches for this segment */
-      for (usize k = 0; k < segment_results.size; k++) {
-        u64 match_id = kv_A(segment_results, k);
-        assert(match_id < file_count);
-        unite_sets(i, match_id, parent, rank);
+      while (kv_size(segment_results) > 0) {
+        u64 node_id = kv_pop(segment_results);
+        unite_sets(i, node_id, parent, rank);
       }
     }
   }
   /* Destroy intermediate results */
-  kvi_destroy(segment_results);
+  kv_destroy(segment_results);
 
   /* Convert the Union-Find result into a list of groups */
 
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
-  file_id_vec *buckets = calloc(file_count, sizeof(*buckets));
+  u64_vec *buckets = calloc(file_count, sizeof(*buckets));
   if (!buckets) {
     ANU_DIE("Failed to allocate memory.");
   }
 
+  /* Every bucket is their own parent in the beginning */
   for (u64 i = 0; i < file_count; i++) {
     usize root = find_set(i, parent);
     /* Should never happen if logic is correct */
@@ -351,7 +362,7 @@ void anu_report_destroy (anu_report *report) {
   /* Free all file id vectors */
   usize group_count = report->groups.size;
   for (usize i = 0; i < group_count; i++) {
-    file_id_vec *vec = &(kv_A(report->groups, i));
+    u64_vec *vec = &(kv_A(report->groups, i));
     kv_destroy(*vec);
   }
   kv_destroy(report->groups);

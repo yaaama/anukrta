@@ -566,8 +566,10 @@ static ALWAYS_INLINE FUNC_CONST unsigned int hamming_distance (
 #if __has_builtin(__builtin_popcountll) || (defined(__GNUC__) && __GNUC__ >= 4)
   return (unsigned) __builtin_popcountll(x);
 
-  /* SWAR method is quickest to compute hamming distance if no hardware builtins available */
 #else
+/* SWAR method is quickest to compute hamming distance if no hardware builtins available */
+#  pragma message \
+      "Using SWAR to compute hamming distance as __builtin_popcountll not available."
   x = x - ((x >> 1) & 0x5555555555555555ULL);
   x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
   x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;

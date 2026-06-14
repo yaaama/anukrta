@@ -9,7 +9,6 @@
 #include <stdlib.h>
 
 #include "kvec.h"
-#include "stack.h"
 #include "util.h"
 
 bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
@@ -25,8 +24,8 @@ bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
   node->child_count = 0;
   node->child_capacity = 0;
 
-  anu_vector_init(&node->exact_dupe_file_ids, 1, sizeof(node->hash));
-  anu_vector_append(&node->exact_dupe_file_ids, &file_id);
+  kv_init(node->exact_dupe_file_ids);
+  kv_push(node->exact_dupe_file_ids, file_id);
 
   return node;
 }
@@ -46,7 +45,7 @@ void bk_tree_node_free (bk_node *node) {
     free(node->children);
   }
 
-  anu_vector_destroy(&node->exact_dupe_file_ids);
+  kv_destroy(node->exact_dupe_file_ids);
   free(node);
 }
 
@@ -63,7 +62,7 @@ static void bkTree_insert_internal (bk_node *node,
 
   if (!dist) {
     /* Exact match (collision). Add data to this node. */
-    anu_vector_append(&node->exact_dupe_file_ids, &file_id);
+    kv_push(node->exact_dupe_file_ids, file_id);
     return;
   }
 
@@ -108,12 +107,10 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
   bkTree_insert_internal(*tree_ptr, hash, file_id);
 }
 
-typedef kvec_withinit_t(const bk_node *, 32) bk_node_stack;
-
 void bk_tree_search (bk_node *root,
                      uint64_t hash,
                      size_t tolerance,
-                     bk_search_results *groups_out) {
+                     u64_vec *groups_out) {
 
   assert(tolerance <= 64);
 
@@ -123,7 +120,8 @@ void bk_tree_search (bk_node *root,
 
   const ptrdiff_t tol = (ptrdiff_t) tolerance;
 
-  bk_node_stack stack;
+  /* Stack for recursive bk node traversal */
+  kvec_withinit_t(const bk_node *, 16) stack;
   kvi_init(stack);
   kvi_push(stack, root);
 
@@ -135,8 +133,7 @@ void bk_tree_search (bk_node *root,
 
     /* Found a match */
     if (distance <= tol) {
-      kvi_concat_len(*groups_out, node->exact_dupe_file_ids.items,
-                     node->exact_dupe_file_ids.count);
+      kv_splice(*groups_out, node->exact_dupe_file_ids);
     }
 
     ptrdiff_t min_search = distance - tol;
@@ -175,9 +172,9 @@ static void bk_node_print_recursive (bk_node *node,
   }
 
   printf("Hash: %016lX | Files: [", node->hash);
-  uint64_t *items = (uint64_t *) node->exact_dupe_file_ids.items;
+  uint64_t *items = node->exact_dupe_file_ids.items;
 
-  for (size_t i = 0; i < node->exact_dupe_file_ids.count; i++) {
+  for (size_t i = 0; i < node->exact_dupe_file_ids.size; i++) {
     uint64_t hashitem = items[i];
     printf(" %" PRIu64 ",", hashitem);
   }

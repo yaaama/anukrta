@@ -628,7 +628,7 @@ int anu_video_hash (anu_file *file,
 
     hashes_out[frames_decoded] =
         hash_decoded_frame(matrix, config->hash_algorithm);
-    frame_timestamps_out[frames_decoded] = seek_target_us;
+    frame_timestamps_out[frames_decoded] = (u64) seek_target_us;
 
     log_trace("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
               hashes_out[frames_decoded]);
