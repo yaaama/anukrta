@@ -18,7 +18,7 @@ else
 		ECHO_V := @true
 endif
 
-CC ?= clang
+CC := clang
 LDFLAGS ?=
 
 # ==========================================
@@ -201,7 +201,7 @@ DEPS := $(OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d)
 TARGETS_TO_BUILD := $(BUILD_DIR)/$(TARGET_NAME)
 
 # Skip building tests when refactoring etc
-SKIP_TESTS ?= 0
+SKIP_TESTS := 1
 
 #  Skip building tests for release/profile or if explicitly skipped
 ifeq ($(filter release profile,$(VARIANT)),)
@@ -294,7 +294,7 @@ bear:
 	$(Q)$(MAKE) $(SQLITE_LIB) CC=$(CC)
 	@mkdir -p $(BUILD_ROOT)/debug
 	@echo "Generating compile_commands.json..."
-	$(Q)bear -- $(MAKE) CC=clang VARIANT=debug USE_CCACHE=0
+	$(Q)bear -- $(MAKE) CC=clang VARIANT=debug USE_CCACHE=0 SKIP_TESTS=1
 
 analyze: clean-debug
 	scan-build --use-cc=clang --force-analyze-debug-code -analyze-headers --exclude ./$(TEST_DIR) --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE) VARIANT=debug USE_CCACHE=0
