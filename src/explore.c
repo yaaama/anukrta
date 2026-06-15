@@ -206,7 +206,7 @@ handle_path_pointing_to_file (char *path, anu_file_vec *files_out) {
     .ctime = statb.st_ctime,
     .mtime = statb.st_mtime,
     .size = (size_t) statb.st_size,
-    .path = path,
+    .path = strdup(path),
   };
 
   char *base_ptr = anu_file_basename(path);
