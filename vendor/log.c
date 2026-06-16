@@ -76,13 +76,13 @@ static void file_callback (log_event *ev) {
   fflush(ev->udata);
 }
 
-static void lock (void) {
+static inline void lock (void) {
   if (l.lock) {
     l.lock(true, l.udata);
   }
 }
 
-static void unlock (void) {
+static inline void unlock (void) {
   if (l.lock) {
     l.lock(false, l.udata);
   }
@@ -121,7 +121,7 @@ static void init_event (log_event *ev, void *udata) {
   ev->udata = udata;
 }
 
-__attribute__((format(__printf__, 4, 5))) void log_log (int level, const char *file, int line, const char *fmt, ...) {
+void log_log (int level, const char *file, int line, const char *fmt, ...) {
   log_event ev = {
       .fmt = fmt,
       .file = file,

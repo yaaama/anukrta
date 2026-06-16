@@ -24,7 +24,6 @@ typedef struct {
   const char *fmt;
   const char *file;
   struct tm *time;
-  const char *func;
   void *udata;
   int line;
   int level;
