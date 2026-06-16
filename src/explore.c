@@ -313,14 +313,13 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
 
       /* Pointer to our final path */
       char *final_path;
-      int final_path_len = 0;
-      final_path_len = asprintf(&final_path, "%s/%s", curr_path, name);
+      int final_path_len = asprintf(&final_path, "%s/%s", curr_path, name);
 
       if (final_path_len == -1) {
         log_error("Failed to allocate memory for path variable.");
         continue;
       }
-
+      size_t name_len = strlen(name);
       anu_file newfile = {
         .size = (usize) statb.st_size,
         .ctime = statb.st_ctime,
@@ -328,7 +327,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
         .ino = statb.st_ino,
         .dev = statb.st_dev,
         .path = final_path,
-        .name_offset = (u32) (strlen(name) + 1),
+        .name_offset = (u32) ((size_t) final_path_len - name_len),
       };
 
       kv_push(*files_out, newfile);
