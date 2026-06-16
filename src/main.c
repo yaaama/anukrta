@@ -32,11 +32,20 @@
 #include "util.h"
 #include "video.h"
 
+typedef enum anu_ret_code : int32_t {
+  ANU_OK = 0,
+  ANU_PENDING,
+  ANU_FILE_CACHED,
+  ANU_IO_FAIL,
+  ANU_SKIPPED,
+  ANU_SKIPPED_SHORT,
+} anu_ret_code;
+
 /**
  * @brief Struct returned by threads.
  */
 typedef struct {
-  alignas(CACHE_LINE_SIZE) int value; /**< Result code. */
+  alignas(CACHE_LINE_SIZE) anu_ret_code value; /**< Result code. */
 } worker_result;
 
 /**
@@ -80,7 +89,6 @@ static void log_lock_callback (bool lock, void *udata) {
 static void init_logger (int verbosity,
                          pthread_mutex_t *log_mutex,
                          void (*lock_cb)(bool, void *)) {
-
   log_set_level(verbosity);
   log_set_lock(lock_cb, log_mutex);
 }
@@ -98,6 +106,10 @@ static void *hash_worker_thread (void *arg) {
     /* Check if next index exceeds file count */
     if (idx >= file_count) {
       break;
+    }
+
+    if (targs->results[idx].value == ANU_FILE_CACHED) {
+      continue;
     }
 
     size_t hash_off = idx * segments;
@@ -154,19 +166,9 @@ static int anukrta_driver (anukrta_config *config) {
     ANU_DIE("Failed to allocate memory.");
   }
 
-  /* THREADING START */
-
-  time_t curr_time = time(NULL);
-  log_debug("Current time: %ld", curr_time);
-
-  /* NOTE: Thread count should not exceed file count or it is a waste of resources */
-  config->thread_count = MINIMUM(config->thread_count, file_count);
-  assert(config->thread_count > 0);
-  pthread_t *threads __free(ptr) = NULL;
-  threads = calloc(config->thread_count, sizeof(*threads));
-
-  if (!threads) {
-    ANU_DIE("Failed to allocate memory for threads");
+  /* Initialise thread result values */
+  for (size_t i = 0; i < file_count; i++) {
+    thread_results[i].value = ANU_PENDING;
   }
 
   atomic_size_t current_file_idx = 0;
@@ -181,6 +183,55 @@ static int anukrta_driver (anukrta_config *config) {
     .file_count = file_count,
     .current_idx = &current_file_idx,
   };
+
+  /* Initialise SQLite3 */
+  cache_init_once();
+  /* Open the database */
+  sqlite3 *db = cache_open_db("cache.db");
+
+  if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
+    log_info("Checking database cache...");
+
+    for (size_t i = 0; i < file_count; i++) {
+      anu_file *file = &kv_A(files, i);
+      uint64_t file_id = 0;
+      uint64_t cached_duration = 0;
+
+      /* Check if metadata is exactly the same */
+      if (cache_is_file_valid(file->path, file->size, file->mtime, file->ctime,
+                              &file_id, &cached_duration)) {
+        size_t out_count = 0;
+        size_t hash_off = i * config->segments;
+
+        /* Retrieve the hashes & timestamps directly into our arrays */
+        int ret =
+            cache_get_hashes(file_id, hashes + hash_off, timestamps + hash_off,
+                             config->segments, &out_count);
+
+        /* Only use cache if the database contains the EXACT amount of segments we requested */
+        if (ret == 0 && out_count == config->segments) {
+          thread_results[i].value = ANU_FILE_CACHED;
+
+          file->duration_us = (size_t) cached_duration;
+        }
+      }
+    }
+  }
+
+  time_t curr_time = time(NULL);
+  log_debug("Current time: %ld", curr_time);
+
+  /* THREADING START */
+
+  /* NOTE: Thread count should not exceed file count or it is a waste of resources */
+  config->thread_count = MINIMUM(config->thread_count, file_count);
+  assert(config->thread_count > 0);
+  pthread_t *threads __free(ptr) = NULL;
+  threads = calloc(config->thread_count, sizeof(*threads));
+
+  if (!threads) {
+    ANU_DIE("Failed to allocate memory for threads");
+  }
 
   log_info("Starting %zu hashing threads...", config->thread_count);
 
@@ -205,38 +256,44 @@ static int anukrta_driver (anukrta_config *config) {
 
   bk_node *filetree = NULL;
 
-  /* Initialise SQLite3 */
-  cache_init_once();
-  /* Open the database */
-  sqlite3 *db = cache_open_db("cache.db");
   /* Begin transaction for upsertion */
   cache_begin_transaction(db);
 
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
     anu_file *file = &kv_A(files, i);
-    int result = thread_results[i].value;
+    anu_ret_code result = thread_results[i].value;
+    size_t file_idx = (i * config->segments);
     /* Check the result saved by the thread */
 
     /* Failed to hash a file */
-    if (result == -1) {
+    if (result == ANU_IO_FAIL) {
       log_debug("Failed to hash file '%s'", anu_file_get_filename(file));
     }
 
-    /* We skipped this hash for one reason or another */
-    if (result == -2) {
+    /* We skipped this file */
+    if (result == ANU_SKIPPED) {
       log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 
-    /* Row ID for inserted row */
-    u64 row_id = 0;
+    if (result == ANU_FILE_CACHED) {
+      log_info("File %s previously hashed.", anu_file_get_filename(file));
+      for (size_t segment_off = 0; segment_off < config->segments;
+           segment_off++) {
+        size_t curr_seg_idx = file_idx + segment_off;
+        u64 curr_hash = hashes[curr_seg_idx];
+        bk_tree_insert(&filetree, curr_hash, i);
+      }
+      continue;
+    }
 
-    if (result == 0) {
+    if (result == ANU_OK) {
+      /* Row ID for inserted row */
+      u64 row_id = 0;
 
       cache_upsert_file(file->path, "v", file->size, (uint64_t) file->mtime,
                         (uint64_t) file->ctime, file->duration_us,
                         (uint64_t) curr_time, &row_id);
-      size_t file_idx = (i * config->segments);
 
       for (size_t segment_off = 0; segment_off < config->segments;
            segment_off++) {
@@ -248,6 +305,7 @@ static int anukrta_driver (anukrta_config *config) {
       }
     }
   }
+
   /* Commit the transactions */
   cache_commit_transaction(db);
   /* Close the database */

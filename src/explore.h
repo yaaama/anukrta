@@ -27,10 +27,10 @@ typedef struct anu_file {
   size_t duration_us;
 
   /** File mode change time. */
-  i64 ctime;
+  u64 ctime;
 
   /** File modification time. */
-  i64 mtime;
+  u64 mtime;
 
   /** Device ID (either 32bit or 64). */
   dev_t dev;

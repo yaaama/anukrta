@@ -41,21 +41,6 @@ int cache_init_once (void) {
   return 0;
 }
 
-/**
- * @brief Transaction helpers for bulk inserting video hashes
- */
-int cache_begin_transaction (sqlite3 *db) {
-  return sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
-}
-
-int cache_commit_transaction (sqlite3 *db) {
-  return sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL);
-}
-
-int cache_rollback_transaction (sqlite3 *db) {
-  return sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
-}
-
 int cache_close_db (sqlite3 **db) {
   assert(db);
   cache_finalize_statements();
@@ -170,7 +155,8 @@ int cache_is_file_valid (const char *path,
                          uint64_t file_size,
                          uint64_t mtime,
                          uint64_t ctime,
-                         uint64_t *out_file_id) {
+                         uint64_t *out_file_id,
+                         uint64_t *out_duration) {
   sqlite3_bind_text(stmt_check_cache, 1, path, -1, SQLITE_STATIC);
   sqlite3_bind_int64(stmt_check_cache, 2, (sqlite3_int64) file_size);
   sqlite3_bind_int64(stmt_check_cache, 3, (sqlite3_int64) mtime);
@@ -182,6 +168,7 @@ int cache_is_file_valid (const char *path,
     if (out_file_id) {
       *out_file_id = (uint64_t) sqlite3_column_int64(stmt_check_cache, 0);
     }
+    *out_duration = (uint64_t) sqlite3_column_int64(stmt_check_cache, 1);
     sqlite3_reset(stmt_check_cache);
     /* File is in DB and hasn't had any metadata changes */
     return 1;
@@ -209,7 +196,8 @@ static int init_db__prepare_statements (sqlite3 *db) {
 
   /* Check path AND metadata, if metadata does not match then we know the hash is outdated */
   PREPARE(
-      "SELECT id FROM files WHERE path = ? AND file_size = ? AND mtime = ? AND "
+      "SELECT id, duration_us FROM files WHERE path = ? AND file_size = ? AND "
+      "mtime = ? AND "
       "ctime = ?",
       stmt_check_cache);
 
@@ -311,9 +299,10 @@ int cache_insert_hash (uint64_t file_id,
 
 int cache_get_hashes (uint64_t file_id,
                       uint64_t *out_hashes,
+                      uint64_t *out_timestamps,
                       size_t max_hashes,
                       size_t *out_count) {
-  if (!stmt_get_hashes || !out_hashes || !out_count) {
+  if (!stmt_get_hashes || !out_hashes || !out_count || !out_timestamps) {
     return -1;
   }
 
@@ -326,6 +315,8 @@ int cache_get_hashes (uint64_t file_id,
   while ((ret = sqlite3_step(stmt_get_hashes)) == SQLITE_ROW) {
     if (count < max_hashes) {
       out_hashes[count] = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 0);
+      out_timestamps[count] =
+          (uint64_t) sqlite3_column_int64(stmt_get_hashes, 1);
     }
     ++count;
   }
