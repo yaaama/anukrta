@@ -93,23 +93,19 @@ static void *hash_worker_thread (void *arg) {
 
   while (1) {
     /* Get index of next file */
-    size_t next_idx = atomic_fetch_add(targs->current_idx, 1);
+    size_t idx = atomic_fetch_add(targs->current_idx, 1);
 
     /* Check if next index exceeds file count */
-    if (next_idx >= file_count) {
+    if (idx >= file_count) {
       break;
     }
 
-    /* Get the file for this index */
-    anu_file *file = &targs->files->items[next_idx];
-    size_t hash_idx = next_idx * segments;
-
-    log_trace("Thread '%lu' processing file '%zu'", pthread_self(), next_idx);
+    size_t hash_off = idx * segments;
 
     /* Do the hashing and store return code */
-    targs->results[next_idx].value =
-        anu_video_hash(file, targs->config, &targs->hashes[hash_idx],
-                       &targs->frame_timestamps[hash_idx]);
+    targs->results[idx].value = anu_video_hash(
+        &targs->files->items[idx], targs->config, targs->hashes + hash_off,
+        targs->frame_timestamps + hash_off);
   }
 
   return NULL;
@@ -120,23 +116,25 @@ static int anukrta_driver (anukrta_config *config) {
   assert(config->segments > 0);
 
   /* Initialise file queue */
-  anu_file_vec files;
+  anu_file_vec files __free(anu_file_vec) = {0};
   kv_init(files);
 
   /* Scan path(s) and store in files queue */
-  scan_dirs(config, &files);
+  anu_explore_scan_directories(config, &files);
 
   /* Exit early if we do not find any files */
   if (kv_size(files) < 1) {
     log_warn("No video files found!");
-    kv_destroy(files);
     return -1;
   }
 
+  /* Number of files to hash */
   const usize file_count = kv_size(files);
-
   log_info("Found `%zu` files", file_count);
 
+  /*
+   * The total number of hashes produced = number of files * number of segments
+   */
   const usize hash_collection_len = (file_count * config->segments);
 
   /* Array of hashes
@@ -144,12 +142,15 @@ static int anukrta_driver (anukrta_config *config) {
    * [ File1Seg1, File1Seg2, File2Seg1, File2Seg2, ... File N Seg 2 ]
    * FileNSegN would be the hash created for that segment
    */
-  uint64_t *hashes = calloc(hash_collection_len, sizeof(*hashes));
-  uint64_t *frame_timestamp =
-      calloc(hash_collection_len, sizeof(*frame_timestamp));
-  worker_result *results = calloc(file_count, sizeof(*results));
+  uint64_t *hashes __free(ptr) = NULL;
+  uint64_t *timestamps __free(ptr) = NULL;
+  worker_result *thread_results __free(ptr) = NULL;
 
-  if (!results || !hashes) {
+  hashes = malloc(hash_collection_len * sizeof(*hashes));
+  timestamps = malloc(hash_collection_len * sizeof(*timestamps));
+  thread_results = malloc(file_count * sizeof(*thread_results));
+
+  if (!thread_results || !hashes || !timestamps) {
     ANU_DIE("Failed to allocate memory.");
   }
 
@@ -161,7 +162,9 @@ static int anukrta_driver (anukrta_config *config) {
   /* NOTE: Thread count should not exceed file count or it is a waste of resources */
   config->thread_count = MINIMUM(config->thread_count, file_count);
   assert(config->thread_count > 0);
-  pthread_t *threads = calloc(config->thread_count, sizeof(*threads));
+  pthread_t *threads __free(ptr) = NULL;
+  threads = calloc(config->thread_count, sizeof(*threads));
+
   if (!threads) {
     ANU_DIE("Failed to allocate memory for threads");
   }
@@ -173,8 +176,8 @@ static int anukrta_driver (anukrta_config *config) {
     .files = &files,
     .config = config,
     .hashes = hashes,
-    .frame_timestamps = frame_timestamp,
-    .results = results,
+    .frame_timestamps = timestamps,
+    .results = thread_results,
     .file_count = file_count,
     .current_idx = &current_file_idx,
   };
@@ -208,13 +211,11 @@ static int anukrta_driver (anukrta_config *config) {
   sqlite3 *db = cache_open_db("cache.db");
   /* Begin transaction for upsertion */
   cache_begin_transaction(db);
-  /* Row ID for inserted row */
-  u64 row_id = 0;
 
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
     anu_file *file = &kv_A(files, i);
-    int result = results[i].value;
+    int result = thread_results[i].value;
     /* Check the result saved by the thread */
 
     /* Failed to hash a file */
@@ -227,15 +228,21 @@ static int anukrta_driver (anukrta_config *config) {
       log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 
+    /* Row ID for inserted row */
+    u64 row_id = 0;
+
     if (result == 0) {
 
       cache_upsert_file(file->path, "v", file->size, (uint64_t) file->mtime,
                         (uint64_t) file->ctime, file->duration_us,
                         (uint64_t) curr_time, &row_id);
+      size_t file_idx = (i * config->segments);
 
-      for (size_t j = 0; j < config->segments; j++) {
-        u64 curr_hash = hashes[(i * config->segments) + j];
-        u64 curr_frame = frame_timestamp[(i * config->segments) + j];
+      for (size_t segment_off = 0; segment_off < config->segments;
+           segment_off++) {
+        size_t curr_seg_idx = file_idx + segment_off;
+        u64 curr_hash = hashes[curr_seg_idx];
+        u64 curr_frame = timestamps[curr_seg_idx];
         cache_insert_hash(row_id, curr_hash, curr_frame);
         bk_tree_insert(&filetree, curr_hash, i);
       }
@@ -252,11 +259,6 @@ static int anukrta_driver (anukrta_config *config) {
   /* CLEANUP */
   anu_report_destroy(&report);
   bk_tree_node_free(filetree);
-  anu_file_vec_destroy(&files);
-  free(hashes);
-  free(frame_timestamp);
-  free(results);
-  free(threads);
 
   return 0;
 }

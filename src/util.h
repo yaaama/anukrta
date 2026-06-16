@@ -6,11 +6,14 @@
 #ifndef ANU_UTIL_H
 #define ANU_UTIL_H
 
+#include <dirent.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /**
  * @name Type Definitions
@@ -49,7 +52,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #if defined(__GNUC__) || defined(__clang__)
 
-/**
+/** @def MAYBE_UNUSED
  * @brief Suppresses compiler warnings about unused variables, parameters, or functions.
  *
  * Useful when a variable is only used in certain build configurations (e.g., `#ifdef DEBUG`)
@@ -64,7 +67,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define MAYBE_UNUSED __attribute__((unused))
 
-/**
+/** @def ALWAYS_INLINE
  * @brief Forces the compiler to inline the function, regardless of optimization limits.
  *
  * Bypasses the compiler's normal cost-benefit analysis for inlining. Use sparingly,
@@ -79,7 +82,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define ALWAYS_INLINE inline __attribute__((always_inline))
 
-/**
+/** @def FUNC_PURE
  * @brief Marks a function as "pure", meaning it has no side effects.
  *
  * The function's return value must depend ONLY on its parameters and/or global
@@ -93,7 +96,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_PURE __attribute__((pure))
 
-/**
+/** @def FUNC_CONST
  * @brief Marks a function as "const", a stricter version of pure.
  *
  * The function's return value must depend ONLY on its parameters. It cannot
@@ -107,7 +110,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_CONST __attribute__((const))
 
-/**
+/** @def MUST_CHECK
  * @brief Emits a compiler warning if the caller ignores the return value.
  *
  * Highly recommended for functions that allocate memory, return error codes,
@@ -115,12 +118,12 @@ static_assert(0, "We require GNUisms to build!");
  *
  * @par Example Usage:
  * @code
- * int init_hardware_subsystem(void) FUNC_WARN_UNUSED_RESULT;
+ * int init_hardware_subsystem(void) MUST_CHECK;
  * @endcode
  */
-#  define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+#  define MUST_CHECK __attribute__((warn_unused_result))
 
-/**
+/** @def FUNC_NONNULL_ALL
  * @brief Specifies that the compiler should warn if ANY pointer argument is NULL.
  *
  * Applies to all pointer arguments in the function signature. Enables
@@ -133,7 +136,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_NONNULL_ALL __attribute__((nonnull))
 
-/**
+/** @def FUNC_NONNULL_ARG
  * @brief Specifies that specific pointer arguments must not be NULL.
  *
  * @param ... A comma-separated list of 1-based parameter indices.
@@ -145,7 +148,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_NONNULL_ARG(...) __attribute__((nonnull(__VA_ARGS__)))
 
-/**
+/** @def FUNC_MALLOC
  * @brief Tells the compiler that the function returns a newly allocated pointer.
  *
  * Asserts that the returned pointer cannot alias (overlap) with any other
@@ -159,7 +162,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_MALLOC __attribute__((malloc))
 
-/**
+/** @def FUNC_NORETURN
  * @brief Indicates that the function will never return to its caller.
  *
  * Used for functions that terminate the program (e.g., `exit()`), enter an
@@ -173,7 +176,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_NORETURN __attribute__((noreturn))
 
-/**
+/** @def FUNC_PRINTF
  * @brief Enables printf-style format string type checking by the compiler.
  *
  * @param x The 1-based index of the format string parameter.
@@ -187,7 +190,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_PRINTF(x, y) __attribute__((format(printf, x, y)))
 
-/**
+/** @def FUNC_FLATTEN
  * @brief Forces the compiler to inline every function called WITHIN this function.
  *
  * Useful for performance-critical wrapper functions where you want to eliminate
@@ -203,7 +206,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define FUNC_FLATTEN __attribute__((flatten))
 
-/**
+/** @def HOT_FUNC
  * @brief Marks a function as a "hot spot" (executed very frequently).
  *
  * Instructs the compiler to optimize this function heavily for speed, and informs
@@ -216,7 +219,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define HOT_FUNC __attribute__((hot))
 
-/**
+/** @def COLD_FUNC
  * @brief Marks a function as "cold" (rarely executed).
  *
  * Instructs the compiler to optimize this function for size rather than speed,
@@ -230,7 +233,7 @@ static_assert(0, "We require GNUisms to build!");
  */
 #  define COLD_FUNC __attribute__((cold))
 
-/**
+/** @def FUNC_ALLOC_SIZE
  * @brief Informs the compiler of the allocation size based on 1 or 2 arguments.
  *
  * @param ... A single 1-based index (like malloc), or TWO 1-based indices
@@ -313,7 +316,7 @@ static_assert(0, "We require GNUisms to build!");
 #  define ALWAYS_INLINE inline
 #  define FUNC_PURE
 #  define FUNC_CONST
-#  define FUNC_WARN_UNUSED_RESULT
+#  define MUST_CHECK
 #  define FUNC_NONNULL_ALL
 #  define FUNC_NONNULL_ARG(...)
 #  define FUNC_MALLOC
@@ -328,6 +331,81 @@ static_assert(0, "We require GNUisms to build!");
 
 #endif
 /** @} */  // End Function Attributes
+
+/**
+ * @name Cleanup Macros (RAII)
+ * Helper macros to automatically free/close resources when out of scope.
+ * @{
+ */
+
+/**
+ * @def __cleanup
+ * Automatically cleanup allocated types.
+ */
+#define __cleanup(f) __attribute__((cleanup(f)))
+
+/**
+ * @brief Dummy function to ensure we check pointers during the close.
+ */
+static ALWAYS_INLINE MUST_CHECK void *__ptr_must_check (void *p) { return p; }
+
+/**
+ * @def DEFINE_FREE
+ * Creates the wrapper function the compiler actually calls the cleanup function.
+ * @param _name Name of cleanup function.
+ * @param _type Type of object to act on.
+ * @param _free Statement to free object.
+ */
+#define DEFINE_FREE(_name, _type, _free)              \
+  static ALWAYS_INLINE void __free_##_name(void *p) { \
+    _type _T = *(_type *) p;                          \
+    _free;                                            \
+  }
+
+/**
+ * @def __free
+ * The attribute to put on a variable to clean up later.
+ */
+#define __free(_name) __cleanup(__free_##_name)
+
+/**
+ * @def no_free_ptr
+ * Prevent automatic cleanup of pointer.
+ */
+#define no_free_ptr(p)                 \
+  ((__typeof__(p)) __ptr_must_check(({ \
+    __typeof__(p) __val = (p);         \
+    (p) = NULL;                        \
+    __val;                             \
+  })))
+
+/**
+ * @def return_ptr
+ * Wrapper around no_free_ptr for return statements.
+ */
+#define return_ptr(p) return no_free_ptr(p)
+
+/**
+ * Free an allocated pointer.
+ */
+DEFINE_FREE(ptr, void *, if (_T) free(_T))
+
+/**
+ * Close a file descriptor.
+ */
+DEFINE_FREE(fd_close, int, if (_T >= 0) close(_T))
+
+/**
+ * @brief Close DIR* type.
+ */
+DEFINE_FREE(dir_close, DIR *, if (_T) closedir(_T))
+
+/**
+ * @brief Close FILE* type.
+ */
+DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
+
+/** @} */  // end cleanup macros
 
 /**
  * @def CACHE_LINE_SIZE
