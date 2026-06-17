@@ -599,7 +599,7 @@ int anu_video_hash (anu_file *file,
 
   for (size_t i = 0; i < config->segments; i++) {
 
-    seek_target_us = (int64_t) (i * frame_step_us);
+    seek_target_us = (int64_t) ((i * frame_step_us) + (frame_step_us / 2));
     /* NOTE: As long as our duration values are positive, all of this casting is fine */
     seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
