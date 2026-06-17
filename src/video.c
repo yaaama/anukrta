@@ -171,6 +171,9 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
 }
 
 static void vreader_close (anu_vreader *vreader) {
+  if (!vreader) {
+    return;
+  }
   if (vreader->packet) {
     av_packet_free(&vreader->packet);
   }
@@ -191,6 +194,8 @@ static void vreader_close (anu_vreader *vreader) {
     avformat_close_input(&vreader->fmt_ctx);
   }
 }
+
+DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
 
 static ALWAYS_INLINE AVStream *vreader_video_stream (anu_vreader *vreader) {
   assert(vreader);
@@ -551,18 +556,16 @@ int anu_video_hash (anu_file *file,
   assert(file);
   assert(hashes_out);
 
-  anu_vreader vreader = {0};
+  __free(vreader_close) anu_vreader vreader = {0};
 
   /* Setup video reader */
   if (vreader_init(file->path, &vreader)) {
-    vreader_close(&vreader);
     return -1;
   }
 
   file->duration_us = vreader_get_duration(&vreader);
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    vreader_close(&vreader);
     return -1;
   }
   char *fname = anu_file_get_filename(file);
@@ -579,7 +582,6 @@ int anu_video_hash (anu_file *file,
               fname, anu_time_microseconds_to_seconds(file->duration_us),
               anu_time_microseconds_to_seconds(config->skip_duration));
 
-    vreader_close(&vreader);
     return -2;
   }
 
@@ -634,9 +636,6 @@ int anu_video_hash (anu_file *file,
               hashes_out[frames_decoded]);
     frames_decoded++;
   }
-
-  /* Cleanup */
-  vreader_close(&vreader);
 
 #ifdef ANU_DEBUG
   char hashes[1024];
