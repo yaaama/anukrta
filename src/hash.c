@@ -26,6 +26,7 @@
 #define DCT_INT_SCALE_BITS_Q30 (DCT_INT_FIXED_SHIFT * 2)
 #define DCT_INT_FIXED_SCALE_Q30 (1LL << DCT_INT_SCALE_BITS_Q30)
 
+#define DCT_AC_COEFFICIENT_HALF_DENOM (DCT_AC_COEFFICIENT_COUNT / 2)
 /** Error threshold for when working with FLOAT weights */
 #define DCT_FLOAT_EPISILON 0.001F
 
@@ -134,11 +135,14 @@ uint64_t dct_hash (const uint8_t *restrict input_pixels) {
     sum_pixels += dct_result[i];
   }
 
+  int64_t round_adj = (sum_pixels >= 0) ? DCT_AC_COEFFICIENT_HALF_DENOM
+                                        : -DCT_AC_COEFFICIENT_HALF_DENOM;
+  int64_t mean = (sum_pixels + round_adj) / DCT_AC_COEFFICIENT_COUNT;
+
   /* Calculate threshold.
    * With 15-bit weights, total scale is 2^30.
    * Float epsilon 0.001 * 2^30 = 1073741. */
-  int64_t threshold =
-      (sum_pixels / DCT_AC_COEFFICIENT_COUNT) + DCT_INT_EPISILON;
+  int64_t threshold = mean + DCT_INT_EPISILON;
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
