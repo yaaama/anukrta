@@ -147,6 +147,8 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
     return -1;
   }
 
+  /* NOTE: Set thread count to prevent CACHE THRASHING */
+  vreader->codec_ctx->thread_count = 1;
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
     log_error("[%s] Failed to initialise codec context %s", f_path,
               codec->long_name);
