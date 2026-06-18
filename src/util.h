@@ -565,6 +565,9 @@ anu_time_seconds_to_microseconds (double seconds) {
  * @{
  */
 
+/** PI as a float constant */
+#define ANU_PI_F 3.14159265358979323846F
+
 /** Return larger value from X and Y. */
 #define MAXIMUM(X, Y) ((X) > (Y) ? (X) : (Y))
 

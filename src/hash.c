@@ -30,9 +30,6 @@
 #define DCT_FLOAT_EPISILON 0.001F
 
 /** Error threshold when working with scaled fixed-point weights */
-
-/* PI in floating point format */
-#define ANU_PI_F 3.14159265358979323846F
 #define DCT_INT_EPISILON ((int64_t) (DCT_INT_FIXED_SCALE_Q30 / 1000))
 
 /**
