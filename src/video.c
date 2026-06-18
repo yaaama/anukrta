@@ -226,10 +226,6 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
   log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
             stream_timebase.den);
 
-  if (duration_in_sb > 0) {
-    return pts_to_useconds(duration_in_sb, stream_timebase);
-  }
-
   if (duration_in_sb == AV_NOPTS_VALUE) {
     duration_in_sb =
         (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
@@ -241,7 +237,8 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
     return (size_t) duration_in_sb;
   }
 
-  return 0;
+  return duration_in_sb > 0 ? pts_to_useconds(duration_in_sb, stream_timebase)
+                            : 0;
 }
 
 /**
@@ -505,9 +502,10 @@ static int scale_frame (anu_vreader *vr,
 static int video_reader_get_frame (anu_vreader *vreader) {
   int ret = 0;
 
+  AVCodecContext *codec_ctx = vreader->codec_ctx;
   while (1) {
     /* Try to receive a frame first */
-    ret = avcodec_receive_frame(vreader->codec_ctx, vreader->frame);
+    ret = avcodec_receive_frame(codec_ctx, vreader->frame);
 
     /* Successfully got a frame */
     if (ret == 0) {
@@ -522,25 +520,25 @@ static int video_reader_get_frame (anu_vreader *vreader) {
       log_error("Error receiving frame: %s", av_err2str(ret));
       return -1;
     }
-
+    AVPacket *packet = vreader->packet;
     /* Read a frame */
-    ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
+    ret = av_read_frame(vreader->fmt_ctx, packet);
 
     if (ret < 0) {
       /* EOF reached on the container
          We need to send a NULL packet to the decoder
          to "flush" out any delayed or cached frames. */
-      avcodec_send_packet(vreader->codec_ctx, NULL);
+      avcodec_send_packet(codec_ctx, NULL);
       /* Loop back to receive the flushed frames */
       continue;
     }
     /* Ignore non-video streams */
-    if (vreader->packet->stream_index != vreader->video_stream_idx) {
-      av_packet_unref(vreader->packet);
+    if (packet->stream_index != vreader->video_stream_idx) {
+      av_packet_unref(packet);
       continue;
     }
-    ret = avcodec_send_packet(vreader->codec_ctx, vreader->packet);
-    av_packet_unref(vreader->packet);
+    ret = avcodec_send_packet(codec_ctx, packet);
+    av_packet_unref(packet);
 
     if (ret < 0) {
       log_error("Failed sending packet: %s", av_err2str(ret));
