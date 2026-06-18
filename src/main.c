@@ -160,7 +160,8 @@ static int anukrta_driver (anukrta_config *config) {
 
   hashes = malloc(hash_collection_len * sizeof(*hashes));
   timestamps = malloc(hash_collection_len * sizeof(*timestamps));
-  thread_results = malloc(file_count * sizeof(*thread_results));
+  thread_results =
+      aligned_alloc(CACHE_LINE_SIZE, file_count * sizeof(*thread_results));
 
   if (!thread_results || !hashes || !timestamps) {
     ANU_DIE("Failed to allocate memory.");
