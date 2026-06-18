@@ -30,11 +30,10 @@
 #define DCT_FLOAT_EPISILON 0.001F
 
 /** Error threshold when working with scaled fixed-point weights */
-#define DCT_INT_EPISILON \
-  ((int64_t) (DCT_INT_FIXED_SCALE_Q30 * DCT_FLOAT_EPISILON))
 
 /* PI in floating point format */
 #define ANU_PI_F 3.14159265358979323846F
+#define DCT_INT_EPISILON ((int64_t) (DCT_INT_FIXED_SCALE_Q30 / 1000))
 
 /**
  * Number of coefficients storing image detail
@@ -85,17 +84,20 @@ static const int32_t DCT_WEIGHTS_INT[256] = {
   /* clang-format on */
 };
 
-uint64_t dct_hash (const uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
+uint64_t dct_hash (const uint8_t *restrict input_pixels) {
 
   int32_t row_result[DCT_INTERMEDIATE_BUF_LEN];
   int64_t dct_result[DCT_DIGEST_LEN];
 
   /* Pass 1: 1D DCT on Rows */
-  for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-    const uint8_t *row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
 
-    for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-      const int32_t *weight_ptr = &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
+  for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
+    const int32_t *restrict weight_ptr =
+        &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
+
+    for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+      const uint8_t *restrict row_ptr =
+          &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
 
       int32_t sum = 0;
 
@@ -112,11 +114,13 @@ uint64_t dct_hash (const uint8_t input_pixels[static ANU_PHASH_TOTAL_PIXELS]) {
   /* Pass 2: 1D DCT on Columns */
   for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
     /* u is our output row index */
-    const int32_t *row_of_t = &row_result[u * ANU_PHASH_INPUT_SIZE];
+    const int32_t *restrict row_of_t = &row_result[u * ANU_PHASH_INPUT_SIZE];
 
     for (ptrdiff_t v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
       /* v is our output column index */
-      const int32_t *weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
+      const int32_t *restrict weight_ptr =
+          &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
+
       int64_t sum = 0;
 
       for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
