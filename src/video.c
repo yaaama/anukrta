@@ -229,7 +229,7 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
   if (duration_in_sb == AV_NOPTS_VALUE) {
     duration_in_sb =
         (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
-    log_warn(
+    log_debug(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
         vreader->fmt_ctx->url,
@@ -263,8 +263,8 @@ static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
                                target_pts, AVSEEK_FLAG_BACKWARD);
 
   if (seek_ret < 0) {
-    log_warn("Error seeking to timestamp %ld: %s", target_pts,
-             av_err2str(seek_ret));
+    log_debug("Error seeking to timestamp %ld: %s", target_pts,
+              av_err2str(seek_ret));
     return seek_ret;
   }
 
