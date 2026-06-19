@@ -210,23 +210,28 @@ void anu_print_report (anukrta_config *config,
                        anu_file_vec *files,
                        u64 *hashes) {
   usize group_count = kv_size(report->groups);
-  usize file_count = kv_size(*files);
+
   printf("\n=== Duplicate Report: ===\n");
   if (group_count == 0) {
     printf("No duplicate groups found.\n");
     return;
   }
 
+  usize file_count = kv_size(*files);
+  const char *strat_str = BEST_FILE_STRAT_STRINGS[config->best_file_strategy];
+
   printf("Found %zu duplicate groups from %zu files\n", group_count,
          file_count);
   printf("\n----------------------------------------");
-  printf("\nMaster file was chosen using: '%s'\n",
-         BEST_FILE_STRAT_STRINGS[config->best_file_strategy]);
+  printf("\n\"Best\" file strategy: '%s'\n", strat_str);
   printf("----------------------------------------\n");
+
+  bool print_dupe_labels = config->best_file_strategy != BEST_FILE_NONE;
+  bool report_verbose = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_VERBOSE);
 
   for (usize i = 0; i < group_count; i++) {
     u64_vec *group = &(kv_A(report->groups, i));
-    usize items_in_group = kv_size(*group);  // <-- Get the right count
+    usize items_in_group = kv_size(*group);
 
     elect_best_file(group, files, config);
 
@@ -242,12 +247,12 @@ void anu_print_report (anukrta_config *config,
       char human_sizing[32];
       get_human_sizing_iec(file->size, human_sizing);
 
-      time_t modification_t = file->mtime;
+      time_t modification_t = (time_t) file->mtime;
       char time_str[64];
       get_date_from_epoch(&modification_t, sizeof(time_str), time_str);
 
       /* Label Best and dupes if strategy is not none */
-      if (config->best_file_strategy != BEST_FILE_NONE) {
+      if (print_dupe_labels) {
         printf("%s %s\n", (j == 0 ? "  [BEST]" : "    [DUPE]"), file->path);
       } else {
         printf("  %s\n", file->path);
@@ -257,7 +262,7 @@ void anu_print_report (anukrta_config *config,
              file_id, human_sizing, time_str,
              anu_time_microseconds_to_seconds(file->duration_us));
 
-      if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_VERBOSE)) {
+      if (report_verbose) {
         print_file_hashes((hashes + (file_id * config->segments)),
                           config->segments);
       }
