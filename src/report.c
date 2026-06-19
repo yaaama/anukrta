@@ -362,8 +362,6 @@ anu_report anu_generate_report (anu_file_vec *files,
   }
 
   free(buckets);
-  free(parent);
-  free(rank);
   return report;
 }
 
