@@ -1,8 +1,5 @@
 /* Video similarity tool */
 
-#include "cache.h"
-#include "config.h"
-#include "kvec.h"
 #ifdef ANU_DEBUG
 #  pragma message "Compilation in DEBUG mode."
 #  ifdef NDEBUG
@@ -23,8 +20,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cache.h"
 #include "cli.h"
+#include "config.h"
 #include "explore.h"
+#include "kvec.h"
 #include "log.h"
 #include "report.h"
 #include "sqlite3.h"
