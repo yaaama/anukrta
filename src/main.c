@@ -123,6 +123,39 @@ static void *hash_worker_thread (void *arg) {
   return NULL;
 }
 
+static void execute_hash_worker_threads (anukrta_config *config,
+                                         worker_args *args,
+                                         size_t file_count) {
+  /* NOTE: Thread count should not exceed file count */
+  config->thread_count = MINIMUM(config->thread_count, file_count);
+  assert(config->thread_count > 0);
+
+  pthread_t *threads __free(ptr) =
+      calloc(config->thread_count, sizeof(*threads));
+  if (!threads) {
+    ANU_DIE("Failed to allocate memory for threads");
+  }
+
+  log_info("Starting %zu hashing threads...", config->thread_count);
+
+  /* Create the threads */
+  int threads_made = 0;
+  for (size_t i = 0; i < config->thread_count; i++) {
+    int success =
+        (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
+    threads_made += success;
+    if (!success) {
+      log_warn("Failed to create thread #%zu", i);
+      break;
+    }
+  }
+
+  /* Wait for all threads to finish */
+  for (int i = 0; i < threads_made; i++) {
+    pthread_join(threads[i], NULL);
+  }
+}
+
 static int anukrta_driver (anukrta_config *config) {
 
   assert(config->segments > 0);
@@ -175,7 +208,7 @@ static int anukrta_driver (anukrta_config *config) {
   atomic_size_t current_file_idx = 0;
 
   /* Package the arguments */
-  worker_args args = {
+  worker_args thread_ctx = {
     .files = &files,
     .config = config,
     .hashes = hashes,
@@ -223,36 +256,7 @@ static int anukrta_driver (anukrta_config *config) {
   log_debug("Current time: %ld", curr_time);
 
   /* THREADING START */
-
-  /* NOTE: Thread count should not exceed file count or it is a waste of resources */
-  config->thread_count = MINIMUM(config->thread_count, file_count);
-  assert(config->thread_count > 0);
-  pthread_t *threads __free(ptr) = NULL;
-  threads = calloc(config->thread_count, sizeof(*threads));
-
-  if (!threads) {
-    ANU_DIE("Failed to allocate memory for threads");
-  }
-
-  log_info("Starting %zu hashing threads...", config->thread_count);
-
-  /* Create the threads */
-  int threads_made = 0;
-  for (size_t i = 0; i < config->thread_count; i++) {
-    int success =
-        (pthread_create(&threads[i], NULL, hash_worker_thread, &args) == 0);
-    threads_made += success;
-    if (!success) {
-      log_warn("Failed to create thread #%zu", i);
-      break;
-    }
-  }
-
-  /* Wait for all threads to finish */
-  for (int i = 0; i < threads_made; i++) {
-    pthread_join(threads[i], NULL);
-  }
-
+  execute_hash_worker_threads(config, &thread_ctx, file_count);
   /* THREADING END */
 
   bk_node *filetree = NULL;

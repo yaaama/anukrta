@@ -284,15 +284,18 @@ anu_report anu_generate_report (anu_file_vec *files,
   }
 
   /* Union-Find to identify the groups */
-  usize *parent = calloc(file_count, sizeof(*parent));
-  usize *rank = calloc(file_count, sizeof(*rank));
-  if (!parent || !rank) {
+  usize *parent __free(ptr) = NULL;
+  parent = malloc(file_count * sizeof(*parent) * 2);
+  if (!parent) {
     ANU_DIE("Failed to allocate memory.");
   }
+  usize *rank = parent + file_count;
 
-  /* Initially, each file is in its own set */
   for (usize i = 0; i < file_count; i++) {
+    /* Initially, each file is in its own set */
     parent[i] = i;
+    /* Initialise ranks as 0 */
+    rank[i] = 0;
   }
 
   u64_vec segment_results;
