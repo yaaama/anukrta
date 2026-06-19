@@ -318,8 +318,9 @@ anu_report anu_generate_report (anu_file_vec *files,
       bk_tree_search(tree, current_hash, config->threshold, &segment_results);
 
       /* Process matches for this segment */
-      while (kv_size(segment_results) > 0) {
-        u64 node_id = kv_pop(segment_results);
+      usize results_count = kv_size(segment_results);
+      for (usize j = 0; j < results_count; j++) {
+        u64 node_id = kv_A(segment_results, j);
         unite_sets(i, node_id, parent, rank);
       }
     }
