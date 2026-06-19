@@ -313,8 +313,6 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* Commit the transactions */
   cache_commit_transaction(db);
-  /* Close the database */
-  cache_close_db(&db);
 
   anu_report report = anu_generate_report(&files, hashes, config, filetree);
   anu_print_report(config, &report, &files, hashes);
@@ -322,6 +320,9 @@ static int anukrta_driver (anukrta_config *config) {
   /* CLEANUP */
   anu_report_destroy(&report);
   bk_tree_node_free(filetree);
+  /* Close the database */
+  cache_close_db(&db);
+  sqlite3_shutdown();
 
   return 0;
 }

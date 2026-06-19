@@ -14,15 +14,19 @@ static sqlite3_stmt *stmt_get_hashes = NULL;
 static void cache_finalize_statements (void) {
   if (stmt_check_cache) {
     sqlite3_finalize(stmt_check_cache);
+    stmt_check_cache = NULL;
   }
   if (stmt_upsert_file) {
     sqlite3_finalize(stmt_upsert_file);
+    stmt_upsert_file = NULL;
   }
   if (stmt_insert_hash) {
     sqlite3_finalize(stmt_insert_hash);
+    stmt_insert_hash = NULL;
   }
   if (stmt_get_hashes) {
     sqlite3_finalize(stmt_get_hashes);
+    stmt_get_hashes = NULL;
   }
 }
 
@@ -345,6 +349,10 @@ sqlite3 *cache_open_db (const char *db_path) {
   /* If we cannot open the database, create one: */
   if (ret == SQLITE_CANTOPEN) {
     log_info("Database does not yet exist. Creating one...");
+    /* NOTE: Sqlite3_open_v2 must be closed if any error occurs during opening (even if we try to open it again) */
+    sqlite3_close(db);
+    db = NULL;
+
     /* Open database in read/write mode,
      Also specify that we do not want to create a new database if one is not already there */
     ret = sqlite3_open_v2(db_path, &db,
