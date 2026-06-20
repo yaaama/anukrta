@@ -2,6 +2,8 @@
 #include <stdint.h>
 
 #include "../src/tree.h"
+#include "explore.h"
+#include "kvec.h"
 
 Test (BK_Tree, initialise) {
   bk_node *tree = NULL;
@@ -53,20 +55,21 @@ Test (BK_Tree, search_tolerance) {
   bk_tree_insert(&tree, 0xFFFFFFFFFFFFFFFF, 3);
 
   /* Vector to store resulting file IDs */
-  anu_vector results;
-  anu_vector_init(&results, 4, sizeof(uint64_t));
+  u64_vec results;
+  kv_init(results);
 
   /* Search for hashes with a tolerance of 1 */
   bk_tree_search(tree, 0x0000000000000000, 1, &results);
 
   /* We expect to find file 0 (dist 0) and file 1 (dist 1) */
-  cr_assert_eq(results.count, 2, "Expected 2 results, got %zu", results.count);
+  cr_assert_eq(kv_size(results), 2, "Expected 2 results, got %zu",
+               kv_size(results));
 
-  uint64_t *matched_files = (uint64_t *) results.items;
+  uint64_t *matched_files = results.items;
   bool found_file_0 = false;
   bool found_file_1 = false;
 
-  for (size_t i = 0; i < results.count; i++) {
+  for (size_t i = 0; i < results.size; i++) {
     if (matched_files[i] == 0) {
       found_file_0 = true;
     }
@@ -78,6 +81,6 @@ Test (BK_Tree, search_tolerance) {
   cr_assert(found_file_0, "File 0 should have been found in the search.");
   cr_assert(found_file_1, "File 1 should have been found in the search.");
 
-  anu_vector_destroy(&results);
+  kv_destroy(results);
   bk_tree_node_free(tree);
 }

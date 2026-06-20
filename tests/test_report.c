@@ -3,6 +3,8 @@
 
 #include "../src/report.h"
 #include "../src/tree.h"
+#include "explore.h"
+#include "kvec.h"
 
 TestSuite(Report, .description = "Tests for Report Generation and Formatting");
 
@@ -36,16 +38,16 @@ Test (Report, generate_duplicate_groups) {
 
   anukrta_config config = {.segments = 1, .threshold = 2};
 
-  anu_file_q files;
-  anu_fileq_init(&files, 4);
+  anu_file_vec files;
+  kv_init(files);
   anu_file f0 = {.path = strdup("v0.mp4")};
   anu_file f1 = {.path = strdup("v1.mp4")};
   anu_file f2 = {.path = strdup("v2.mp4")};
   anu_file f3 = {.path = strdup("v3.mp4")};
-  anu_fileq_enqueue(&files, &f0);
-  anu_fileq_enqueue(&files, &f1);
-  anu_fileq_enqueue(&files, &f2);
-  anu_fileq_enqueue(&files, &f3);
+  kv_push(files, f0);
+  kv_push(files, f1);
+  kv_push(files, f2);
+  kv_push(files, f3);
 
   /* Setup the flat hashes array (1 segment per file) */
   uint64_t hashes[4] = {
@@ -69,15 +71,17 @@ Test (Report, generate_duplicate_groups) {
    * Group 1: Files 0, 1, and 2 (transitive matching through threshold)
    * File 3 is isolated and should NOT appear in the report (groups must be > 1 item).
    */
-  cr_assert_eq(report.count, 1, "There should be exactly 1 duplicate group");
-  cr_assert_eq(report.groups[0].count, 3, "Group should contain 3 files");
+  cr_assert_eq(kv_size(report.groups), 1,
+               "There should be exactly 1 duplicate group");
+  cr_assert_eq(kv_size(*report.groups.items), 3,
+               "Group should contain 3 files");
 
   /* Verify the correct IDs are in the group (order doesn't matter, but based on your loop it's 0, 1, 2) */
   bool has_0 = false;
   bool has_1 = false;
   bool has_2 = false;
   for (size_t i = 0; i < 3; i++) {
-    uint64_t id = report.groups[0].file_ids[i];
+    uint64_t id = report.groups.items->items[i];
     if (id == 0) {
       has_0 = true;
     }
@@ -98,8 +102,5 @@ Test (Report, generate_duplicate_groups) {
 
   /* Must dequeue and free paths to avoid memory leak in test */
   anu_file tmp;
-  while (anu_fileq_dequeue(&files, &tmp)) {
-    free(tmp.path);
-  }
-  anu_fileq_destroy(&files);
+  anu_file_vec_destroy(&files);
 }
