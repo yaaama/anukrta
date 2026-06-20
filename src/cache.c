@@ -6,27 +6,22 @@
 #include "log.h"
 #include "sqlite3.h"
 
-static sqlite3_stmt *stmt_check_cache = NULL;
-static sqlite3_stmt *stmt_upsert_file = NULL;
-static sqlite3_stmt *stmt_insert_hash = NULL;
-static sqlite3_stmt *stmt_get_hashes = NULL;
-
-static void cache_finalize_statements (void) {
-  if (stmt_check_cache) {
-    sqlite3_finalize(stmt_check_cache);
-    stmt_check_cache = NULL;
+static void cache_finalize_statements (anu_cache_ctx *ctx) {
+  if (ctx->stmt_check_cache) {
+    sqlite3_finalize(ctx->stmt_check_cache);
+    ctx->stmt_check_cache = NULL;
   }
-  if (stmt_upsert_file) {
-    sqlite3_finalize(stmt_upsert_file);
-    stmt_upsert_file = NULL;
+  if (ctx->stmt_upsert_file) {
+    sqlite3_finalize(ctx->stmt_upsert_file);
+    ctx->stmt_upsert_file = NULL;
   }
-  if (stmt_insert_hash) {
-    sqlite3_finalize(stmt_insert_hash);
-    stmt_insert_hash = NULL;
+  if (ctx->stmt_insert_hash) {
+    sqlite3_finalize(ctx->stmt_insert_hash);
+    ctx->stmt_insert_hash = NULL;
   }
-  if (stmt_get_hashes) {
-    sqlite3_finalize(stmt_get_hashes);
-    stmt_get_hashes = NULL;
+  if (ctx->stmt_get_hashes) {
+    sqlite3_finalize(ctx->stmt_get_hashes);
+    ctx->stmt_get_hashes = NULL;
   }
 }
 
@@ -45,24 +40,34 @@ int cache_init_once (void) {
   return 0;
 }
 
-int cache_close_db (sqlite3 **db) {
-  assert(db);
-  cache_finalize_statements();
-  int ret = sqlite3_close(*db);
+int cache_close_db (anu_cache_ctx *ctx) {
+  cache_finalize_statements(ctx);
+
+  int ret = sqlite3_close(ctx->db);
   if (ret == SQLITE_BUSY) {
     log_warn(
         "Database cannot be closed as it is still processing transactions.");
     return SQLITE_BUSY;
   }
 
-  *db = NULL;
+  ctx->db = NULL;
+  return 0;
+}
+
+int cache_ctx_destroy (anu_cache_ctx **ctx) {
+
+  assert(*ctx);
+  cache_close_db(*ctx);
+  free(*ctx);
+  *ctx = NULL;
+
   return 0;
 }
 
 /**
  * @brief SQLite pragmas to be used after database is successfully open
  */
-static int init_db__pragmas (sqlite3 *db) {
+static int init_db__pragmas (anu_cache_ctx *ctx) {
 
   char *err_msg = NULL;
   const char *pragmas =
@@ -78,8 +83,9 @@ static int init_db__pragmas (sqlite3 *db) {
       /* Keep temp files in memory */
       "PRAGMA temp_store = MEMORY;";
 
+  sqlite3 *db = ctx->db;
   /* Execute Pragmas */
-  int ret = sqlite3_exec(db, pragmas, NULL, NULL, &err_msg);
+  int ret = sqlite3_exec(ctx->db, pragmas, NULL, NULL, &err_msg);
   if (ret != SQLITE_OK) {
     log_error("SQL error (Pragmas): '%s'", err_msg);
     sqlite3_free(err_msg);
@@ -91,12 +97,13 @@ static int init_db__pragmas (sqlite3 *db) {
 /**
  * @brief Create database tables (if they are not present)
  */
-static int init_db__schema (sqlite3 *db) {
+static int init_db__schema (anu_cache_ctx *ctx) {
   char *err_msg = NULL;
 
   int ret = 0;
 
-  cache_begin_transaction(db);
+  sqlite3 *db = ctx->db;
+  cache_begin_transaction(ctx);
 
   const char *files_table_schema =
       /* FILES TABLE */
@@ -140,12 +147,12 @@ static int init_db__schema (sqlite3 *db) {
   if (ret != SQLITE_OK) {
     log_error("Failed to create hashes table '%s'", err_msg);
 
-    cache_rollback_transaction(db);
+    cache_rollback_transaction(ctx);
     sqlite3_free(err_msg);
     return ret;
   }
 
-  cache_commit_transaction(db);
+  cache_commit_transaction(ctx);
 
   return ret;
 }
@@ -155,24 +162,22 @@ static int init_db__schema (sqlite3 *db) {
  * @return 1 if valid cache exists, 0 if it needs to be hashed.
  *  Populates out_file_id if valid.
  */
-int cache_is_file_valid (const char *path,
-                         uint64_t file_size,
-                         uint64_t mtime,
-                         uint64_t ctime,
-                         uint64_t *out_file_id,
-                         uint64_t *out_duration) {
-  sqlite3_bind_text(stmt_check_cache, 1, path, -1, SQLITE_STATIC);
-  sqlite3_bind_int64(stmt_check_cache, 2, (sqlite3_int64) file_size);
-  sqlite3_bind_int64(stmt_check_cache, 3, (sqlite3_int64) mtime);
-  sqlite3_bind_int64(stmt_check_cache, 4, (sqlite3_int64) ctime);
+int cache_is_file_valid (anu_cache_ctx *ctx,
+                         anu_file *file,
+                         size_t *out_file_id,
+                         size_t *out_duration_us) {
+
+  sqlite3_stmt *stmt_check_cache = ctx->stmt_check_cache;
+  sqlite3_bind_text(stmt_check_cache, 1, file->path, -1, SQLITE_STATIC);
+  sqlite3_bind_int64(stmt_check_cache, 2, (sqlite3_int64) file->size);
+  sqlite3_bind_int64(stmt_check_cache, 3, (sqlite3_int64) file->mtime);
+  sqlite3_bind_int64(stmt_check_cache, 4, (sqlite3_int64) file->ctime);
 
   int ret = sqlite3_step(stmt_check_cache);
 
   if (ret == SQLITE_ROW) {
-    if (out_file_id) {
-      *out_file_id = (uint64_t) sqlite3_column_int64(stmt_check_cache, 0);
-    }
-    *out_duration = (uint64_t) sqlite3_column_int64(stmt_check_cache, 1);
+    *out_file_id = (uint64_t) sqlite3_column_int64(stmt_check_cache, 0);
+    *out_duration_us = (uint64_t) sqlite3_column_int64(stmt_check_cache, 1);
     sqlite3_reset(stmt_check_cache);
     /* File is in DB and hasn't had any metadata changes */
     return 1;
@@ -185,8 +190,10 @@ int cache_is_file_valid (const char *path,
 /**
  * @brief Compile SQL statements.
  */
-static int init_db__prepare_statements (sqlite3 *db) {
+static int init_db__prepare_statements (anu_cache_ctx *ctx) {
   int result;
+
+  sqlite3 *db = ctx->db;
 
 #define PREPARE(sql, stmt)                                                     \
   result = sqlite3_prepare_v3(db, sql, -1, SQLITE_PREPARE_PERSISTENT, &(stmt), \
@@ -194,31 +201,27 @@ static int init_db__prepare_statements (sqlite3 *db) {
   if (result != SQLITE_OK)                                                     \
   return result
 
-  /* PREPARE("BEGIN", stmt_begin);
-   * PREPARE("COMMIT", stmt_commit);
-   * PREPARE("ROLLBACK", stmt_rollback); */
-
   /* Check path AND metadata, if metadata does not match then we know the hash is outdated */
   PREPARE(
       "SELECT id, duration_us FROM files WHERE path = ? AND file_size = ? AND "
       "mtime = ? AND "
       "ctime = ?",
-      stmt_check_cache);
+      ctx->stmt_check_cache);
 
   /* INSERT OR REPLACE: If the file path exists but metadata changed, this deletes the old row.
      Because of ON DELETE CASCADE, it also automatically wipes the old hashes */
   PREPARE(
       "INSERT OR REPLACE INTO files (path, media_type, file_size, mtime, "
       "ctime, duration_us, last_hashed) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      stmt_upsert_file);
+      ctx->stmt_upsert_file);
 
   PREPARE(
       "INSERT INTO hashes (file_id, hash, frame_timestamp_us) VALUES (?, ?, ?)",
-      stmt_insert_hash);
+      ctx->stmt_insert_hash);
   PREPARE(
       "SELECT hash, frame_timestamp_us FROM hashes WHERE file_id = ? ORDER BY "
       "frame_timestamp_us ASC",
-      stmt_get_hashes);
+      ctx->stmt_get_hashes);
 
 #undef PREPARE
   return SQLITE_OK;
@@ -237,21 +240,19 @@ static int init_db__prepare_statements (sqlite3 *db) {
  *
  * @return 0 on success, 1 on failure.
  */
-int cache_upsert_file (const char *restrict path,
+int cache_upsert_file (anu_cache_ctx *ctx,
                        const char *restrict media_type,
-                       uint64_t file_size,
-                       uint64_t mtime,
-                       uint64_t ctime,
-                       uint64_t duration,
-                       uint64_t last_hashed,
-                       uint64_t *out_row_id) {
-  sqlite3_bind_text(stmt_upsert_file, 1, path, -1, SQLITE_STATIC);
+                       anu_file *file,
+                       uint64_t time_of_hash,
+                       uint64_t *row_id_out) {
+  sqlite3_stmt *stmt_upsert_file = ctx->stmt_upsert_file;
+  sqlite3_bind_text(stmt_upsert_file, 1, file->path, -1, SQLITE_STATIC);
   sqlite3_bind_text(stmt_upsert_file, 2, media_type, -1, SQLITE_STATIC);
-  sqlite3_bind_int64(stmt_upsert_file, 3, (sqlite3_int64) file_size);
-  sqlite3_bind_int64(stmt_upsert_file, 4, (sqlite3_int64) mtime);
-  sqlite3_bind_int64(stmt_upsert_file, 5, (sqlite3_int64) ctime);
-  sqlite3_bind_int64(stmt_upsert_file, 6, (sqlite3_int64) duration);
-  sqlite3_bind_int64(stmt_upsert_file, 7, (sqlite3_int64) last_hashed);
+  sqlite3_bind_int64(stmt_upsert_file, 3, (sqlite3_int64) file->size);
+  sqlite3_bind_int64(stmt_upsert_file, 4, (sqlite3_int64) file->mtime);
+  sqlite3_bind_int64(stmt_upsert_file, 5, (sqlite3_int64) file->ctime);
+  sqlite3_bind_int64(stmt_upsert_file, 6, (sqlite3_int64) file->duration_us);
+  sqlite3_bind_int64(stmt_upsert_file, 7, (sqlite3_int64) time_of_hash);
 
   int ret = sqlite3_step(stmt_upsert_file);
   if (ret != SQLITE_DONE) {
@@ -259,8 +260,8 @@ int cache_upsert_file (const char *restrict path,
               sqlite3_errmsg(sqlite3_db_handle(stmt_upsert_file)));
   }
   /* Because of the schema, if this was a REPLACE, previous hashes were automatically deleted! */
-  if (out_row_id) {
-    *out_row_id = (ret == SQLITE_DONE)
+  if (row_id_out) {
+    *row_id_out = (ret == SQLITE_DONE)
                       ? (uint64_t) sqlite3_last_insert_rowid(
                             sqlite3_db_handle(stmt_upsert_file))
                       : 0;
@@ -282,9 +283,11 @@ int cache_upsert_file (const char *restrict path,
  * @return 0 on success, 1 on fail.
  * @note Place this in a transaction when bulk inserting.
  */
-int cache_insert_hash (uint64_t file_id,
+int cache_insert_hash (anu_cache_ctx *ctx,
+                       uint64_t file_id,
                        uint64_t hash,
                        uint64_t frame_timestamp_us) {
+  sqlite3_stmt *stmt_insert_hash = ctx->stmt_insert_hash;
   sqlite3_bind_int64(stmt_insert_hash, 1, (sqlite3_int64) file_id);
 
   /* Storing 64-bit uint as sqlite 64-bit signed int. The bit pattern stays the same. */
@@ -301,15 +304,17 @@ int cache_insert_hash (uint64_t file_id,
   return (ret == SQLITE_DONE) ? 0 : -1;
 }
 
-int cache_get_hashes (uint64_t file_id,
+int cache_get_hashes (anu_cache_ctx *ctx,
+                      uint64_t file_id,
+                      size_t max_hashes,
                       uint64_t *out_hashes,
                       uint64_t *out_timestamps,
-                      size_t max_hashes,
                       size_t *out_count) {
-  if (!stmt_get_hashes || !out_hashes || !out_count || !out_timestamps) {
+  if (!ctx->stmt_get_hashes || !out_hashes || !out_count || !out_timestamps) {
     return -1;
   }
 
+  sqlite3_stmt *stmt_get_hashes = ctx->stmt_get_hashes;
   sqlite3_bind_int64(stmt_get_hashes, 1, (sqlite3_int64) file_id);
 
   size_t count = 0;
@@ -339,8 +344,11 @@ int cache_get_hashes (uint64_t file_id,
 /**
  * @brief Open database located at `db_path`.
  */
-sqlite3 *cache_open_db (const char *db_path) {
+anu_cache_ctx *cache_open_db (const char *db_path) {
 
+  /* TODO Add cleanup function for context
+   * TODO Return pointer using return_ptr macro */
+  anu_cache_ctx *ctx __free(cache_ctx) = calloc(1, sizeof(anu_cache_ctx));
   sqlite3 *db = NULL;
 
   /* Try opening database file */
@@ -361,28 +369,24 @@ sqlite3 *cache_open_db (const char *db_path) {
 
   if (ret != SQLITE_OK) {
     log_error("Can't open database: '%s'", sqlite3_errmsg(db));
-    sqlite3_close(db);
     return NULL;
   }
-
+  ctx->db = db;
   /* Execute database pragmas
    * NOTE: This must be the first thing run after opening database */
-  if (init_db__pragmas(db) != SQLITE_OK) {
+  if (init_db__pragmas(ctx) != SQLITE_OK) {
     log_error("Could not execute pragmas: '%s'", sqlite3_errmsg(db));
-    sqlite3_close(db);
     return NULL;
   }
 
   /* Initialise the database schema if not already initialised */
-  if (init_db__schema(db) != SQLITE_OK) {
+  if (init_db__schema(ctx) != SQLITE_OK) {
     log_error("Could not create tables: '%s'", sqlite3_errmsg(db));
-    sqlite3_close(db);
     return NULL;
   };
 
-  if (init_db__prepare_statements(db) != SQLITE_OK) {
+  if (init_db__prepare_statements(ctx) != SQLITE_OK) {
     log_error("Could not prepare statements: '%s'", sqlite3_errmsg(db));
-    sqlite3_close(db);
     return NULL;
   }
 
@@ -391,5 +395,5 @@ sqlite3 *cache_open_db (const char *db_path) {
 
   log_debug("Opened database '%s'", db_path);
 
-  return db;
+  return_ptr(ctx);
 }

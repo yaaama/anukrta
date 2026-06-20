@@ -221,32 +221,31 @@ static int anukrta_driver (anukrta_config *config) {
   /* Initialise SQLite3 */
   cache_init_once();
   /* Open the database */
-  sqlite3 *db = cache_open_db("cache.db");
+  anu_cache_ctx *db __free(cache_ctx) = cache_open_db("cache.db");
 
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
-    log_info("Checking database cache...");
+    log_info("Checking database cache for already hashed files...");
 
     for (size_t i = 0; i < file_count; i++) {
       anu_file *file = &kv_A(files, i);
-      uint64_t file_id = 0;
-      uint64_t cached_duration = 0;
+      uint64_t row_id = 0;
+      uint64_t file_duration_us = 0;
 
       /* Check if metadata is exactly the same */
-      if (cache_is_file_valid(file->path, file->size, file->mtime, file->ctime,
-                              &file_id, &cached_duration)) {
+      if (cache_is_file_valid(db, file, &row_id, &file_duration_us)) {
         size_t out_count = 0;
         size_t hash_off = i * config->segments;
 
         /* Retrieve the hashes & timestamps directly into our arrays */
         int ret =
-            cache_get_hashes(file_id, hashes + hash_off, timestamps + hash_off,
-                             config->segments, &out_count);
+            cache_get_hashes(db, row_id, config->segments, hashes + hash_off,
+                             timestamps + hash_off, &out_count);
 
         /* Only use cache if the database contains the EXACT amount of segments we requested */
         if (ret == 0 && out_count == config->segments) {
           thread_results[i].value = ANU_FILE_CACHED;
 
-          file->duration_us = (size_t) cached_duration;
+          file->duration_us = (size_t) file_duration_us;
         }
       }
     }
@@ -295,17 +294,14 @@ static int anukrta_driver (anukrta_config *config) {
     if (result == ANU_OK) {
       /* Row ID for inserted row */
       u64 row_id = 0;
-
-      cache_upsert_file(file->path, "v", file->size, (uint64_t) file->mtime,
-                        (uint64_t) file->ctime, file->duration_us,
-                        (uint64_t) curr_time, &row_id);
+      cache_upsert_file(db, "v", file, (u64) curr_time, &row_id);
 
       for (size_t segment_off = 0; segment_off < config->segments;
            segment_off++) {
         size_t curr_seg_idx = file_idx + segment_off;
         u64 curr_hash = hashes[curr_seg_idx];
         u64 curr_frame = timestamps[curr_seg_idx];
-        cache_insert_hash(row_id, curr_hash, curr_frame);
+        cache_insert_hash(db, row_id, curr_hash, curr_frame);
         bk_tree_insert(&filetree, curr_hash, i);
       }
     }
@@ -321,7 +317,6 @@ static int anukrta_driver (anukrta_config *config) {
   anu_report_destroy(&report);
   bk_tree_node_free(filetree);
   /* Close the database */
-  cache_close_db(&db);
   sqlite3_shutdown();
 
   return 0;
@@ -330,7 +325,7 @@ static int anukrta_driver (anukrta_config *config) {
 static inline anukrta_config default_config (void) {
 
   anukrta_config config = {
-    .segments = 2,
+    .segments = 3,
     .threshold = 15,
     .hash_algorithm = ANU_HASH_ALGO_DCT,
     .skip_duration = 3,
