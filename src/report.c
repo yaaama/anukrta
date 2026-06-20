@@ -92,7 +92,7 @@ static char *get_date_from_epoch (time_t *epoch_time,
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
-  MAYBE_UNUSED usize ret = strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
+  usize ret = strftime(buf, buf_size, "%d-%m-%Y %H:%M", &timeinfo);
 
   if (ret == 0) {
     log_warn("Date string exceeds buffer size.");
@@ -270,12 +270,6 @@ void anu_print_report (anukrta_config *config,
   }
 }
 
-typedef struct u64_bucket {
-  u64_vec bucket_items;
-} u64_bucket;
-
-typedef kvec_withinit_t(u64_bucket, 8) u64_bucket_vec;
-
 anu_report anu_generate_report (anu_file_vec *files,
                                 u64 *hashes,
                                 anukrta_config *config,
@@ -342,7 +336,6 @@ anu_report anu_generate_report (anu_file_vec *files,
     usize root = find_set(i, parent);
     /* Should never happen if logic is correct */
     ANU_ASSUME(root < file_count);
-
     kv_push(buckets[root], (u64) i);
   }
 
@@ -355,10 +348,9 @@ anu_report anu_generate_report (anu_file_vec *files,
     /* Destroy any buckets with less than 1 file */
     if (bucket_size <= 1) {
       kv_destroy(buckets[i]);
-      continue;
+    } else {
+      kv_push(report.groups, buckets[i]);
     }
-
-    kv_push(report.groups, buckets[i]);
   }
 
   free(buckets);
