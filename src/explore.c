@@ -38,8 +38,8 @@ DEFINE_FREE(path_vec, path_vec, cleanup_path_vec(&_T))
 static int handle_path_pointing_to_file(char *p,
                                         anu_file_vec *f) FUNC_NONNULL_ALL;
 
-static ALWAYS_INLINE int anu_file_opendir(char *dir_path,
-                                          DIR **out) FUNC_NONNULL_ALL;
+static ALWAYS_INLINE int anu_file_opendir(char *dir_path, DIR **out)
+    FUNC_NONNULL_ALL MAYBE_UNUSED;
 
 static ALWAYS_INLINE int compare_strings(const void *restrict a,
                                          const void *restrict b)
@@ -198,9 +198,9 @@ int handle_path_pointing_to_file (char *path, anu_file_vec *files_out) {
   }
 
   anu_file file = {
-    .ctime = statb.st_ctime,
-    .mtime = statb.st_mtime,
-    .size = (size_t) statb.st_size,
+    .ctime = (usize) statb.st_ctime,
+    .mtime = (usize) statb.st_mtime,
+    .size = (usize) statb.st_size,
   };
 
   char *base_ptr = anu_path_basename(path);
@@ -322,8 +322,8 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       size_t name_len = strlen(name);
       anu_file newfile = {
         .size = (usize) statb.st_size,
-        .ctime = statb.st_ctime,
-        .mtime = statb.st_mtime,
+        .ctime = (usize) statb.st_ctime,
+        .mtime = (usize) statb.st_mtime,
         .ino = statb.st_ino,
         .dev = statb.st_dev,
         .path = final_path,
