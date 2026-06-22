@@ -151,22 +151,22 @@ void bk_tree_search (bk_node *root,
 
 // NOLINTBEGIN (*recursion)
 static void bk_node_print_recursive (bk_node *node,
-                                     usize depth,
-                                     size edge_distance) {
+                                     size_t depth,
+                                     int edge_distance) {
   // NOLINTEND
   if (UNLIKELY(!node)) {
     return;
   }
 
   /* Print Indentation */
-  for (usize i = 0; i < depth; i++) {
+  for (size_t i = 0; i < depth; i++) {
     printf(i == depth - 1 ? "|__ " : "    ");
   }
 
   /* Print Edge Weight (Distance from parent) and Node Info
      If edge_distance is -1, it's the root. */
   if (edge_distance != -1) {
-    printf("[%td] ", edge_distance);
+    printf("[%d] ", edge_distance);
   } else {
     printf("[ROOT] ");
   }
@@ -186,7 +186,7 @@ static void bk_node_print_recursive (bk_node *node,
   for (size_t i = 0; i < node->child_count; i++) {
     ANU_ASSUME(node->children[i].distance <= 64);
     bk_node_print_recursive(node->children[i].node, depth + 1,
-                            (size) node->children[i].distance);
+                            (int) node->children[i].distance);
   }
 }
 
