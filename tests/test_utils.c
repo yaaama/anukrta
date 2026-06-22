@@ -3,6 +3,7 @@
 #include <criterion/redirect.h>
 #include <signal.h>
 
+#include "../src/defs.h"
 #include "../src/util.h"
 
 static void setup (void) {

@@ -1,7 +1,7 @@
 #ifndef ANU_CONFIG_H
 #define ANU_CONFIG_H
 
-#include "util.h"
+#include "defs.h"
 
 typedef enum anu_hash_type {
   ANU_HASH_ALGO_AVERAGE = 0,

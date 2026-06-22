@@ -13,6 +13,7 @@
 #include "explore.h"
 #include "kvec.h"
 #include "log.h"
+#include "mem.h"
 #include "tree.h"
 #include "util.h"
 
@@ -284,10 +285,7 @@ anu_report anu_generate_report (anu_file_vec *files,
 
   /* Union-Find to identify the groups */
   usize *parent __free(ptr) = NULL;
-  parent = malloc(file_count * sizeof(*parent) * 2);
-  if (!parent) {
-    ANU_DIE("Failed to allocate memory.");
-  }
+  parent = xmalloc(file_count * sizeof(*parent) * 2);
   usize *rank = parent + file_count;
 
   for (usize i = 0; i < file_count; i++) {

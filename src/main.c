@@ -23,29 +23,22 @@
 #include "cache.h"
 #include "cli.h"
 #include "config.h"
+#include "defs.h"
 #include "explore.h"
 #include "kvec.h"
 #include "log.h"
+#include "mem.h"
 #include "report.h"
 #include "sqlite3.h"
 #include "tree.h"
 #include "util.h"
 #include "video.h"
 
-typedef enum anu_ret_code : int32_t {
-  ANU_OK = 0,
-  ANU_PENDING,
-  ANU_FILE_CACHED,
-  ANU_IO_FAIL,
-  ANU_SKIPPED,
-  ANU_SKIPPED_SHORT,
-} anu_ret_code;
-
 /**
  * @brief Struct returned by threads.
  */
 typedef struct {
-  alignas(CACHE_LINE_SIZE) anu_ret_code value; /**< Result code. */
+  alignas(CACHE_LINE_SIZE) ANU_STATUS value; /**< Result code. */
 } worker_result;
 
 /**
@@ -65,7 +58,7 @@ typedef struct {
   uint64_t *frame_timestamps;
 
   /** Array of result codes from threads. */
-  worker_result *results; /* To store the return value of hash_video */
+  worker_result *results;
 
   /** Number of files to prodcess. */
   size_t file_count;
@@ -131,7 +124,7 @@ static void execute_hash_worker_threads (anukrta_config *config,
   assert(config->thread_count > 0);
 
   pthread_t *threads __free(ptr) =
-      calloc(config->thread_count, sizeof(*threads));
+      xcalloc(config->thread_count, sizeof(*threads));
   if (!threads) {
     ANU_DIE("Failed to allocate memory for threads");
   }
@@ -191,8 +184,8 @@ static int anukrta_driver (anukrta_config *config) {
   uint64_t *timestamps __free(ptr) = NULL;
   worker_result *thread_results __free(ptr) = NULL;
 
-  hashes = malloc(hash_collection_len * sizeof(*hashes));
-  timestamps = malloc(hash_collection_len * sizeof(*timestamps));
+  hashes = xmalloc(hash_collection_len * sizeof(*hashes));
+  timestamps = xmalloc(hash_collection_len * sizeof(*timestamps));
   thread_results =
       aligned_alloc(CACHE_LINE_SIZE, file_count * sizeof(*thread_results));
 
@@ -202,7 +195,7 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* Initialise thread result values */
   for (size_t i = 0; i < file_count; i++) {
-    thread_results[i].value = ANU_PENDING;
+    thread_results[i].value = ANU_FILE_PENDING;
   }
 
   atomic_size_t current_file_idx = 0;
@@ -266,7 +259,7 @@ static int anukrta_driver (anukrta_config *config) {
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
     anu_file *file = &kv_A(files, i);
-    anu_ret_code result = thread_results[i].value;
+    ANU_STATUS result = thread_results[i].value;
     size_t file_idx = (i * config->segments);
     /* Check the result saved by the thread */
 
@@ -276,7 +269,7 @@ static int anukrta_driver (anukrta_config *config) {
     }
 
     /* We skipped this file */
-    if (result == ANU_SKIPPED) {
+    if (result == ANU_FILE_SKIPPED) {
       log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 

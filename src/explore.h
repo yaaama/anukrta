@@ -42,6 +42,9 @@ typedef struct anu_file {
   u32 name_offset;
 } anu_file;
 
+/**
+ * Helper function to retrieve filename stored in `anu_file`.
+ */
 static ALWAYS_INLINE FUNC_NONNULL_ALL char *anu_file_get_filename (
     anu_file *f) {
   return f->path + f->name_offset;
@@ -52,12 +55,7 @@ static ALWAYS_INLINE FUNC_NONNULL_ALL char *anu_file_get_filename (
  */
 typedef kvec_t(anu_file) anu_file_vec;
 
-/* Forward declaration of destructor for anu_file_vec */
-static inline void anu_file_vec_destroy(anu_file_vec *v);
-
-/* Define auto cleanup function */
-DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
-
+/* Destructor for anu_file_vec */
 static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
 
   if (!v) {
@@ -74,6 +72,9 @@ static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
   }
   kv_destroy(*v);
 }
+
+/* Define auto cleanup function */
+DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
 
 void anu_explore_scan_directories(anukrta_config *config,
                                   anu_file_vec *files_out) FUNC_NONNULL_ALL;
