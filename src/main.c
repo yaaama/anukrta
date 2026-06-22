@@ -44,7 +44,7 @@ typedef struct {
 /**
  * @brief Context data passed to threads.
  */
-typedef struct {
+typedef struct worker_args {
   /** Pointer to file queue that needs to be hashed. */
   anu_file_vec *files;
 
@@ -60,8 +60,11 @@ typedef struct {
   /** Array of result codes from threads. */
   worker_result *results;
 
-  /** Number of files to prodcess. */
-  size_t file_count;
+  /** Indices of files to be processed. */
+  size_t *pending_indices;
+
+  /** Number of files needing to be processed. */
+  size_t pending_count;
 
   /** Index of file to process by thread worker. */
   atomic_size_t *current_idx; /* Shared index */
@@ -89,28 +92,31 @@ static void init_logger (int verbosity,
 static void *hash_worker_thread (void *arg) {
   worker_args *targs = (worker_args *) arg;
 
-  const size_t file_count = targs->file_count;
   const size_t segments = targs->config->segments;
+  anukrta_config *config = targs->config;
+  worker_result *results = targs->results;
+  anu_file *items = targs->files->items;
+  u64 *hashes = targs->hashes;
+  u64 *timestamps = targs->frame_timestamps;
+  _Atomic size_t *current_idx = targs->current_idx;
 
   while (1) {
-    /* Get index of next file */
-    size_t idx = atomic_fetch_add(targs->current_idx, 1);
+    /* Get index of next file in queue */
+    size_t q_idx = atomic_fetch_add(current_idx, 1);
 
     /* Check if next index exceeds file count */
-    if (idx >= file_count) {
+    if (q_idx >= targs->pending_count) {
       break;
     }
 
-    if (targs->results[idx].value == ANU_FILE_CACHED) {
-      continue;
-    }
+    /* Get actual file index from the queue index */
+    size_t file_idx = targs->pending_indices[q_idx];
 
-    size_t hash_off = idx * segments;
+    size_t hash_off = file_idx * segments;
 
     /* Do the hashing and store return code */
-    targs->results[idx].value = anu_video_hash(
-        &targs->files->items[idx], targs->config, targs->hashes + hash_off,
-        targs->frame_timestamps + hash_off);
+    results[file_idx].value = anu_video_hash(
+        &items[file_idx], config, hashes + hash_off, timestamps + hash_off);
   }
 
   return NULL;
@@ -197,24 +203,15 @@ static int anukrta_driver (anukrta_config *config) {
   for (size_t i = 0; i < file_count; i++) {
     thread_results[i].value = ANU_FILE_PENDING;
   }
-
-  atomic_size_t current_file_idx = 0;
-
-  /* Package the arguments */
-  worker_args thread_ctx = {
-    .files = &files,
-    .config = config,
-    .hashes = hashes,
-    .frame_timestamps = timestamps,
-    .results = thread_results,
-    .file_count = file_count,
-    .current_idx = &current_file_idx,
-  };
-
   /* Initialise SQLite3 */
   cache_init_once();
   /* Open the database */
   anu_cache_ctx *db __free(cache_ctx) = cache_open_db("cache.db");
+
+  /* File queue */
+  size_t *pending_indices __free(ptr) = NULL;
+  pending_indices = xcalloc(file_count, sizeof(size_t));
+  size_t pending_count = 0;
 
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
     log_info("Checking database cache for already hashed files...");
@@ -224,8 +221,11 @@ static int anukrta_driver (anukrta_config *config) {
       uint64_t row_id = 0;
       uint64_t file_duration_us = 0;
 
-      /* Check if metadata is exactly the same */
-      if (cache_is_file_valid(db, file, &row_id, &file_duration_us)) {
+      bool is_cached =
+          (bool) cache_is_file_valid(db, file, &row_id, &file_duration_us);
+
+      /* If its already cached... */
+      if (is_cached) {
         size_t out_count = 0;
         size_t hash_off = i * config->segments;
 
@@ -240,16 +240,39 @@ static int anukrta_driver (anukrta_config *config) {
 
           file->duration_us = (size_t) file_duration_us;
         }
+      } else {
+        pending_indices[pending_count++] = i;
       }
+    }
+  } else {
+    for (size_t i = 0; i < file_count; i++) {
+      pending_indices[pending_count++] = i;
     }
   }
 
   time_t curr_time = time(NULL);
   log_debug("Current time: %ld", curr_time);
 
-  /* THREADING START */
-  execute_hash_worker_threads(config, &thread_ctx, file_count);
-  /* THREADING END */
+  atomic_size_t current_file_idx = 0;
+
+  /* Package the arguments */
+  worker_args thread_ctx = {
+    .files = &files,
+    .config = config,
+    .hashes = hashes,
+    .frame_timestamps = timestamps,
+    .results = thread_results,
+    .pending_count = pending_count,
+    .pending_indices = pending_indices,
+    .current_idx = &current_file_idx,
+  };
+
+  if (pending_count > 0) {
+    execute_hash_worker_threads(config, &thread_ctx, pending_count);
+  } else {
+    log_info("All %zu files already exist in cache. Skipping hashing phase.",
+             file_count);
+  }
 
   bk_node *filetree = NULL;
 
