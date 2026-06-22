@@ -139,27 +139,16 @@ LDLIBS := $(FFMPEG_LIBS) -lm -lpthread
 # ==========================================
 #   SQLite Configuration
 # ==========================================
-SQLITE_OPTIONS = SQLITE_THREADSAFE=1 \
-                 SQLITE_DEFAULT_MEMSTATUS=0 \
-                 SQLITE_OMIT_LOAD_EXTENSION \
-                 SQLITE_LIKE_DOESNT_MATCH_BLOBS \
-                 SQLITE_MAX_EXPR_DEPTH=0 \
-                 SQLITE_OMIT_DECLTYPE \
-                 SQLITE_OMIT_DEPRECATED \
-                 SQLITE_OMIT_SHARED_CACHE \
-                 SQLITE_OMIT_AUTOINIT \
-                 SQLITE_STRICT_SUBTYPE=1 \
-                 SQLITE_ENABLE_FTS5
-
 SQLITE_DIR = $(VENDOR_DIR)/sqlite
 
-SQLITE_CFLAGS = $(addprefix -D, $(SQLITE_OPTIONS))
+SQLITE_FLAGS = $(addprefix -D, $(SQLITE_OPTIONS))
 SQLITE_LDFLAGS = -lpthread -ldl -lm
 
+SQLITE_CONFIG = $(SQLITE_DIR)/sqlite_config.h
 # Define the static library and its inputs
 SQLITE_LIB := $(SQLITE_DIR)/libsqlite3.a
-SQLITE_SRC := $(SQLITE_DIR)/sqlite3.c
-SQLITE_OBJ := $(SQLITE_DIR)/sqlite3.o
+SQLITE_SRC = $(SQLITE_DIR)/sqlite_vendored.c
+SQLITE_OBJ = $(SQLITE_DIR)/sqlite_vendored.o
 
 # Add SQLite libs to the global LDLIBS
 LDLIBS += $(SQLITE_LDFLAGS)
@@ -178,7 +167,7 @@ TEST_CFLAGS := $(CFLAGS) -w $(TEST_COMPILER_CFLAGS)
 
 SRC_SOURCES := $(shell find $(SRC_DIR) -name '*.c')
 TEST_SOURCES := $(shell find $(TEST_DIR) -name '*.c' 2>/dev/null)
-VENDOR_SOURCES := $(filter-out %sqlite3.c, $(wildcard $(VENDOR_DIR)/*.c) $(wildcard $(VENDOR_DIR)/*/*.c))
+VENDOR_SOURCES := $(filter-out %sqlite3.c %sqlite_vendored.c, $(wildcard $(VENDOR_DIR)/*.c) $(wildcard $(VENDOR_DIR)/*/*.c))
 
 # Create object file names (src/main.c -> obj/main.o)
 SRC_OBJECTS    := $(SRC_SOURCES:%.c=$(OBJ_DIR)/%.o)
@@ -251,9 +240,9 @@ $(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
 	$(ECHO_V) "Compiling Vendor [optimized] $<..."
 	$(Q)$(CC) $(VENDOR_CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-$(SQLITE_OBJ): $(SQLITE_SRC)
+$(SQLITE_OBJ): $(SQLITE_SRC) $(SQLITE_CONFIG)
 	$(ECHO_V) "Compiling Standalone SQLite [optimized]..."
-	$(Q)$(CC) -O3 -g -w $(SQLITE_CFLAGS) -c $< -o $@
+	$(Q)$(CC) -O3 -g -w -c $< -o $@
 
 # Rule to archive the compiled object into a static library in the source folder
 $(SQLITE_LIB): $(SQLITE_OBJ)
