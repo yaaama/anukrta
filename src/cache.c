@@ -65,7 +65,7 @@ int cache_ctx_destroy (anu_cache_ctx **ctx) {
 }
 
 /**
- * @brief SQLite pragmas to be used after database is successfully open
+ * @brief SQLite pragmas to be used after database is successfully opened.
  */
 static int init_db__pragmas (anu_cache_ctx *ctx) {
 
@@ -85,7 +85,7 @@ static int init_db__pragmas (anu_cache_ctx *ctx) {
 
   sqlite3 *db = ctx->db;
   /* Execute Pragmas */
-  int ret = sqlite3_exec(ctx->db, pragmas, NULL, NULL, &err_msg);
+  int ret = sqlite3_exec(db, pragmas, NULL, NULL, &err_msg);
   if (ret != SQLITE_OK) {
     log_error("SQL error (Pragmas): '%s'", err_msg);
     sqlite3_free(err_msg);
@@ -95,7 +95,7 @@ static int init_db__pragmas (anu_cache_ctx *ctx) {
 }
 
 /**
- * @brief Create database tables (if they are not present)
+ * @brief Create database tables (if they are not present).
  */
 static int init_db__schema (anu_cache_ctx *ctx) {
   char *err_msg = NULL;
@@ -121,14 +121,6 @@ static int init_db__schema (anu_cache_ctx *ctx) {
       "CREATE INDEX IF NOT EXISTS idx_file_path ON files(path);" /* Create an index on the path value */
       ;
 
-  ret = sqlite3_exec(db, files_table_schema, NULL, NULL, &err_msg);
-
-  if (ret != SQLITE_OK) {
-    log_error("Failed to create files table: '%s'", err_msg);
-    sqlite3_free(err_msg);
-    return ret;
-  }
-
   const char *hashes_table_schema =
       /* HASHES TABLE */
       "CREATE TABLE IF NOT EXISTS hashes ("
@@ -141,7 +133,16 @@ static int init_db__schema (anu_cache_ctx *ctx) {
       "CREATE INDEX IF NOT EXISTS idx_hash_lookup ON hashes(hash);" /* Create an index on the hash value */
       ;
 
-  /* Create tables if not already created */
+  /* Create files table */
+  ret = sqlite3_exec(db, files_table_schema, NULL, NULL, &err_msg);
+
+  if (ret != SQLITE_OK) {
+    log_error("Failed to create files table: '%s'", err_msg);
+    sqlite3_free(err_msg);
+    return ret;
+  }
+
+  /* Create hashes table */
   ret = sqlite3_exec(db, hashes_table_schema, NULL, NULL, &err_msg);
 
   if (ret != SQLITE_OK) {
