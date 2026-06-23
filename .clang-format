@@ -50,6 +50,9 @@ BinPackParameters: OnePerLine
 BinPackArguments: true
 ContinuationIndentWidth: 4
 
+# We can add some macro definitions here if we want...
+# AttributeMacros: [__free]
+
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 
