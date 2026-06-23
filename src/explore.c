@@ -38,12 +38,17 @@ DEFINE_FREE(path_vec, path_vec, cleanup_path_vec(&_T))
 static int handle_path_pointing_to_file(char *p,
                                         anu_file_vec *f) FUNC_NONNULL_ALL;
 
-static ALWAYS_INLINE int anu_file_opendir(char *dir_path, DIR **out)
-    FUNC_NONNULL_ALL MAYBE_UNUSED;
-
-static ALWAYS_INLINE int compare_strings(const void *restrict a,
-                                         const void *restrict b)
-    FUNC_NONNULL_ALL;
+/**
+ * @brief Compare strings lexicographically.
+ * Helper function for quick-sort
+ * Compares 'a' with 'b' lexicographically using its ASCII values
+ * e.g. a="Hello" , b="Hi"
+ * (H - H) = 0
+ * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
+static ALWAYS_INLINE int compare_strings (const void *restrict a,
+                                          const void *restrict b) {
+  return strcmp(*(const char *const *) a, *(const char *const *) b);
+}
 
 /* END OF DECLARATIONS */
 
@@ -124,20 +129,9 @@ int anu_path_extension_supported (char *path) {
  * @brief Resolve a relative path.
  *
  * @param path[in] Path to resolve.
- * @param out[out] Buffer to place resolved path in.
- * @return Returns 0 on success, anything else on failure.
+ * @return Returns path on success, anything else on failure.
  **/
 char *anu_path_resolve (char *path) { return realpath(path, NULL); }
-
-int anu_file_opendir (char *dir_path, DIR **out) {
-  *out = opendir(dir_path);
-
-  if (*out == NULL) {
-    return 1;
-  }
-  /* printf("Opened directory: `%s`!\n", dir_path); */
-  return 0;
-}
 
 /**
  * @brief Get a file name (extension included) from path.
@@ -197,20 +191,17 @@ int handle_path_pointing_to_file (char *path, anu_file_vec *files_out) {
     return -1;
   }
 
-  anu_file file = {
-    .ctime = (usize) statb.st_ctime,
-    .mtime = (usize) statb.st_mtime,
-    .size = (usize) statb.st_size,
-  };
-
   char *base_ptr = anu_path_basename(path);
   if (base_ptr == path) {
-    log_error("Could not determine basename from path...");
+    log_error("(%s): Could not determine basename", path);
     return 1;
   }
 
-  file.path = strdup(path);
-  file.name_offset = (u32) (base_ptr - path);
+  anu_file file = {.ctime = (usize) statb.st_ctime,
+                   .mtime = (usize) statb.st_mtime,
+                   .size = (usize) statb.st_size,
+                   .path = strdup(path),
+                   .name_offset = (u32) (base_ptr - path)};
 
   kv_push(*files_out, file);
   return 0;
@@ -223,6 +214,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
 
   /* Test to see if we can open the directory */
   DIR *first_dir = opendir(path);
+
   /* If path does not open, then we can check if it is a file */
   if (!first_dir) {
     if (anu_path_extension_supported(path)) {
@@ -338,15 +330,6 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
   return 0;
 }
 
-/* Helper function for quick-sort
- * Compares 'a' with 'b' lexicographically using its ASCII values
- * e.g. a="Hello" , b="Hi"
- * (H - H) = 0
- * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
-int compare_strings (const void *restrict a, const void *restrict b) {
-  return strcmp(*(const char *const *) a, *(const char *const *) b);
-}
-
 /* TODO: Add a check for hard linked files (files with same inode number) */
 void anu_explore_scan_directories (anukrta_config *config,
                                    anu_file_vec *files) {
@@ -425,8 +408,8 @@ void anu_explore_scan_directories (anukrta_config *config,
       log_debug(
           "Skipping overlapping or duplicate path: '%s' (covered by '%s')",
           current, prev);
-      free(
-          current); /* Free the redundant path as we are now removing it from the vector */
+      /* Free the redundant path as we are now removing it from the vector */
+      free(current);
 
     } else {
       kv_A(real_paths, unique_path_idx) = current; /* Keep the unique path */

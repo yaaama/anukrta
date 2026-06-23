@@ -89,9 +89,9 @@ static ALWAYS_INLINE FUNC_NONNULL_ALL bool anu_path_is_dir (char *path) {
   return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 };
 
-ALWAYS_INLINE bool anu_path_exists(char *path) FUNC_NONNULL_ALL;
+ALWAYS_INLINE bool anu_path_exists(char *path) FUNC_NONNULL_ALL MUST_CHECK;
 
-char *anu_path_resolve(char *path) FUNC_NONNULL_ALL FUNC_MALLOC;
+char *anu_path_resolve(char *path) FUNC_NONNULL_ALL FUNC_MALLOC MUST_CHECK;
 
 char *anu_path_basename(char *path) FUNC_NONNULL_ALL MUST_CHECK;
 
