@@ -201,7 +201,7 @@ static int anukrta_driver (anukrta_config *config) {
 
   /* Initialise thread result values */
   for (size_t i = 0; i < file_count; i++) {
-    thread_results[i].value = ANU_FILE_PENDING;
+    thread_results[i].value = ANU_STATUS_FILE_PENDING;
   }
   /* Initialise SQLite3 */
   cache_init_once();
@@ -236,7 +236,7 @@ static int anukrta_driver (anukrta_config *config) {
 
         /* Only use cache if the database contains the EXACT amount of segments we requested */
         if (ret == 0 && out_count == config->segments) {
-          thread_results[i].value = ANU_FILE_CACHED;
+          thread_results[i].value = ANU_STATUS_FILE_CACHED;
 
           file->duration_us = (size_t) file_duration_us;
         }
@@ -292,11 +292,11 @@ static int anukrta_driver (anukrta_config *config) {
     }
 
     /* We skipped this file */
-    if (result == ANU_FILE_SKIPPED) {
+    if (result == ANU_STATUS_FILE_SKIPPED) {
       log_debug("Skipped file '%s'", anu_file_get_filename(file));
     }
 
-    if (result == ANU_FILE_CACHED) {
+    if (result == ANU_STATUS_FILE_CACHED) {
       log_info("File %s previously hashed.", anu_file_get_filename(file));
       for (size_t segment_off = 0; segment_off < config->segments;
            segment_off++) {

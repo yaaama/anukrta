@@ -27,13 +27,16 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 
 /** @} */  // END Type Definitions
 
-typedef enum anu_status : int32_t {
-  ANU_OK = 0,         /**< Function executed successfully. */
-  ANU_FILE_PENDING,   /**< File is pending processing. */
-  ANU_FILE_CACHED,    /**< File is already in the database. */
-  ANU_IO_FAIL,        /**< IO failure. */
-  ANU_FILE_SKIPPED,   /**< File has been skipped. */
-  ANU_FILE_TOO_SHORT, /**< Video file is too short to process. */
+typedef enum ANU_STATUS_ENUM : int32_t {
+  ANU_OK = 0,              /**< Function executed successfully. */
+  ANU_IO_FAIL,             /**< IO failure. */
+  ANU_OOM,                 /**< Out of memory/ could not allocate memory. */
+  ANU_STATUS_FILE_PENDING, /**< File is pending processing. */
+  ANU_STATUS_FILE_CACHED,  /**< File is already in the database. */
+  ANU_STATUS_FILE_SKIPPED, /**< File has been skipped. */
+  ANU_VIDEO_LEN_SHORT,     /**< Video file is too short to process. */
+  ANU_FRAME_BLACK,         /**< Frame is too dark to process. */
+  ANU_LIBAV_FAIL,          /**< Some error occured whilst using libav */
 } ANU_STATUS;
 
 /**

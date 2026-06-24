@@ -24,13 +24,11 @@
 #include <string.h>
 
 #include "config.h"
+#include "defs.h"
 #include "explore.h"
 #include "hash.h"
 #include "log.h"
 #include "util.h"
-
-/* Hardcode this so I don't have to include another header */
-#define ANU_EAGAIN 11
 
 typedef struct cropping {
   int x;
@@ -62,10 +60,10 @@ static MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (
  *
  * @param[in] f_path File path.
  * @param[in][out] vreader Structure to initialise.
- * @return 0 if success, non-zero for anything else.
+ * @return ANU_OK if success, anything else is an error.
  *
  */
-static int vreader_init (char *f_path, anu_vreader *vreader) {
+static ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
   assert(f_path && vreader);
 
   /*
@@ -82,8 +80,8 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
   if (errcode != 0) {
-    log_error("[%s] Could not open file: %s", f_path, av_err2str(errcode));
-    return -1;
+    log_warn("Could not open file `%s`: %s", f_path, av_err2str(errcode));
+    return ANU_LIBAV_FAIL;
   }
 
   /*
@@ -95,7 +93,7 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
   if (errcode < 0) {
     log_error("[%s] Failed to read both file header and stream info: `%s`",
               f_path, av_err2str(errcode));
-    return -1;
+    return ANU_LIBAV_FAIL;
   }
 
   /*
@@ -119,7 +117,8 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
       log_error("[%s] Failed to find best stream: %s", f_path,
                 av_err2str(vreader->video_stream_idx));
     }
-    return -1;
+
+    return ANU_LIBAV_FAIL;
   }
 
   log_trace("[%s] Found video stream at index `%d`", f_path,
@@ -127,7 +126,7 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
 
   if (!codec) {
     log_error("[%s] No codec found for stream.", f_path);
-    return -1;
+    return ANU_LIBAV_FAIL;
   }
 
   AVCodecParameters *codec_params = NULL;
@@ -139,12 +138,12 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
 
   if (!vreader->codec_ctx) {
     log_error("[%s] Failed to allocate memory for codec context.", f_path);
-    return -1;
+    return ANU_OOM;
   }
 
   if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
     log_error("[%s] Could not retrieve codec context.", f_path);
-    return -1;
+    return ANU_LIBAV_FAIL;
   }
 
   /* NOTE: Set thread count to prevent CACHE THRASHING */
@@ -152,7 +151,7 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
     log_error("[%s] Failed to initialise codec context %s", f_path,
               codec->long_name);
-    return -1;
+    return ANU_LIBAV_FAIL;
   }
 
   /* Alloc Buffers */
@@ -160,49 +159,33 @@ static int vreader_init (char *f_path, anu_vreader *vreader) {
 
   if (vreader->frame == NULL) {
     log_error("[%s] Failed to allocate memory for frame.", f_path);
-    return -1;
+    return ANU_OOM;
   }
 
   vreader->packet = av_packet_alloc();
   if (vreader->packet == NULL) {
     log_error("[%s] Failed to allocate memory for packet.", f_path);
-    return -1;
+    return ANU_OOM;
   }
 
-  return 0;
+  return ANU_OK;
 }
 
 static void vreader_close (anu_vreader *vreader) {
   if (!vreader) {
     return;
   }
-  if (vreader->packet) {
-    av_packet_free(&vreader->packet);
-  }
-  if (vreader->sws_ctx) {
-    sws_freeContext(vreader->sws_ctx);
-  }
-
-  if (vreader->frame) {
-    av_frame_free(&vreader->frame);
-  }
-  if (vreader->codec_ctx) {
-    /* Drain decoder */
-    avcodec_send_packet(vreader->codec_ctx, NULL);
-    /* Free context */
-    avcodec_free_context(&vreader->codec_ctx);
-  }
-  if (vreader->fmt_ctx) {
-    avformat_close_input(&vreader->fmt_ctx);
-  }
+  av_packet_free(&vreader->packet);
+  sws_freeContext(vreader->sws_ctx);
+  av_frame_free(&vreader->frame);
+  avcodec_free_context(&vreader->codec_ctx);
+  avformat_close_input(&vreader->fmt_ctx);
 }
 
 DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
 
-static ALWAYS_INLINE AVStream *vreader_video_stream (anu_vreader *vreader) {
-  assert(vreader);
-  assert(vreader->video_stream_idx >= 0);
-  assert(vreader->fmt_ctx);
+static ALWAYS_INLINE FUNC_NONNULL_ALL AVStream *vreader_video_stream (
+    anu_vreader *vreader) {
   return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }
 
@@ -263,8 +246,6 @@ static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
                                target_pts, AVSEEK_FLAG_BACKWARD);
 
   if (seek_ret < 0) {
-    log_debug("Error seeking to timestamp %ld: %s", target_pts,
-              av_err2str(seek_ret));
     return seek_ret;
   }
 
@@ -286,11 +267,12 @@ static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
 static inline bool row_has_video (const uint8_t *const row,
                                   const int width,
                                   const int threshold) {
-  uint8_t max_val = 0;
   for (int i = 0; i < width; i++) {
-    max_val = max_val > row[i] ? max_val : row[i];
+    if (row[i] > threshold) {
+      return true;
+    }
   }
-  return max_val > threshold;
+  return false;
 }
 
 /* Detects the bounding box of non-black pixels */
@@ -361,31 +343,36 @@ static inline bool anu_detect_black_borders (AVFrame *frame,
   return true;
 }
 
-/* This is the function called ONLY when a valid frame is fully decoded */
-static uint64_t hash_decoded_frame (
-    uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-    anu_hash_type hash_algo) {
+/**
+ * @brief Produce hash from a video frame.
+ * @param matrix [in] The matrix of values to hash, as a 1D array.
+ * @param hash_algo TODO The type of hashing algorithm to use. Currently does not do anything.
+ * @return Unsigned 64 bit int (hash output).
+ */
+static ALWAYS_INLINE uint64_t
+hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
+                    anu_hash_type hash_algo) {
+
+  if (hash_algo != ANU_HASH_ALGO_DCT) {
+    ANU_TODO("We've only implemented DCT hashing thus far.");
+  }
 
   uint64_t hash = 0;
-  switch (hash_algo) {
-    case ANU_HASH_ALGO_DCT:
-      {
-        hash = dct_hash(matrix);
-        break;
-      }
-    default:
-      {
-        ANU_UNREACHABLE("Hashing algorithm not specified.");
-      }
-  }
-
-  if (hash == 0) {
-    log_warn("Received a 0 value for hash.");
-  }
+  hash = dct_hash(matrix);
 
   return hash;
 }
 
+/**
+ * @brief Prepare software scaler by normalising colourspace details.
+ *
+ * @param frame [in] Frame being scaled by the software scaler.
+ * @param context [in] Software scaler instance.
+ *
+ * @return int
+ * @retval 0 Success.
+ * @retval -1 Failure to get or set the software scaler's colourspace.
+ */
 static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
 
   int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
@@ -436,8 +423,8 @@ static int scale_frame (anu_vreader *vr,
     bool workable_frame = anu_detect_black_borders(src, 24, &crop);
     /* If returning false, then we have a fully black frame */
     if (!workable_frame) {
-      log_warn("%s: Frame is completely black", fname);
-      return 1;
+      log_warn("%s: Frame is completely black.", fname);
+      return ANU_FRAME_BLACK;
     }
   }
 
@@ -449,20 +436,20 @@ static int scale_frame (anu_vreader *vr,
 
   if (!vr->sws_ctx) {
     log_error("%s: Failed to create scaling context.", fname);
-    return 1;
+    return ANU_LIBAV_FAIL;
   }
 
   /* Normalise colourspaces */
   if (normalise_sws_colourspace(vr->frame, vr->sws_ctx)) {
     log_error("%s: Colourspace normalisation failed.", fname);
-    return 1;
+    return ANU_LIBAV_FAIL;
   }
 
   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(src->format);
 
   if (!desc) {
     log_error("%s: No pixel format description found.", fname);
-    return 1;
+    return ANU_LIBAV_FAIL;
   }
 
   /* Number of bytes/bits per pixel */
@@ -485,7 +472,7 @@ static int scale_frame (anu_vreader *vr,
 
   if (scaling_ret <= 0) {
     log_error("%s: Scaling FAILED: `%s`", fname, av_err2str(scaling_ret));
-    return 1;
+    return ANU_LIBAV_FAIL;
   }
 
   return 0;
@@ -495,9 +482,10 @@ static int scale_frame (anu_vreader *vr,
  * @brief Get a video frame.
  * @param [in] vreader An instance of a vreader.
  * @return Integer.
- * @retval 1 Successfully decoded packet.
- * @retval 0 End of file.
- * @retval -1 Decoding error.
+ * @retval ANU_OK Successfully decoded packet.
+ * @retval -1 End of file.
+ * @retval -11 Error, please try again.
+ * @retval Anything else is an unknown error.
  */
 static int video_reader_get_frame (anu_vreader *vreader) {
   int ret = 0;
@@ -509,22 +497,24 @@ static int video_reader_get_frame (anu_vreader *vreader) {
 
     /* Successfully got a frame */
     if (ret == 0) {
-      return 1;
+      return ANU_OK;
     }
 
     if (ret == AVERROR(EOF)) {
-      return 0;
+      return ret;
     }
+
     if (ret != AVERROR(EAGAIN)) {
       /* If it's not EAGAIN and not EOF, it's a real error */
-      log_error("Error receiving frame: %s", av_err2str(ret));
-      return -1;
+      log_error("%s Error receiving frame: %s", vreader->fmt_ctx->url,
+                av_err2str(ret));
+      return ret;
     }
     AVPacket *packet = vreader->packet;
     /* Read a frame */
     ret = av_read_frame(vreader->fmt_ctx, packet);
 
-    if (ret < 0) {
+    if (ret == AVERROR(EOF) || ret == AVERROR(EINVAL)) {
       /* EOF reached on the container
          We need to send a NULL packet to the decoder
          to "flush" out any delayed or cached frames. */
@@ -541,32 +531,36 @@ static int video_reader_get_frame (anu_vreader *vreader) {
     av_packet_unref(packet);
 
     if (ret < 0) {
-      log_error("Failed sending packet: %s", av_err2str(ret));
-      return -1;
+      log_error("%s Decoding error: %s", vreader->fmt_ctx->url,
+                av_err2str(ret));
+      return ret;
     }
   }
 }
 
-int anu_video_hash (anu_file *file,
-                    anukrta_config *config,
-                    uint64_t *hashes_out,
-                    uint64_t *frame_timestamps_out) {
+ANU_STATUS anu_video_hash (anu_file *file,
+                           anukrta_config *config,
+                           uint64_t *hashes_out,
+                           uint64_t *frame_timestamps_out) {
 
   assert(config->segments > 0);
   assert(file);
   assert(hashes_out);
 
-  __free(vreader_close) anu_vreader vreader = {0};
+  anu_vreader vreader __free(vreader_close) = {0};
 
   /* Setup video reader */
-  if (vreader_init(file->path, &vreader)) {
-    return -1;
+  int code = 0;
+  code = vreader_init(file->path, &vreader);
+  if (code != ANU_OK) {
+    return code;
   }
 
   file->duration_us = vreader_get_duration(&vreader);
+
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    return -1;
+    return ANU_VIDEO_LEN_SHORT;
   }
   char *fname = anu_file_get_filename(file);
 
@@ -578,76 +572,92 @@ int anu_video_hash (anu_file *file,
   /* Check if file duration is longer than the skip threshold */
   if (file->duration_us <=
       (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
-    log_debug("[%s] Skipping - Duration less than threshold (%.1f < %.1f) ",
-              fname, anu_time_microseconds_to_seconds(file->duration_us),
-              anu_time_microseconds_to_seconds(config->skip_duration));
+    log_debug(
+        "[%s] Skipping - Duration (%.2f seconds) less than threshold (%zu "
+        "seconds)",
+        fname, anu_time_microseconds_to_seconds(file->duration_us),
+        config->skip_duration);
 
-    return -2;
+    return ANU_VIDEO_LEN_SHORT;
   }
 
-  size_t frame_step_us = file->duration_us / config->segments;
+  const size_t frame_step_us = file->duration_us / config->segments;
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
+
   /* Target timestamp in microseconds */
   int64_t seek_target_us = 0;
-  /* Target timestamp in streams time base (tick) */
-  int64_t seek_target_sb = 0;
+  const size_t seek_target_us_jump = (frame_step_us / 2);
 
   uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
   /* Video stream */
   AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
 
+  const AVRational stream_timebase = vid_stream_ptr->time_base;
+
   for (size_t i = 0; i < config->segments; i++) {
 
-    seek_target_us = (int64_t) ((i * frame_step_us) + (frame_step_us / 2));
+    seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
     /* NOTE: As long as our duration values are positive, all of this casting is fine */
-    seek_target_sb =
-        av_rescale_q(seek_target_us, AV_TIME_BASE_Q, vid_stream_ptr->time_base);
 
-    log_debug("[%s] --- Segment [%zu/%zu] ---", fname, i + 1, config->segments);
-    log_debug("  Seeking to PTS %ld (%.1f seconds/ %zu microseconds)",
-              seek_target_sb,
-              anu_time_microseconds_to_seconds((size_t) seek_target_us),
-              seek_target_us);
+    /* Target timestamp in streams time base (tick) */
+    int64_t seek_target_sb =
+        av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
+    int errcode = 0;
+
+    log_debug("[%s] Segment [%zu/%zu]", fname, i + 1, config->segments);
+    log_debug("  Seeking to PTS %ld (%.1f seconds)", seek_target_sb,
+              anu_time_microseconds_to_seconds((size_t) seek_target_us));
 
     /* Seek to timestamp */
-    if (vreader_seek_pts(&vreader, seek_target_sb) < 0) {
-      log_warn("[%s] Could not seek to segment `%zu`", fname, i);
-      continue; /* Try next segment */
+    errcode = vreader_seek_pts(&vreader, seek_target_sb);
+    if (errcode != ANU_OK) {
+      log_error("[%s] Could not seek to segment `%zu` (PTS `%ld`): %s", fname,
+                i, seek_target_sb, av_err2str(errcode));
+      goto failure;
     }
 
-    if (video_reader_get_frame(&vreader) != 1) {
-      log_warn("[%s] Could not get frame at PTS %ld, segment [%zu]", fname,
-               seek_target_sb, i);
-      continue;
+    /* After seeking to the necessary timestamp, we want to retrieve the frame */
+    errcode = video_reader_get_frame(&vreader);
+    if (errcode != ANU_OK) {
+      log_error("[%s] Could not decode frame `%ld`: `%s`", fname,
+                seek_target_sb, av_err2str(errcode));
+      goto failure;
     }
 
-    if (scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
-                    ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS)) != 0) {
-      log_error("[%s] Failed to scale frame for segment `%zu`", fname, i);
-      continue;
+    /* Scale down frame to 32x32 and check for black bars */
+    errcode = scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
+                          ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS));
+    if (errcode != ANU_OK) {
+      log_error("[%s] Failed to scale frame: `%s`", fname,
+                (errcode == ANU_FRAME_BLACK) ? "Frame was found to be too dark."
+                                             : av_err2str(errcode));
+
+      goto failure;
     }
 
-    hashes_out[frames_decoded] =
-        hash_decoded_frame(matrix, config->hash_algorithm);
-    frame_timestamps_out[frames_decoded] = (u64) seek_target_us;
-
+    /*
+     * If everything was SUCCESSFUL
+     */
+    hashes_out[i] = hash_decoded_frame(matrix, config->hash_algorithm);
+    frame_timestamps_out[i] = (u64) seek_target_us;
     log_trace("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
-              hashes_out[frames_decoded]);
-    frames_decoded++;
-  }
+              hashes_out[i]);
+    ++frames_decoded;
+    continue;
 
-#ifdef ANU_DEBUG
-  char hashes[1024];
-  int total_len = 0;
-  for (int i = 0; i < frames_decoded; i++) {
-    int end = sprintf(&hashes[total_len], " %lX,", hashes_out[i]);
-    total_len += end;
-    hashes[total_len] = ' ';
+    /**
+     * Jump here when an error occurs and we want to skip over this particular hash.
+     * We assign 0's in order to indicate an error has occured and that a hash was not produced.
+     */
+  failure:
+    {
+      hashes_out[i] = 0;
+      frame_timestamps_out[i] = 0;
+      log_warn("%s (%zu/%zu) could not be hashed.", fname, (i + 1),
+               config->segments);
+    }
   }
-  hashes[total_len] = '\0';
-  log_debug("[%s] DONE => {%s}\n", fname, hashes);
-#endif
   log_trace("[%s] DONE. Processed %d frames.", fname, frames_decoded);
-  return 0;
+  return ANU_OK;
 }
