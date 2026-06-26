@@ -26,33 +26,33 @@ __err_alloc_sz_zero (const char *file, unsigned int line) {
 
 #define err_oom() __err_oom(__FILE__, __LINE__)
 
-static inline FUNC_ALLOC_SIZE(1) MUST_CHECK void *xmalloc(const size_t size) {
-  void *ret = malloc(size);
-  if (UNLIKELY(!ret && size)) {
+static inline FUNC_ALLOC_SIZE(1) MUST_CHECK void *xmalloc(const size_t sz) {
+  void *ret = malloc(sz);
+  if (UNLIKELY(!ret && sz)) {
     err_oom();
   }
   return ret;
 }
 
 static inline FUNC_ALLOC_SIZE(1, 2) MUST_CHECK
-    void *xcalloc(const size_t nmem, const size_t size) {
+    void *xcalloc(const size_t nmem, const size_t sz) {
 
-  void *ret = calloc(nmem, size);
-  if (UNLIKELY(!ret && size && nmem)) {
+  void *ret = calloc(nmem, sz);
+  if (UNLIKELY(!ret && sz && nmem)) {
     err_oom();
   }
   return ret;
 }
 
 static inline FUNC_ALLOC_SIZE(2) MUST_CHECK
-    void *xrealloc(void *ptr, const size_t size) {
+    void *xrealloc(void *ptr, const size_t sz) {
 
-  if (UNLIKELY(size == 0)) {
+  if (UNLIKELY(sz == 0)) {
     __err_alloc_sz_zero(__FILE__, __LINE__);
   }
-  void *ret = realloc(ptr, size);
+  void *ret = realloc(ptr, sz);
 
-  if (UNLIKELY(!ret && size)) {
+  if (UNLIKELY(!ret && sz)) {
     err_oom();
   }
   return ret;
