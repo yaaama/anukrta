@@ -64,11 +64,6 @@ static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
 static const int VIDEO_EXTENSION_MAX_LENGTH = 4;
 static const int VIDEO_EXTENSION_MIN_LENGTH = 2;
 
-bool anu_path_exists (char *path) {
-  struct stat statb;
-  return (stat(path, &statb) == 0) != 0;
-}
-
 /* Check extension of filename */
 int anu_path_extension_supported (char *path) {
   assert(path);
