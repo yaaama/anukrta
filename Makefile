@@ -57,7 +57,7 @@ CFLAGS := -std=gnu23 \
 -Wconversion -Wsign-conversion -Wdouble-promotion -Wmissing-include-dirs \
 -Wnested-externs -Wredundant-decls -Wold-style-definition \
 -Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes \
--Wjump-misses-init -Wuninitialized -Warray-parameter -Winit-self -Wundef
+-Wuninitialized -Warray-parameter -Winit-self -Wundef
 
 # Inject Compiler-specific flags from config.mk
 CFLAGS += $(COMPILER_CFLAGS)

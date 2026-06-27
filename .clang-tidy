@@ -46,6 +46,7 @@ Checks: >
   -modernize-macro-to-enum,
   -cppcoreguidelines-init-variables,
   -cppcoreguidelines-avoid-non-const-global-variables,
+  -Wjump-misses-init
 
 WarningsAsErrors: ""
 HeaderFileExtensions:
