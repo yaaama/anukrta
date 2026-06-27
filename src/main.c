@@ -38,7 +38,7 @@
  * @brief Struct returned by threads.
  */
 typedef struct {
-  alignas(CACHE_LINE_SIZE) ANU_STATUS value; /**< Result code. */
+  alignas(CACHE_LINE_SIZE) enum ANU_STATUS value; /**< Result code. */
 } worker_result;
 
 /**
@@ -126,20 +126,21 @@ static void execute_hash_worker_threads (anukrta_config *config,
                                          worker_args *args,
                                          size_t file_count) {
   /* NOTE: Thread count should not exceed file count */
-  config->thread_count = MINIMUM(config->thread_count, file_count);
+  size_t final_thread_count = MINIMUM(config->thread_count, file_count);
+  log_info("Available threads: %zu, running with: %zu", config->thread_count,
+           final_thread_count);
+  config->thread_count = final_thread_count;
+
   assert(config->thread_count > 0);
 
   pthread_t *threads __free(ptr) =
-      xcalloc(config->thread_count, sizeof(*threads));
-  if (!threads) {
-    ANU_DIE("Failed to allocate memory for threads");
-  }
+      xcalloc(final_thread_count, sizeof(*threads));
 
-  log_info("Starting %zu hashing threads...", config->thread_count);
+  log_info("Starting %zu hashing threads...", final_thread_count);
 
   /* Create the threads */
   int threads_made = 0;
-  for (size_t i = 0; i < config->thread_count; i++) {
+  for (size_t i = 0; i < final_thread_count; i++) {
     int success =
         (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
     threads_made += success;
@@ -149,10 +150,19 @@ static void execute_hash_worker_threads (anukrta_config *config,
     }
   }
 
+  log_info("Spawned %d threads.", threads_made);
+
   /* Wait for all threads to finish */
+  int threads_joined = 0;
   for (int i = 0; i < threads_made; i++) {
-    pthread_join(threads[i], NULL);
+    int success = (pthread_join(threads[i], NULL) == 0);
+    threads_joined += success;
+    if (!success) {
+      log_warn("Failed to create thread #%d", i);
+    }
   }
+
+  log_info("Joined %d threads.", threads_joined);
 }
 
 static int anukrta_driver (anukrta_config *config) {
@@ -199,10 +209,6 @@ static int anukrta_driver (anukrta_config *config) {
     ANU_DIE("Failed to allocate memory.");
   }
 
-  /* Initialise thread result values */
-  for (size_t i = 0; i < file_count; i++) {
-    thread_results[i].value = ANU_STATUS_FILE_PENDING;
-  }
   /* Initialise SQLite3 */
   cache_init_once();
   /* Open the database */
@@ -282,18 +288,18 @@ static int anukrta_driver (anukrta_config *config) {
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
     anu_file *file = &kv_A(files, i);
-    ANU_STATUS result = thread_results[i].value;
+    enum ANU_STATUS result = thread_results[i].value;
     size_t file_idx = (i * config->segments);
     /* Check the result saved by the thread */
 
     /* Failed to hash a file */
     if (result == ANU_IO_FAIL) {
-      log_debug("Failed to hash file '%s'", anu_file_get_filename(file));
+      log_info("Failed to hash file '%s'", anu_file_get_filename(file));
     }
 
     /* We skipped this file */
     if (result == ANU_STATUS_FILE_SKIPPED) {
-      log_debug("Skipped file '%s'", anu_file_get_filename(file));
+      log_info("Skipped file '%s'", anu_file_get_filename(file));
     }
 
     if (result == ANU_STATUS_FILE_CACHED) {

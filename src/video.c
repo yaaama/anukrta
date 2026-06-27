@@ -37,12 +37,13 @@ typedef struct cropping {
   int h;
 } cropping;
 
-static ALWAYS_INLINE size_t pts_to_useconds (int64_t pts, AVRational timebase) {
+static ALWAYS_INLINE FUNC_PURE size_t pts_to_useconds (int64_t pts,
+                                                       AVRational timebase) {
   assert(pts >= 0);
   return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
-static MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (
+MAYBE_UNUSED static ALWAYS_INLINE FUNC_PURE double frame_pts_to_seconds (
     int64_t pts,
     AVRational timebase) {
   assert(pts >= 0);
@@ -63,7 +64,7 @@ static MAYBE_UNUSED ALWAYS_INLINE double frame_pts_to_seconds (
  * @return ANU_OK if success, anything else is an error.
  *
  */
-static ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
+static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
   assert(f_path && vreader);
 
   /*
@@ -102,7 +103,6 @@ static ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
    * Stores decoder for that video stream in `codec`.
    * Return value of `av_find_best_stream` is the stream index that we store in our struct.
    */
-
   const AVCodec *codec = NULL;
 
   vreader->video_stream_idx = av_find_best_stream(
@@ -538,10 +538,10 @@ static int video_reader_get_frame (anu_vreader *vreader) {
   }
 }
 
-ANU_STATUS anu_video_hash (anu_file *file,
-                           anukrta_config *config,
-                           uint64_t *hashes_out,
-                           uint64_t *frame_timestamps_out) {
+enum ANU_STATUS anu_video_hash (anu_file *file,
+                                anukrta_config *config,
+                                uint64_t *hashes_out,
+                                uint64_t *frame_timestamps_out) {
 
   assert(config->segments > 0);
   assert(file);

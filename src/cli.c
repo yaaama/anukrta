@@ -115,7 +115,8 @@ void anu_cli_print_configuration (anukrta_config *config) {
 }
 
 /* Helper to reverse-lookup long option names */
-static const char *get_long_opt_name (int val, const struct option *opts) {
+static FUNC_PURE const char *get_long_opt_name (int val,
+                                                const struct option *opts) {
   for (int i = 0; opts[i].name != NULL; i++) {
     if (opts[i].val == val) {
       return opts[i].name;

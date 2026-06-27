@@ -146,6 +146,12 @@
  */
 #  define FUNC_MALLOC __attribute__((malloc))
 
+/**
+ * @def RETURNS_NONNULL
+ * Tells the compiler that the function will return a non-null value.
+ */
+#  define RETURNS_NONNULL __attribute__((__returns_nonnull__))
+
 /** @def FUNC_NORETURN
  * @brief Indicates that the function will never return to its caller.
  *

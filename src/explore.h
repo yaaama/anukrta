@@ -82,7 +82,7 @@ void anu_explore_scan_directories(anukrta_config *config,
 int anu_explore_recursive_filewalk(char *path,
                                    anu_file_vec *files_out) FUNC_NONNULL_ALL;
 
-int anu_path_extension_supported(char *path) FUNC_NONNULL_ALL;
+int anu_path_extension_supported(char *path) FUNC_NONNULL_ALL FUNC_PURE;
 
 static ALWAYS_INLINE FUNC_NONNULL_ALL bool anu_path_is_dir (char *path) {
   struct stat statb;
@@ -91,9 +91,9 @@ static ALWAYS_INLINE FUNC_NONNULL_ALL bool anu_path_is_dir (char *path) {
 
 char *anu_path_resolve(char *path) FUNC_NONNULL_ALL FUNC_MALLOC MUST_CHECK;
 
-char *anu_path_basename(char *path) FUNC_NONNULL_ALL MUST_CHECK;
+char *anu_path_basename(char *path) FUNC_NONNULL_ALL MUST_CHECK FUNC_PURE;
 
 char *anu_path_basename_stem(char *restrict path,
                              char *restrict out,
-                             size_t out_size) FUNC_NONNULL_ARG(1, 2);
+                             size_t out_size) FUNC_NONNULL_ARG(1, 2) FUNC_PURE;
 #endif  // ANU_EXPLORE_H

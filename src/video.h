@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "defs.h"
 #include "explore.h"
 #include "util.h"
 
@@ -35,9 +36,9 @@ typedef struct anu_vreader {
   byte padding[4];
 } anu_vreader;
 
-int anu_video_hash(anu_file *file,
-                   anukrta_config *config,
-                   uint64_t *hashes_out,
-                   uint64_t *frame_timestamps_out);
+enum ANU_STATUS anu_video_hash(anu_file *file,
+                               anukrta_config *config,
+                               uint64_t *hashes_out,
+                               uint64_t *frame_timestamps_out);
 
 #endif  // ANU_VIDEO_H
