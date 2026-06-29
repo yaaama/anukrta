@@ -111,53 +111,45 @@ endif
 # ==========================================
 # --- Local FFmpeg Configuration ---
 # Set to 1 to use a custom locally-built FFmpeg instead of the system one
+PKG_CONFIG ?= pkg-config
+LOCAL_FFMPEG_DIR ?=
 FFMPEG_MODULES := libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil
 
 ifeq ($(USE_LOCAL_FFMPEG), 1)
   # The path to the 'prefix' where your local FFmpeg was installed
   # (the directory containing 'include' and 'lib' folders for ffmpeg)
-  LOCAL_FFMPEG_DIR ?=
   # Point pkg-config to our local FFmpeg installation
-	PKG_CONFIG_CMD := PKG_CONFIG_PATH="$(LOCAL_FFMPEG_DIR)/lib/pkgconfig" pkg-config
+	PKG_CONFIG_CMD := PKG_CONFIG_PATH="$(LOCAL_FFMPEG_DIR)/lib/pkgconfig" $(PKG_CONFIG)
   # Tell the resulting binary where to find the local shared libraries at runtime
 	LDFLAGS += -Wl,-rpath=$(LOCAL_FFMPEG_DIR)/lib
   $(info [INFO] Using LOCAL FFmpeg located at: $(LOCAL_FFMPEG_DIR))
 else
 # Use standard system pkg-config
-	PKG_CONFIG_CMD := pkg-config
+	PKG_CONFIG_CMD := $(PKG_CONFIG)
 endif
-# Get the raw flags from pkg-config (e.g., "-I/usr/include -D_GNU_SOURCE")
-FFMPEG_CFLAGS_RAW := $(shell $(PKG_CONFIG_CMD) --cflags $(FFMPEG_MODULES))
 # Replace "-I/path" to "-isystem /path" to silence third-party warnings
-FFMPEG_CFLAGS := $(patsubst -I%,-isystem %,$(FFMPEG_CFLAGS_RAW))
-FFMPEG_LIBS := $(shell $(PKG_CONFIG_CMD) --libs $(FFMPEG_MODULES))
-
-CFLAGS += $(FFMPEG_CFLAGS)
+CFLAGS += $(patsubst -I%,-isystem %,$(shell $(PKG_CONFIG_CMD) --cflags $(FFMPEG_MODULES)))
+# Add FFMPEG_MODULES to link against
+LDLIBS += $(shell $(PKG_CONFIG_CMD) --libs $(FFMPEG_MODULES)) -lm -pthread
+# Only link what we need
 LDFLAGS += -Wl,--as-needed
-LDLIBS := $(FFMPEG_LIBS) -lm -lpthread
 
 # ==========================================
 #   SQLite Configuration
 # ==========================================
 SQLITE_DIR = $(VENDOR_DIR)/sqlite
 
-SQLITE_FLAGS = $(addprefix -D, $(SQLITE_OPTIONS))
-SQLITE_LDFLAGS = -lpthread -ldl -lm
-
-SQLITE_CONFIG = $(SQLITE_DIR)/sqlite_config.h
-# Define the static library and its inputs
-SQLITE_LIB := $(SQLITE_DIR)/libsqlite3.a
+# Add SQLite libs to the global LDLIBS
+LDLIBS += -lpthread -ldl -lm
 SQLITE_SRC = $(SQLITE_DIR)/sqlite_vendored.c
 SQLITE_OBJ = $(SQLITE_DIR)/sqlite_vendored.o
 
-# Add SQLite libs to the global LDLIBS
-LDLIBS += $(SQLITE_LDFLAGS)
 
 # ==========================================
 #   Vendor Compilation Flags
 # ==========================================
 # We want vendor code to be optimised + no warnings + no debugging
-VENDOR_CFLAGS := -O3 -g -w -DNDEBUG $(COMPILER_CFLAGS) $(SAN_FLAGS)
+VENDOR_CFLAGS := -O3 -g -w -DNDEBUG $(COMPILER_CFLAGS) $(COMPILER_RELEASE_FLAGS) $(SAN_FLAGS)
 
 TEST_CFLAGS := $(CFLAGS) -w $(TEST_COMPILER_CFLAGS)
 
@@ -220,12 +212,12 @@ run-tsan:  ; $(MAKE) VARIANT=tsan run
 
 build-variant: $(TARGETS_TO_BUILD)
 
-$(BUILD_DIR)/$(TARGET_NAME): $(OBJECTS) $(SQLITE_LIB)
+$(BUILD_DIR)/$(TARGET_NAME): $(OBJECTS) $(SQLITE_OBJ)
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Linking $(VARIANT) -> $(TARGET_NAME)..."
 	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS) $(SQLITE_LIB)
+$(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS) $(SQLITE_OBJ)
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Linking $(VARIANT) -> $(TEST_TARGET_NAME)..."
 	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -lcriterion -o $@
@@ -240,14 +232,9 @@ $(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
 	$(ECHO_V) "Compiling Vendor [optimized] $<..."
 	$(Q)$(CC) $(VENDOR_CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-$(SQLITE_OBJ): $(SQLITE_SRC) $(SQLITE_CONFIG)
+$(SQLITE_OBJ): $(SQLITE_SRC) $(SQLITE_DIR)/sqlite_config.h
 	$(ECHO_V) "Compiling Standalone SQLite [optimized]..."
-	$(Q)$(CC) -O3 -g -w -c $< -o $@
-
-# Rule to archive the compiled object into a static library in the source folder
-$(SQLITE_LIB): $(SQLITE_OBJ)
-	$(ECHO_V) "Archiving Standalone SQLite..."
-	$(Q)ar rcs $@ $^
+	$(Q)$(CC) $(VENDOR_CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -276,11 +263,11 @@ clean-debug:
 
 clean-vendor:
 	@echo "Cleaning compiled vendor libraries..."
-	@rm -f $(SQLITE_LIB) $(SQLITE_OBJ)
+	rm -f $(SQLITE_OBJ)
 
 bear:
 	$(Q)$(MAKE) clean-debug
-	$(Q)$(MAKE) $(SQLITE_LIB) CC=$(CC)
+	$(Q)$(MAKE) $(SQLITE_OBJ) CC=$(CC)
 	@mkdir -p $(BUILD_ROOT)/debug
 	@echo "Generating compile_commands.json..."
 	$(Q)bear -- $(MAKE) CC=clang VARIANT=debug USE_CCACHE=0 SKIP_TESTS=1
