@@ -37,9 +37,8 @@ endif
 
 # GCC
 ifeq ($(COMPILER_ID), gcc)
-	DEV_FLAGS += -fanalyzer -Wno-analyzer-too-complex -Wuse-after-free=3
-# --param analyzer-bb-explosion-factor=50 --param analyzer-max-enodes-per-program-point=200
-# -Wno-discarded-qualifiers
+	DEV_FLAGS += -Wuse-after-free=3 \
+-Wsuggest-final-types -Wsuggest-attribute=pure -Wsuggest-attribute=const
   COMPILER_RELEASE_LDFLAGS += -flto
   RELEASE_FLAGS += -flto
 	TEST_COMPILER_CFLAGS += -ftrack-macro-expansion=0
