@@ -71,7 +71,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
     n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
     ++unit_index;
   }
-  MAYBE_UNUSED int c;
+  _unused_ int c;
 
   if (unit_index > 0) {
     /* Calculate the 2-digit decimal part using pure integer math.

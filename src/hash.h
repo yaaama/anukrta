@@ -10,6 +10,5 @@
 /* Number of pixels in input matrix */
 #define ANU_PHASH_TOTAL_PIXELS 1024
 
-uint64_t dct_hash(const uint8_t *restrict input_pixels)
-    FUNC_NONNULL_ARG(1) FUNC_PURE;
+uint64_t dct_hash(const uint8_t *restrict input_pixels) _nonnull_(1) _pure_;
 #endif  // ANU_HASH_H

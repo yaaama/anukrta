@@ -45,8 +45,7 @@ typedef struct anu_file {
 /**
  * Helper function to retrieve filename stored in `anu_file`.
  */
-static ALWAYS_INLINE FUNC_NONNULL_ALL char *anu_file_get_filename (
-    anu_file *f) {
+static ALWAYS_INLINE _nonnull_all_ char *anu_file_get_filename (anu_file *f) {
   return f->path + f->name_offset;
 }
 
@@ -77,23 +76,23 @@ static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
 DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
 
 void anu_explore_scan_directories(anukrta_config *config,
-                                  anu_file_vec *files_out) FUNC_NONNULL_ALL;
+                                  anu_file_vec *files_out) _nonnull_all_;
 
 int anu_explore_recursive_filewalk(char *path,
-                                   anu_file_vec *files_out) FUNC_NONNULL_ALL;
+                                   anu_file_vec *files_out) _nonnull_all_;
 
-int anu_path_extension_supported(char *path) FUNC_NONNULL_ALL FUNC_PURE;
+int anu_path_extension_supported(char *path) _nonnull_all_ _pure_;
 
-static ALWAYS_INLINE FUNC_NONNULL_ALL bool anu_path_is_dir (char *path) {
+static ALWAYS_INLINE _nonnull_all_ bool anu_path_is_dir (char *path) {
   struct stat statb;
   return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 };
 
-char *anu_path_resolve(char *path) FUNC_NONNULL_ALL FUNC_MALLOC MUST_CHECK;
+char *anu_path_resolve(char *path) _nonnull_all_ _malloc_ _warn_unused_;
 
-char *anu_path_basename(char *path) FUNC_NONNULL_ALL MUST_CHECK FUNC_PURE;
+char *anu_path_basename(char *path) _nonnull_all_ _warn_unused_ _pure_;
 
 char *anu_path_basename_stem(char *restrict path,
                              char *restrict out,
-                             size_t out_size) FUNC_NONNULL_ARG(1, 2) FUNC_PURE;
+                             size_t out_size) _nonnull_(1, 2) _pure_;
 #endif  // ANU_EXPLORE_H

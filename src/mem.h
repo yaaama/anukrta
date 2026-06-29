@@ -10,15 +10,15 @@
 #  define XALLOC_EXIT_CODE EXIT_FAILURE
 #endif
 
-static __attribute__((__noreturn__, __cold__, noinline)) void __err_oom (
-    const char *file,
-    unsigned int line) {
+static NEVER_INLINE COLD_FUNC _no_return_ void __err_oom (const char *file,
+                                                          unsigned int line) {
   fprintf(stderr, "%s:%d Out of memory! Cannot continue.\n", file, line);
   exit(XALLOC_EXIT_CODE);  // NOLINT (concurrency-mt-unsafe)
 }
 
-static __attribute__((__noreturn__, __cold__, noinline)) void
-__err_alloc_sz_zero (const char *file, unsigned int line) {
+static NEVER_INLINE COLD_FUNC _no_return_ void __err_alloc_sz_zero (
+    const char *file,
+    unsigned int line) {
   fprintf(stderr, "%s:%d Attempting to make allocation with size 0!\n", file,
           line);
   exit(XALLOC_EXIT_CODE);  // NOLINT (concurrency-mt-unsafe)
@@ -26,7 +26,7 @@ __err_alloc_sz_zero (const char *file, unsigned int line) {
 
 #define err_oom() __err_oom(__FILE__, __LINE__)
 
-static inline FUNC_ALLOC_SIZE(1) MUST_CHECK void *xmalloc(const size_t sz) {
+static inline _alloc_(1) _warn_unused_ void *xmalloc(const size_t sz) {
   void *ret = malloc(sz);
   if (UNLIKELY(!ret && sz)) {
     err_oom();
@@ -34,7 +34,16 @@ static inline FUNC_ALLOC_SIZE(1) MUST_CHECK void *xmalloc(const size_t sz) {
   return ret;
 }
 
-static inline FUNC_ALLOC_SIZE(1, 2) MUST_CHECK
+static inline _alloc_(2) _warn_unused_
+    void *xaligned_alloc(const size_t alignment, const size_t sz) {
+  void *ret = aligned_alloc(alignment, sz);
+  if (UNLIKELY(!ret && sz && alignment)) {
+    err_oom();
+  }
+  return ret;
+}
+
+static inline _alloc_(1, 2) _warn_unused_
     void *xcalloc(const size_t nmem, const size_t sz) {
 
   void *ret = calloc(nmem, sz);
@@ -44,7 +53,7 @@ static inline FUNC_ALLOC_SIZE(1, 2) MUST_CHECK
   return ret;
 }
 
-static inline FUNC_ALLOC_SIZE(2) MUST_CHECK
+static inline _alloc_(2) _warn_unused_
     void *xrealloc(void *ptr, const size_t sz) {
 
   if (UNLIKELY(sz == 0)) {

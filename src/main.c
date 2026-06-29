@@ -100,7 +100,7 @@ static void *hash_worker_thread (void *arg) {
   u64 *timestamps = targs->frame_timestamps;
   _Atomic size_t *current_idx = targs->current_idx;
 
-  while (1) {
+  for (;;) {
     /* Get index of next file in queue */
     size_t q_idx = atomic_fetch_add(current_idx, 1);
 
@@ -150,7 +150,7 @@ static void execute_hash_worker_threads (anukrta_config *config,
     }
   }
 
-  log_info("Spawned %d threads.", threads_made);
+  log_debug("Spawned %d threads.", threads_made);
 
   /* Wait for all threads to finish */
   int threads_joined = 0;
@@ -162,7 +162,7 @@ static void execute_hash_worker_threads (anukrta_config *config,
     }
   }
 
-  log_info("Joined %d threads.", threads_joined);
+  log_debug("Joined %d threads.", threads_joined);
 }
 
 static int anukrta_driver (anukrta_config *config) {
@@ -203,11 +203,7 @@ static int anukrta_driver (anukrta_config *config) {
   hashes = xmalloc(hash_collection_len * sizeof(*hashes));
   timestamps = xmalloc(hash_collection_len * sizeof(*timestamps));
   thread_results =
-      aligned_alloc(CACHE_LINE_SIZE, file_count * sizeof(*thread_results));
-
-  if (!thread_results || !hashes || !timestamps) {
-    ANU_DIE("Failed to allocate memory.");
-  }
+      xaligned_alloc(CACHE_LINE_SIZE, file_count * sizeof(*thread_results));
 
   /* Initialise SQLite3 */
   cache_init_once();
@@ -227,11 +223,8 @@ static int anukrta_driver (anukrta_config *config) {
       uint64_t row_id = 0;
       uint64_t file_duration_us = 0;
 
-      bool is_cached =
-          (bool) cache_is_file_valid(db, file, &row_id, &file_duration_us);
-
       /* If its already cached... */
-      if (is_cached) {
+      if (cache_is_file_valid(db, file, &row_id, &file_duration_us)) {
         size_t out_count = 0;
         size_t hash_off = i * config->segments;
 
@@ -243,7 +236,6 @@ static int anukrta_driver (anukrta_config *config) {
         /* Only use cache if the database contains the EXACT amount of segments we requested */
         if (ret == 0 && out_count == config->segments) {
           thread_results[i].value = ANU_STATUS_FILE_CACHED;
-
           file->duration_us = (size_t) file_duration_us;
         }
       } else {

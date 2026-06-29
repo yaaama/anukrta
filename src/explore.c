@@ -35,8 +35,7 @@ DEFINE_FREE(path_vec, path_vec, cleanup_path_vec(&_T))
 /**
  *  Declarations of static functions
  */
-static int handle_path_pointing_to_file(char *p,
-                                        anu_file_vec *f) FUNC_NONNULL_ALL;
+static int handle_path_pointing_to_file(char *p, anu_file_vec *f) _nonnull_all_;
 
 /**
  * @brief Compare strings lexicographically.

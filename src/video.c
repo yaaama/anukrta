@@ -37,13 +37,13 @@ typedef struct cropping {
   int h;
 } cropping;
 
-static ALWAYS_INLINE FUNC_PURE size_t pts_to_useconds (int64_t pts,
-                                                       AVRational timebase) {
+static ALWAYS_INLINE _pure_ size_t pts_to_useconds (int64_t pts,
+                                                    AVRational timebase) {
   assert(pts >= 0);
   return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
-MAYBE_UNUSED static ALWAYS_INLINE FUNC_PURE double frame_pts_to_seconds (
+_unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (
     int64_t pts,
     AVRational timebase) {
   assert(pts >= 0);
@@ -184,7 +184,7 @@ static void vreader_close (anu_vreader *vreader) {
 
 DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
 
-static ALWAYS_INLINE FUNC_NONNULL_ALL AVStream *vreader_video_stream (
+static ALWAYS_INLINE _nonnull_all_ AVStream *vreader_video_stream (
     anu_vreader *vreader) {
   return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }

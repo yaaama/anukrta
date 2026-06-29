@@ -115,8 +115,8 @@ void anu_cli_print_configuration (anukrta_config *config) {
 }
 
 /* Helper to reverse-lookup long option names */
-static FUNC_PURE const char *get_long_opt_name (int val,
-                                                const struct option *opts) {
+static _pure_ const char *get_long_opt_name (int val,
+                                             const struct option *opts) {
   for (int i = 0; opts[i].name != NULL; i++) {
     if (opts[i].val == val) {
       return opts[i].name;
@@ -126,11 +126,11 @@ static FUNC_PURE const char *get_long_opt_name (int val,
 }
 
 /* Parses a string to a long, assigns out param (size_t) */
-MAYBE_UNUSED static int parse_arg_integer (const char *restrict arg_name,
-                                           const char *restrict arg_str,
-                                           int min,
-                                           int max,
-                                           int *out) {
+_unused_ static int parse_arg_integer (const char *restrict arg_name,
+                                       const char *restrict arg_str,
+                                       int min,
+                                       int max,
+                                       int *out) {
 
   if (!arg_name || !arg_str || !out) {
     return -1;

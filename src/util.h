@@ -30,13 +30,14 @@
 #endif
 
 /**
- * @name Function Attributes/Compiler Built-ins
- * Function attributes
+ * @name Function/Variable Attributes
+ * Function and Variable Attributes
  * @{
  */
 #if defined(__GNUC__) || defined(__clang__)
 
-/** @def MAYBE_UNUSED
+/**
+ * @def _unused_
  * @brief Suppresses compiler warnings about unused variables, parameters, or functions.
  *
  * Useful when a variable is only used in certain build configurations (e.g., `#ifdef DEBUG`)
@@ -44,14 +45,15 @@
  *
  * @par Example Usage:
  * @code
- * void event_handler(int event_id, void* MAYBE_UNUSED context) {
+ * void event_handler(int event_id, void* _unused_ context) {
  *     printf("Event: %d\n", event_id);
  * }
  * @endcode
  */
-#  define MAYBE_UNUSED __attribute__((unused))
+#  define _unused_ __attribute__((unused))
 
-/** @def ALWAYS_INLINE
+/**
+ * @def ALWAYS_INLINE
  * @brief Forces the compiler to inline the function, regardless of optimization limits.
  *
  * Bypasses the compiler's normal cost-benefit analysis for inlining. Use sparingly,
@@ -66,7 +68,22 @@
  */
 #  define ALWAYS_INLINE inline __attribute__((always_inline))
 
-/** @def FUNC_PURE
+/**
+ * @def NEVER_INLINE
+ * @brief Forces the compiler to never inline the function.
+ *
+ * @par Example Usage:
+ * @code
+ *  static NEVER_INLINE int oom_err(char *message) {
+ *     printf("%s\n", message);
+ *     exit(1);
+ * }
+ * @endcode
+ */
+#  define NEVER_INLINE __attribute__((noinline))
+
+/**
+ * @def _pure_
  * @brief Marks a function as "pure", meaning it has no side effects.
  *
  * The function's return value must depend ONLY on its parameters and/or global
@@ -75,12 +92,13 @@
  *
  * @par Example Usage:
  * @code
- * int string_hash(const char* str) FUNC_PURE;
+ * int string_hash(const char* str) _pure_;
  * @endcode
  */
-#  define FUNC_PURE __attribute__((pure))
+#  define _pure_ __attribute__((pure))
 
-/** @def FUNC_CONST
+/**
+ * @def _const_
  * @brief Marks a function as "const", a stricter version of pure.
  *
  * The function's return value must depend ONLY on its parameters. It cannot
@@ -89,12 +107,13 @@
  *
  * @par Example Usage:
  * @code
- * int square(int x) FUNC_CONST;
+ * int square(int x) _const_;
  * @endcode
  */
-#  define FUNC_CONST __attribute__((const))
+#  define _const_ __attribute__((const))
 
-/** @def MUST_CHECK
+/**
+ * @def _warn_unused_
  * @brief Emits a compiler warning if the caller ignores the return value.
  *
  * Highly recommended for functions that allocate memory, return error codes,
@@ -102,12 +121,13 @@
  *
  * @par Example Usage:
  * @code
- * int init_hardware_subsystem(void) MUST_CHECK;
+ * int init_hardware_subsystem(void) _warn_unused_;
  * @endcode
  */
-#  define MUST_CHECK __attribute__((warn_unused_result))
+#  define _warn_unused_ __attribute__((warn_unused_result))
 
-/** @def FUNC_NONNULL_ALL
+/**
+ * @def _nonnull_all_
  * @brief Specifies that the compiler should warn if ANY pointer argument is NULL.
  *
  * Applies to all pointer arguments in the function signature. Enables
@@ -115,24 +135,26 @@
  *
  * @par Example Usage:
  * @code
- * void process_data(const char* input, char* output) FUNC_NONNULL_ALL;
+ * void process_data(const char* input, char* output) _nonnull_all_;
  * @endcode
  */
-#  define FUNC_NONNULL_ALL __attribute__((nonnull))
+#  define _nonnull_all_ __attribute__((nonnull))
 
-/** @def FUNC_NONNULL_ARG
+/**
+ * @def _nonnull_
  * @brief Specifies that specific pointer arguments must not be NULL.
  *
  * @param ... A comma-separated list of 1-based parameter indices.
  *
  * @par Example Usage (Arguments 1 and 3 cannot be NULL):
  * @code
- * void safe_memcpy(void* dest, size_t len, const void* src) FUNC_NONNULL_ARG(1, 3);
+ * void safe_memcpy(void* dest, size_t len, const void* src) _nonnull_(1, 3);
  * @endcode
  */
-#  define FUNC_NONNULL_ARG(...) __attribute__((nonnull(__VA_ARGS__)))
+#  define _nonnull_(...) __attribute__((nonnull(__VA_ARGS__)))
 
-/** @def FUNC_MALLOC
+/**
+ * @def _malloc_
  * @brief Tells the compiler that the function returns a newly allocated pointer.
  *
  * Asserts that the returned pointer cannot alias (overlap) with any other
@@ -141,18 +163,19 @@
  *
  * @par Example Usage:
  * @code
- * void* custom_allocator(size_t size) FUNC_MALLOC;
+ * void* custom_allocator(size_t size) _malloc_;
  * @endcode
  */
-#  define FUNC_MALLOC __attribute__((malloc))
+#  define _malloc_ __attribute__((malloc))
 
 /**
- * @def RETURNS_NONNULL
+ * @def _ret_nonnull_
  * Tells the compiler that the function will return a non-null value.
  */
-#  define RETURNS_NONNULL __attribute__((__returns_nonnull__))
+#  define _ret_nonnull_ __attribute__((__returns_nonnull__))
 
-/** @def FUNC_NORETURN
+/**
+ * @def _no_return_
  * @brief Indicates that the function will never return to its caller.
  *
  * Used for functions that terminate the program (e.g., `exit()`), enter an
@@ -161,12 +184,13 @@
  *
  * @par Example Usage:
  * @code
- * FUNC_NORETURN void fatal_panic(const char* reason);
+ * _no_return_ void fatal_panic(const char* reason);
  * @endcode
  */
-#  define FUNC_NORETURN __attribute__((noreturn))
+#  define _no_return_ __attribute__((noreturn))
 
-/** @def FUNC_PRINTF
+/**
+ * @def _printf_
  * @brief Enables printf-style format string type checking by the compiler.
  *
  * @param x The 1-based index of the format string parameter.
@@ -175,12 +199,13 @@
  * @par Example Usage:
  * @code
  * // Arg 1 is format string, Arg 2 is the first variadic argument
- * void log_message(const char* fmt, ...) FUNC_PRINTF(1, 2);
+ * void log_message(const char* fmt, ...) _printf_(1, 2);
  * @endcode
  */
-#  define FUNC_PRINTF(x, y) __attribute__((format(printf, x, y)))
+#  define _printf_(x, y) __attribute__((format(printf, x, y)))
 
-/** @def FUNC_FLATTEN
+/**
+ * @def _flatten_
  * @brief Forces the compiler to inline every function called WITHIN this function.
  *
  * Useful for performance-critical wrapper functions where you want to eliminate
@@ -188,15 +213,16 @@
  *
  * @par Example Usage:
  * @code
- * void execute_tight_loop(void) FUNC_FLATTEN {
+ * void execute_tight_loop(void) _flatten_ {
  *     step_one(); // Will be inlined
  *     step_two(); // Will be inlined
  * }
  * @endcode
  */
-#  define FUNC_FLATTEN __attribute__((flatten))
+#  define _flatten_ __attribute__((flatten))
 
-/** @def HOT_FUNC
+/**
+ * @def HOT_FUNC
  * @brief Marks a function as a "hot spot" (executed very frequently).
  *
  * Instructs the compiler to optimize this function heavily for speed, and informs
@@ -209,7 +235,8 @@
  */
 #  define HOT_FUNC __attribute__((hot))
 
-/** @def COLD_FUNC
+/**
+ * @def COLD_FUNC
  * @brief Marks a function as "cold" (rarely executed).
  *
  * Instructs the compiler to optimize this function for size rather than speed,
@@ -223,7 +250,8 @@
  */
 #  define COLD_FUNC __attribute__((cold))
 
-/** @def FUNC_ALLOC_SIZE
+/**
+ * @def _alloc_
  * @brief Informs the compiler of the allocation size based on 1 or 2 arguments.
  *
  * @param ... A single 1-based index (like malloc), or TWO 1-based indices
@@ -231,16 +259,16 @@
  *
  * @par Example Usage:
  * @code
- * FUNC_ALLOC_SIZE(1)    void* custom_malloc(size_t size);
- * FUNC_ALLOC_SIZE(1, 2) void* custom_calloc(size_t count, size_t size);
+ * _alloc_(1)    void* custom_malloc(size_t size);
+ * _alloc_(1, 2) void* custom_calloc(size_t count, size_t size);
  * @endcode
  */
-#  define FUNC_ALLOC_SIZE(...) __attribute__((alloc_size(__VA_ARGS__)))
+#  define _alloc_(...) __attribute__((alloc_size(__VA_ARGS__)))
 
 #  if defined(__GNUC__) && (__GNUC__ >= 11)
 
 /**
- * @def FUNC_MALLOC_DEALLOC
+ * @def _deallocator_
  * @brief Associates an allocation function with its specific deallocation function.
  *
  * This extended version of the malloc attribute tells the compiler's static
@@ -260,7 +288,7 @@
  *
  * // Tell the compiler that custom_malloc pairs with custom_free,
  * // and the pointer is passed as the 1st argument to custom_free.
- * FUNC_MALLOC_DEALLOC(custom_free, 1) void* custom_malloc(size_t size);
+ * _deallocator_(custom_free, 1) void* custom_malloc(size_t size);
  *
  * void test_function() {
  *     void* ptr = custom_malloc(128);
@@ -268,11 +296,35 @@
  * }              // Compiler warning if not freed at all: memory leak detected
  * @endcode
  */
-#    define FUNC_MALLOC_DEALLOC(dealloc, idx) \
-      __attribute__((malloc(dealloc, idx)))
+#    define _deallocator_(dealloc, idx) __attribute__((malloc(dealloc, idx)))
 #  else
-#    define FUNC_MALLOC_DEALLOC(dealloc, idx)
+#    define _deallocator_(dealloc, idx)
 #  endif
+
+#else
+
+#  define ALWAYS_INLINE inline
+#  define NEVER_INLINE
+#  define HOT_FUNC
+#  define COLD_FUNC
+
+#  define _unused_
+#  define _flatten_
+#  define _unused_
+#  define _pure_
+#  define _const_
+#  define _warn_unused_
+#  define _nonnull_all_
+#  define _nonnull_(...)
+#  define _malloc_
+#  define _no_return_
+#  define _printf_(x, y)
+#  define _flatten_
+
+#endif
+/** @} */  // End Function Attributes
+
+#if __has_builtin(__builtin_expect)
 
 /**
  * @def LIKELY
@@ -289,38 +341,18 @@
  * Would not work in this case, however when we do `!!(42)`, it evaluates to `1`
  * (as it is non-zero/non-null).
  */
-
 #  define LIKELY(x) __builtin_expect(!!(x), 1)
 
-/** @def UNLIKELY
+/**
+ * @def UNLIKELY
  * Hint to the compiler the condition is most likely *FALSE*.
  */
 #  define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 #else
-
-#  define MAYBE_UNUSED
-#  define ALWAYS_INLINE
-#  define FLATTEN
-#  define MAYBE_UNUSED
-#  define ALWAYS_INLINE inline
-#  define FUNC_PURE
-#  define FUNC_CONST
-#  define MUST_CHECK
-#  define FUNC_NONNULL_ALL
-#  define FUNC_NONNULL_ARG(...)
-#  define FUNC_MALLOC
-#  define FUNC_NORETURN
-#  define FUNC_PRINTF(x, y)
-#  define FUNC_FLATTEN
-#  define HOT_FUNC
-#  define COLD_FUNC
-
 #  define LIKELY(x) (x)
 #  define UNLIKELY(x) (x)
-
 #endif
-/** @} */  // End Function Attributes
 
 /**
  * @name Cleanup Macros (RAII)
@@ -337,7 +369,9 @@
 /**
  * @brief Dummy function to ensure we check pointers during the close.
  */
-static ALWAYS_INLINE MUST_CHECK void *__ptr_must_check (void *p) { return p; }
+static ALWAYS_INLINE _warn_unused_ void *__ptr_must_check (void *p) {
+  return p;
+}
 
 /**
  * @def DEFINE_FREE
@@ -502,7 +536,7 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * @param microseconds The value in us.
  * @return The equivalent value in seconds.
  */
-static ALWAYS_INLINE FUNC_CONST double anu_time_microseconds_to_seconds (
+static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (
     size_t microseconds) {
   return (microseconds > 0) ? ((double) microseconds / ANU_TIME_ONE_SEC_IN_US)
                             : 0;
@@ -513,7 +547,7 @@ static ALWAYS_INLINE FUNC_CONST double anu_time_microseconds_to_seconds (
  * @param seconds The value in decimal seconds.
  * @return The equivalent value in microseconds.
  */
-static ALWAYS_INLINE FUNC_CONST size_t
+static ALWAYS_INLINE _const_ size_t
 anu_time_seconds_to_microseconds (double seconds) {
   return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
                        : 0;
@@ -599,9 +633,8 @@ static_assert(
  * @retval 64 `X` and `Y` are compliments of one another.
  * @retval k `X` and `Y` differ by `k` number of bits.
  */
-static ALWAYS_INLINE FUNC_CONST unsigned int hamming_distance (
-    const uint64_t a,
-    const uint64_t b) {
+static ALWAYS_INLINE _const_ unsigned int hamming_distance (const uint64_t a,
+                                                            const uint64_t b) {
   uint64_t x = a ^ b;
 
   /* Use popcountll if builtin */
@@ -626,7 +659,7 @@ void anu_util_print_indent(FILE *fp, int spaces, int depth);
 /**
  * @brief Convert ascii character to lower case
  */
-static ALWAYS_INLINE FUNC_CONST int anu_util_tolower (int c) {
+static ALWAYS_INLINE _const_ int anu_util_tolower (int c) {
   return (('A' <= c) && (c <= 'Z')) ? (c + ('a' - 'A')) : c;
 }
 
