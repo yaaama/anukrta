@@ -81,7 +81,7 @@ static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
   if (errcode != 0) {
-    log_warn("Could not open file `%s`: %s", f_path, av_err2str(errcode));
+    log_warn("Could not open file `%s` (%s)", f_path, av_err2str(errcode));
     return ANU_LIBAV_FAIL;
   }
 

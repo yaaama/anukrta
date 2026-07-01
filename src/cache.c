@@ -108,28 +108,25 @@ static int init_db__schema (anu_cache_ctx *ctx) {
   const char *files_table_schema =
       /* FILES TABLE */
       "CREATE TABLE IF NOT EXISTS files ("
-      "  id INTEGER PRIMARY KEY AUTOINCREMENT," /* Auto incrementing file ID */
-      "  path TEXT NOT NULL UNIQUE,"            /* Path to file */
-      "  file_size INTEGER NOT NULL,"           /* Size in bytes */
-      "  mtime INTEGER NOT NULL,"               /* Modification timestamp */
-      "  ctime INTEGER NOT NULL,"               /* Creation timestamp */
+      "  id INTEGER PRIMARY KEY,"      /* Auto incrementing file ID */
+      "  path TEXT NOT NULL UNIQUE,"   /* Path to file */
       "  media_type INTEGER NOT NULL," /* Mimetype */
+      "  file_size INTEGER NOT NULL,"  /* Size in bytes */
+      "  mtime INTEGER NOT NULL,"      /* Modification timestamp */
+      "  ctime INTEGER NOT NULL,"      /* Creation timestamp */
       "  duration_us INTEGER NOT NULL," /* Duration of video or 0 if stillframe */
-      "  last_hashed INTEGER NOT NULL," /* Hashing timestamp */
-      "  UNIQUE(path)"
-      ");"
-      "CREATE INDEX IF NOT EXISTS idx_file_path ON files(path);" /* Create an index on the path value */
-      ;
+      "  last_hashed INTEGER NOT NULL" /* Hashing timestamp */
+      ");";
 
   const char *hashes_table_schema =
       /* HASHES TABLE */
       "CREATE TABLE IF NOT EXISTS hashes ("
-      "  id INTEGER PRIMARY KEY AUTOINCREMENT," /* Hash ID */
       "  file_id INTEGER NOT NULL,"            /* File ID the hash belongs to */
       "  hash INTEGER NOT NULL,"               /* Hash value (64 bits) */
       "  frame_timestamp_us INTEGER NOT NULL," /* Frame timestamp of hash */
+      "  PRIMARY KEY (file_id, frame_timestamp_us)," /* Composite Primary Key */
       "  FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE" /* file_id in table is referring to files.id */
-      ");"
+      ") WITHOUT ROWID;"
       "CREATE INDEX IF NOT EXISTS idx_hash_lookup ON hashes(hash);" /* Create an index on the hash value */
       ;
 
@@ -137,7 +134,7 @@ static int init_db__schema (anu_cache_ctx *ctx) {
   ret = sqlite3_exec(db, files_table_schema, NULL, NULL, &err_msg);
 
   if (ret != SQLITE_OK) {
-    log_error("Failed to create files table: '%s'", err_msg);
+    log_error("Failed to create files table (%s)", err_msg);
     sqlite3_free(err_msg);
     return ret;
   }
@@ -146,7 +143,7 @@ static int init_db__schema (anu_cache_ctx *ctx) {
   ret = sqlite3_exec(db, hashes_table_schema, NULL, NULL, &err_msg);
 
   if (ret != SQLITE_OK) {
-    log_error("Failed to create hashes table '%s'", err_msg);
+    log_error("Failed to create hashes table (%s)", err_msg);
 
     cache_rollback_transaction(ctx);
     sqlite3_free(err_msg);
@@ -288,15 +285,14 @@ int cache_insert_hash (anu_cache_ctx *ctx,
                        uint64_t hash,
                        uint64_t frame_timestamp_us) {
   sqlite3_stmt *stmt_insert_hash = ctx->stmt_insert_hash;
-  sqlite3_bind_int64(stmt_insert_hash, 1, (sqlite3_int64) file_id);
-
   /* Storing 64-bit uint as sqlite 64-bit signed int. The bit pattern stays the same. */
+  sqlite3_bind_int64(stmt_insert_hash, 1, (sqlite3_int64) file_id);
   sqlite3_bind_int64(stmt_insert_hash, 2, (sqlite3_int64) hash);
   sqlite3_bind_int64(stmt_insert_hash, 3, (sqlite3_int64) frame_timestamp_us);
 
   int ret = sqlite3_step(stmt_insert_hash);
   if (ret != SQLITE_DONE) {
-    log_error("Failed to insert hash: %s",
+    log_error("Failed to insert hash (%s)",
               sqlite3_errmsg(sqlite3_db_handle(stmt_insert_hash)));
   }
   sqlite3_reset(stmt_insert_hash);
@@ -333,7 +329,7 @@ int cache_get_hashes (anu_cache_ctx *ctx,
   *out_count = count;
   sqlite3_reset(stmt_get_hashes);
   if (ret != SQLITE_DONE) {
-    log_error("Database error while retrieving hashes: '%s'",
+    log_error("Database error while retrieving hashes (%s)",
               sqlite3_errstr(ret));
     return ret;
   }
@@ -368,25 +364,25 @@ anu_cache_ctx *cache_open_db (const char *db_path) {
   }
 
   if (ret != SQLITE_OK) {
-    log_error("Can't open database: '%s'", sqlite3_errmsg(db));
+    log_error("Can't open database: (%s)", sqlite3_errmsg(db));
     return NULL;
   }
   ctx->db = db;
   /* Execute database pragmas
    * NOTE: This must be the first thing run after opening database */
   if (init_db__pragmas(ctx) != SQLITE_OK) {
-    log_error("Could not execute pragmas: '%s'", sqlite3_errmsg(db));
+    log_error("Could not execute pragmas: (%s)", sqlite3_errmsg(db));
     return NULL;
   }
 
   /* Initialise the database schema if not already initialised */
   if (init_db__schema(ctx) != SQLITE_OK) {
-    log_error("Could not create tables: '%s'", sqlite3_errmsg(db));
+    log_error("Could not create tables: (%s)", sqlite3_errmsg(db));
     return NULL;
   };
 
   if (init_db__prepare_statements(ctx) != SQLITE_OK) {
-    log_error("Could not prepare statements: '%s'", sqlite3_errmsg(db));
+    log_error("Could not prepare statements: (%s)", sqlite3_errmsg(db));
     return NULL;
   }
 
