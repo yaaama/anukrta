@@ -134,7 +134,11 @@
  * }
  * @endcode
  */
-#  define ALWAYS_INLINE inline __attribute__((always_inline))
+#  ifdef NDEBUG
+#    define ALWAYS_INLINE inline __attribute__((always_inline))
+#  else
+#    define ALWAYS_INLINE inline
+#  endif
 
 /**
  * @def NEVER_INLINE
