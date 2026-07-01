@@ -108,8 +108,6 @@
 static inline void *kv_realloc_safe (void *ptr, const size_t new_sz) {
   void *new_ptr = KVEC_REALLOC(ptr, new_sz);
   if (new_sz > 0 && !new_ptr) {
-    // If you have a custom DIE macro, you can use it here.
-    // Otherwise, abort() is the safest way to handle OOM in a library.
     abort();
   }
   return new_ptr;
@@ -126,8 +124,6 @@ static inline void *_memcpy_free (void *KVEC_RESTRICT dest,
   KVEC_FREE_CLEAR(src);
   return dest;
 }
-
-
 
 /**
  * @brief Rounds an integer up to the next highest power of 2.
