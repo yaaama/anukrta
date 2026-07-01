@@ -110,10 +110,10 @@ static int init_db__schema (anu_cache_ctx *ctx) {
       "CREATE TABLE IF NOT EXISTS files ("
       "  id INTEGER PRIMARY KEY AUTOINCREMENT," /* Auto incrementing file ID */
       "  path TEXT NOT NULL UNIQUE,"            /* Path to file */
-      "  media_type TEXT NOT NULL,"             /* Mimetype */
       "  file_size INTEGER NOT NULL,"           /* Size in bytes */
       "  mtime INTEGER NOT NULL,"               /* Modification timestamp */
       "  ctime INTEGER NOT NULL,"               /* Creation timestamp */
+      "  media_type INTEGER NOT NULL," /* Mimetype */
       "  duration_us INTEGER NOT NULL," /* Duration of video or 0 if stillframe */
       "  last_hashed INTEGER NOT NULL," /* Hashing timestamp */
       "  UNIQUE(path)"
@@ -242,13 +242,12 @@ static int init_db__prepare_statements (anu_cache_ctx *ctx) {
  * @return 0 on success, 1 on failure.
  */
 int cache_upsert_file (anu_cache_ctx *ctx,
-                       const char *restrict media_type,
                        anu_file *file,
                        uint64_t time_of_hash,
                        uint64_t *row_id_out) {
   sqlite3_stmt *stmt_upsert_file = ctx->stmt_upsert_file;
   sqlite3_bind_text(stmt_upsert_file, 1, file->path, -1, SQLITE_STATIC);
-  sqlite3_bind_text(stmt_upsert_file, 2, media_type, -1, SQLITE_STATIC);
+  sqlite3_bind_int(stmt_upsert_file, 2, file->media_type);
   sqlite3_bind_int64(stmt_upsert_file, 3, (sqlite3_int64) file->size);
   sqlite3_bind_int64(stmt_upsert_file, 4, (sqlite3_int64) file->mtime);
   sqlite3_bind_int64(stmt_upsert_file, 5, (sqlite3_int64) file->ctime);

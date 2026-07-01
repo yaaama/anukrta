@@ -45,7 +45,6 @@ int cache_is_file_valid(anu_cache_ctx *ctx,
                         size_t *out_duration_us);
 
 int cache_upsert_file(anu_cache_ctx *ctx,
-                      const char *restrict media_type,
                       anu_file *file,
                       uint64_t time_of_hash,
                       uint64_t *row_id_out);

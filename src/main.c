@@ -308,7 +308,7 @@ static int anukrta_driver (anukrta_config *config) {
     if (result == ANU_OK) {
       /* Row ID for inserted row */
       u64 row_id = 0;
-      cache_upsert_file(db, "v", file, (u64) curr_time, &row_id);
+      cache_upsert_file(db, file, (u64) curr_time, &row_id);
 
       for (size_t segment_off = 0; segment_off < config->segments;
            segment_off++) {

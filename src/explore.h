@@ -13,6 +13,13 @@
 #include "kvec.h"
 #include "util.h"
 
+enum ANU_MEDIA_TYPE {
+  ANU_MEDIA_TYPE_UNKNOWN = -1,
+  ANU_MEDIA_TYPE_VIDEO,
+  ANU_MEDIA_TYPE_IMAGE,
+  ANU_MEDIA_TYPE_AUDIO,
+};
+
 typedef struct anu_file {
   /** Path of file. */
   char *path;
@@ -40,6 +47,9 @@ typedef struct anu_file {
 
   /** Index for when name starts in path. */
   u32 name_offset;
+
+  /** Media type. */
+  enum ANU_MEDIA_TYPE media_type;
 } anu_file;
 
 /**

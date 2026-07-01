@@ -314,7 +314,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
         .dev = statb.st_dev,
         .path = final_path,
         .name_offset = (u32) ((size_t) final_path_len - name_len),
-      };
+        .media_type = ANU_MEDIA_TYPE_VIDEO};
 
       kv_push(*files_out, newfile);
     }
