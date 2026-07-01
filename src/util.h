@@ -30,6 +30,74 @@
 #endif
 
 /**
+ * @name Compilation warning controls
+ * Compiler warnings control macros
+ * @{
+ */
+/*
+ * Helper macros to allow stringification of pragmas.
+ * This prevents macro expansion issues with quotes.
+ */
+#define PRAGMA_STRINGIFY(a) #a
+#define DO_PRAGMA(x) _Pragma(PRAGMA_STRINGIFY(x))
+
+/*
+ * Compiler Detection and Push/Pop/Disable Base Macros
+ */
+#ifdef __clang__
+#  define WARNING_PUSH DO_PRAGMA(clang diagnostic push)
+#  define WARNING_POP DO_PRAGMA(clang diagnostic pop)
+#  define WARNING_DISABLE_CLANG(name) DO_PRAGMA(clang diagnostic ignored name)
+#  define WARNING_DISABLE_GCC(name)
+
+#elifdef __GNUC__
+#  define WARNING_PUSH DO_PRAGMA(GCC diagnostic push)
+#  define WARNING_POP DO_PRAGMA(GCC diagnostic pop)
+#  define WARNING_DISABLE_CLANG(name)
+#  define WARNING_DISABLE_GCC(name) DO_PRAGMA(GCC diagnostic ignored name)
+
+#else
+/* Fallback for unknown compilers to prevent syntax errors */
+#  define WARNING_PUSH
+#  define WARNING_POP
+#  define WARNING_DISABLE_CLANG(name)
+#  define WARNING_DISABLE_GCC(name)
+#endif
+
+/* Shared Warning Disablers
+ * (GCC and Clang use identical flag names for almost all standard warnings) */
+#define WARNING_DISABLE_SHARED(name) \
+  WARNING_DISABLE_CLANG(name)        \
+  WARNING_DISABLE_GCC(name)
+
+/* Unused variables, parameters, or functions */
+#define DISABLE_WARNING_UNUSED_VARIABLE \
+  WARNING_DISABLE_SHARED("-Wunused-variable")
+#define DISABLE_WARNING_UNUSED_PARAMETER \
+  WARNING_DISABLE_SHARED("-Wunused-parameter")
+#define DISABLE_WARNING_UNUSED_FUNCTION \
+  WARNING_DISABLE_SHARED("-Wunused-function")
+#define DISABLE_WARNING_UNUSED_CONST_VAR \
+  WARNING_DISABLE_SHARED("-Wunused-const-variable")
+
+#define DISABLE_WARNING_UNUSED_ALL \
+  DISABLE_WARNING_UNUSED_CONST_VAR \
+  DISABLE_WARNING_UNUSED_FUNCTION  \
+  DISABLE_WARNING_UNUSED_PARAMETER \
+  DISABLE_WARNING_UNUSED_VARIABLE
+
+#define DISABLE_WARNING_SIGN_COMPARE WARNING_DISABLE_SHARED("-Wsign-compare")
+#define DISABLE_WARNING_SHADOW WARNING_DISABLE_SHARED("-Wshadow")
+#define DISABLE_WARNING_CONVERSION WARNING_DISABLE_SHARED("-Wconversion")
+#define DISABLE_WARNING_STRICT_ALIASING \
+  WARNING_DISABLE_SHARED("-Wstrict-aliasing")
+#define DISABLE_WARNING_FALLTHROUGH \
+  WARNING_DISABLE_SHARED("-Wimplicit-fallthrough")
+#define DISABLE_WARNING_PADDED WARNING_DISABLE_SHARED("-Wpadded")
+
+/** @} */  // END COMPILER WARNING CONTROLS
+
+/**
  * @name Function/Variable Attributes
  * Function and Variable Attributes
  * @{
