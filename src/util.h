@@ -585,7 +585,121 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 #define ZERO_MEMORY(pointer, count, type) \
   memset((pointer), 0, (count) * sizeof(type))
 
-/** @} */
+/* clang-format off */
+#define CASE_F_1(X) case X:
+#define CASE_F_2(X, ...) case X: CASE_F_1(__VA_ARGS__)
+#define CASE_F_3(X, ...) case X: CASE_F_2(__VA_ARGS__)
+#define CASE_F_4(X, ...) case X: CASE_F_3(__VA_ARGS__)
+#define CASE_F_5(X, ...) case X: CASE_F_4(__VA_ARGS__)
+#define CASE_F_6(X, ...) case X: CASE_F_5(__VA_ARGS__)
+#define CASE_F_7(X, ...) case X: CASE_F_6(__VA_ARGS__)
+#define CASE_F_8(X, ...) case X: CASE_F_7(__VA_ARGS__)
+#define CASE_F_9(X, ...) case X: CASE_F_8(__VA_ARGS__)
+#define CASE_F_10(X, ...) case X: CASE_F_9(__VA_ARGS__)
+#define CASE_F_11(X, ...) case X: CASE_F_10(__VA_ARGS__)
+#define CASE_F_12(X, ...) case X: CASE_F_11(__VA_ARGS__)
+#define CASE_F_13(X, ...) case X: CASE_F_12(__VA_ARGS__)
+#define CASE_F_14(X, ...) case X: CASE_F_13(__VA_ARGS__)
+#define CASE_F_15(X, ...) case X: CASE_F_14(__VA_ARGS__)
+#define CASE_F_16(X, ...) case X: CASE_F_15(__VA_ARGS__)
+#define CASE_F_17(X, ...) case X: CASE_F_16(__VA_ARGS__)
+#define CASE_F_18(X, ...) case X: CASE_F_17(__VA_ARGS__)
+#define CASE_F_19(X, ...) case X: CASE_F_18(__VA_ARGS__)
+#define CASE_F_20(X, ...) case X: CASE_F_19(__VA_ARGS__)
+#define CASE_F_21(X, ...) case X: CASE_F_20(__VA_ARGS__)
+#define CASE_F_22(X, ...) case X: CASE_F_21(__VA_ARGS__)
+#define CASE_F_23(X, ...) case X: CASE_F_22(__VA_ARGS__)
+#define CASE_F_24(X, ...) case X: CASE_F_23(__VA_ARGS__)
+#define CASE_F_25(X, ...) case X: CASE_F_24(__VA_ARGS__)
+#define CASE_F_26(X, ...) case X: CASE_F_25(__VA_ARGS__)
+#define CASE_F_27(X, ...) case X: CASE_F_26(__VA_ARGS__)
+#define CASE_F_28(X, ...) case X: CASE_F_27(__VA_ARGS__)
+#define CASE_F_29(X, ...) case X: CASE_F_28(__VA_ARGS__)
+#define CASE_F_30(X, ...) case X: CASE_F_29(__VA_ARGS__)
+#define CASE_F_31(X, ...) case X: CASE_F_30(__VA_ARGS__)
+#define CASE_F_32(X, ...) case X: CASE_F_31(__VA_ARGS__)
+#define CASE_F_33(X, ...) case X: CASE_F_32(__VA_ARGS__)
+#define CASE_F_34(X, ...) case X: CASE_F_33(__VA_ARGS__)
+#define CASE_F_35(X, ...) case X: CASE_F_34(__VA_ARGS__)
+#define CASE_F_36(X, ...) case X: CASE_F_35(__VA_ARGS__)
+#define CASE_F_37(X, ...) case X: CASE_F_36(__VA_ARGS__)
+#define CASE_F_38(X, ...) case X: CASE_F_37(__VA_ARGS__)
+#define CASE_F_39(X, ...) case X: CASE_F_38(__VA_ARGS__)
+#define CASE_F_40(X, ...) case X: CASE_F_39(__VA_ARGS__)
+#define CASE_F_41(X, ...) case X: CASE_F_40(__VA_ARGS__)
+#define CASE_F_42(X, ...) case X: CASE_F_41(__VA_ARGS__)
+#define CASE_F_43(X, ...) case X: CASE_F_42(__VA_ARGS__)
+#define CASE_F_44(X, ...) case X: CASE_F_43(__VA_ARGS__)
+#define CASE_F_45(X, ...) case X: CASE_F_44(__VA_ARGS__)
+#define CASE_F_46(X, ...) case X: CASE_F_45(__VA_ARGS__)
+#define CASE_F_47(X, ...) case X: CASE_F_46(__VA_ARGS__)
+#define CASE_F_48(X, ...) case X: CASE_F_47(__VA_ARGS__)
+#define CASE_F_49(X, ...) case X: CASE_F_48(__VA_ARGS__)
+#define CASE_F_50(X, ...) case X: CASE_F_49(__VA_ARGS__)
+#define CASE_F_51(X, ...) case X: CASE_F_50(__VA_ARGS__)
+#define CASE_F_52(X, ...) case X: CASE_F_51(__VA_ARGS__)
+#define CASE_F_53(X, ...) case X: CASE_F_52(__VA_ARGS__)
+#define CASE_F_54(X, ...) case X: CASE_F_53(__VA_ARGS__)
+#define CASE_F_55(X, ...) case X: CASE_F_54(__VA_ARGS__)
+#define CASE_F_56(X, ...) case X: CASE_F_55(__VA_ARGS__)
+#define CASE_F_57(X, ...) case X: CASE_F_56(__VA_ARGS__)
+#define CASE_F_58(X, ...) case X: CASE_F_57(__VA_ARGS__)
+#define CASE_F_59(X, ...) case X: CASE_F_58(__VA_ARGS__)
+#define CASE_F_60(X, ...) case X: CASE_F_59(__VA_ARGS__)
+#define CASE_F_61(X, ...) case X: CASE_F_60(__VA_ARGS__)
+#define CASE_F_62(X, ...) case X: CASE_F_61(__VA_ARGS__)
+#define CASE_F_63(X, ...) case X: CASE_F_62(__VA_ARGS__)
+#define CASE_F_64(X, ...) case X: CASE_F_63(__VA_ARGS__)
+/* clang-format on */
+
+#define GET_CASE_F(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13,     \
+                   _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, \
+                   _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, \
+                   _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, \
+                   _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, \
+                   _62, _63, _64, NAME, ...)                                   \
+  NAME
+
+#define FOR_EACH_MAKE_CASE(...)                                                \
+  GET_CASE_F(__VA_ARGS__, CASE_F_64, CASE_F_63, CASE_F_62, CASE_F_61,          \
+             CASE_F_60, CASE_F_59, CASE_F_58, CASE_F_57, CASE_F_56, CASE_F_55, \
+             CASE_F_54, CASE_F_53, CASE_F_52, CASE_F_51, CASE_F_50, CASE_F_49, \
+             CASE_F_48, CASE_F_47, CASE_F_46, CASE_F_45, CASE_F_44, CASE_F_43, \
+             CASE_F_42, CASE_F_41, CASE_F_40, CASE_F_39, CASE_F_38, CASE_F_37, \
+             CASE_F_36, CASE_F_35, CASE_F_34, CASE_F_33, CASE_F_32, CASE_F_31, \
+             CASE_F_30, CASE_F_29, CASE_F_28, CASE_F_27, CASE_F_26, CASE_F_25, \
+             CASE_F_24, CASE_F_23, CASE_F_22, CASE_F_21, CASE_F_20, CASE_F_19, \
+             CASE_F_18, CASE_F_17, CASE_F_16, CASE_F_15, CASE_F_14, CASE_F_13, \
+             CASE_F_12, CASE_F_11, CASE_F_10, CASE_F_9, CASE_F_8, CASE_F_7,    \
+             CASE_F_6, CASE_F_5, CASE_F_4, CASE_F_3, CASE_F_2, CASE_F_1)       \
+  (__VA_ARGS__)
+
+#define VOID_0 ((void) 0)
+#define assert_cc(expr) _Static_assert(expr, #expr)
+
+#define ELEMENTSOF(x)                                          \
+  (__builtin_choose_expr(                                      \
+      !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+      sizeof(x) / sizeof((x)[0]), VOID_0))
+
+/**
+ * Instead of writing if (x || y)...
+ * Replace with if(IN_SET (x,y)) */
+#define IN_SET(x, first, ...)                                                                       \
+  ({                                                                                                \
+    bool _found = false;                                                                            \
+    /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
+     * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
+    static const typeof(+x) __assert_in_set[] _unused_ = {first, __VA_ARGS__};                      \
+    assert_cc(ELEMENTSOF(__assert_in_set) <= 64);                                                   \
+    switch (x) {                                                                                    \
+      FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                                                        \
+      _found = true;                                                                                \
+      break;                                                                                        \
+      default:;                                                                                     \
+    }                                                                                               \
+    _found;                                                                                         \
+  })
 
 /**
  * @name Time conversion utilities
