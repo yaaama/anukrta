@@ -3,15 +3,17 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <getopt.h>
+#include <getopt.h>  // IWYU pragma: keep
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "config.h"
+#include "defs.h"
 #include "util.h"
 
 #define CLI_NAME "anukrta"
@@ -43,7 +45,7 @@ static void print_help (void) {
   PRINT_HEADING("General Options");
   PRINT_OPT("-h, --help", "Show this help message.");
   PRINT_OPT("--version", "Print version and exit.");
-  PRINT_OPT("-v, --verbose", "Enable verbose output.");
+  PRINT_OPT("-v, --verbose", "Increase verbosity (can be stacked, e.g., -vvv for maximum verbosity).");
   PRINT_OPT("--dry-run", "Simulate the run without making changes.");
 
   PRINT_HEADING("Algorithm & Tuning");
@@ -88,7 +90,12 @@ void anu_cli_print_configuration (anukrta_config *config) {
 
   fprintf(stdout, "\n===== Runtime Configuration =====\n");
   PRINT_HEADING("General");
-  PRINT_CONFIG_STR("Verbose", FLAG_VAL(rtflags, RT_VERBOSE));
+
+  /* Verbosity */
+  u32 v_level = ANU_GET_VERBOSITY(rtflags);
+  PRINT_CONFIG_ZU("Verbosity", (size_t) v_level);
+
+  /* clang-format off */
   PRINT_CONFIG_STR("Dry Run", FLAG_VAL(rtflags, RT_DRY_RUN));
   PRINT_CONFIG_STR("Scan Current Directory", FLAG_VAL(rtflags, RT_SCAN_CURR_DIR));
   PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, RT_CACHE));
@@ -345,6 +352,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   int ret = 0;
 
   size_t available_threads = (size_t) get_available_threads();
+  u32 verbosity_level = 0;
   bool explicit_thread_count = false;
 
   while (1) {
@@ -408,7 +416,6 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
             /* optopt is sometimes 0 for unrecognized long options in certain libc implementations */
             fprintf(stderr, "%s: Unrecognized option.\n", program_name);
           }
-
           fprintf(stderr, "Try '%s --help' for more information.\n",
                   program_name);
           goto exit_error;
@@ -432,7 +439,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
       /* -v | --verbose */
       case FLAG_VERBOSE:
         {
-          ANU_SET_FLAG(config->runtime_flags, RT_VERBOSE);
+          verbosity_level++;
           break;
         }
 
@@ -534,6 +541,13 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
           ANU_UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
         }
     }
+    /* Reset for short options */
+    option_index = -1;
+  }
+
+  if (verbosity_level > 0) {
+    verbosity_level = MINIMUM(verbosity_level, 3);
+    ANU_SET_VERBOSITY(config->runtime_flags, verbosity_level);
   }
 
   /* Process remaining positional arguments */

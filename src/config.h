@@ -23,14 +23,23 @@ typedef enum detect_flags : uint32_t {
 typedef enum runtime_flags : uint32_t {
   /** @private Internal flag to exit quickly (set when parsing '-h', etc). */
   RT_EXIT_EARLY = (1U << 0),
-  /** Turn on verbose output. */
-  RT_VERBOSE = (1U << 1),
+  /* Reserve 2 bits for Verbosity specification (0, 1, 2, or 3) */
+  RT_VERBOSITY_SHIFT =
+      1, /* Bits 1 to 3 (Right To Left) are reserved for verbosity specifier*/
+  RT_VERBOSITY_MASK = (3U << 1), /* 3U is binary 0011 and 3U << 1 is 00110 */
+
+/* Helper macro to retrieve verbosity level */
+#define ANU_GET_VERBOSITY(flags) \
+  (((flags) & RT_VERBOSITY_MASK) >> RT_VERBOSITY_SHIFT)
+#define ANU_SET_VERBOSITY(flags, v_lvl) \
+  ((flags) |= ((v_lvl) << RT_VERBOSITY_SHIFT))
+
   /** Only scan current directory. */
-  RT_SCAN_CURR_DIR = (1U << 2),
+  RT_SCAN_CURR_DIR = (1U << 4),
   /** List the files that would be hashed if run. */
-  RT_DRY_RUN = (1U << 3),
+  RT_DRY_RUN = (1U << 5),
   /** Store results in cache */
-  RT_CACHE = (1U << 4),
+  RT_CACHE = (1U << 6),
 } runtime_flags;
 
 /* START: BEST_FILE_STRATEGIES */

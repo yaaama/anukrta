@@ -10,6 +10,7 @@
 #include <time.h>
 
 #include "config.h"
+#include "defs.h"
 #include "explore.h"
 #include "kvec.h"
 #include "log.h"
@@ -228,7 +229,8 @@ void anu_print_report (anukrta_config *config,
   printf("----------------------------------------\n");
 
   bool print_dupe_labels = config->best_file_strategy != BEST_FILE_NONE;
-  bool report_verbose = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_VERBOSE);
+  bool report_verbose =
+      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES);
 
   for (usize i = 0; i < group_count; i++) {
     u64_vec *group = &(kv_A(report->groups, i));

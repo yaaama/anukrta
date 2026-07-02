@@ -356,17 +356,41 @@ int main (int argc, char *argv[]) {
 
   int log_lvl = 0;
   int libav_log_lvl = 0;
-  if (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_VERBOSE)) {
+  u32 verbosity_lvl = ANU_GET_VERBOSITY(config.runtime_flags);
+
+  if (verbosity_lvl > 0) {
     anu_cli_print_configuration(&config);
-    log_lvl = LOG_DEBUG;
-    libav_log_lvl = AV_LOG_INFO;
-  } else {
-    log_lvl = LOG_ERROR;
-    libav_log_lvl = AV_LOG_FATAL;
   }
+
+  switch (verbosity_lvl) {
+    case 3:
+      {
+        log_lvl = LOG_TRACE;
+        libav_log_lvl = AV_LOG_VERBOSE;
+        break;
+      }
+    case 2:
+      {
+        log_lvl = LOG_DEBUG;
+        libav_log_lvl = AV_LOG_INFO;
+        break;
+      }
+    case 1:
+      {
+        log_lvl = LOG_INFO;
+        libav_log_lvl = AV_LOG_INFO;
+        break;
+      }
+    default:
+      {
+        libav_log_lvl = AV_LOG_ERROR;
+        log_lvl = LOG_ERROR;
+        break;
+      }
+  }
+
   av_log_set_level(libav_log_lvl);
   init_logger(log_lvl, &log_mutex, log_lock_callback);
-
   /* Start of program */
   printf("\n\n--------------------\n");
 
