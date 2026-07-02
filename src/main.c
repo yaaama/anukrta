@@ -336,31 +336,10 @@ static int anukrta_driver (anukrta_config *config) {
   return 0;
 }
 
-static inline anukrta_config default_config (void) {
-
-  anukrta_config config = {
-    .segments = 3,
-    .threshold = 8,
-    .hash_algorithm = ANU_HASH_ALGO_DCT,
-    .skip_duration = 3,
-    .thread_count = 1,
-    .runtime_flags = 0,
-    .detect_flags = 0,
-    .report_flags = 0,
-    .best_file_strategy = BEST_FILE_LONGEST,
-  };
-
-  ANU_SET_FLAG(config.detect_flags, DETECT_ROTATION);
-  ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
-  ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
-  ANU_SET_FLAG(config.runtime_flags, RT_CACHE);
-  return config;
-}
-
 int main (int argc, char *argv[]) {
 
-  /* Default configuration */
-  anukrta_config config = default_config();
+  /* Retrieve default configuration */
+  anukrta_config config = anukrta_default_config();
 
   /* Option parsing return value */
   int parsing_return = anu_cli_parse_options(&config, argc, argv);

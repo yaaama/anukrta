@@ -1,7 +1,10 @@
 #ifndef ANU_CONFIG_H
 #define ANU_CONFIG_H
 
+#include <stdint.h>
+
 #include "defs.h"
+#include "util.h"
 
 typedef enum anu_hash_type {
   ANU_HASH_ALGO_AVERAGE = 0,
@@ -92,5 +95,26 @@ typedef struct anukrta_config {
    * @see `best_file_strat`. */
   best_file_strat best_file_strategy;
 } anukrta_config;
+
+static ALWAYS_INLINE _const_ anukrta_config anukrta_default_config (void) {
+
+  anukrta_config config = {
+    .segments = 3,
+    .threshold = 8,
+    .hash_algorithm = ANU_HASH_ALGO_DCT,
+    .skip_duration = 3,
+    .thread_count = 1,
+    .runtime_flags = 0,
+    .detect_flags = 0,
+    .report_flags = 0,
+    .best_file_strategy = BEST_FILE_LONGEST,
+  };
+
+  ANU_SET_FLAG(config.detect_flags, DETECT_ROTATION);
+  ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
+  ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
+  ANU_SET_FLAG(config.runtime_flags, RT_CACHE);
+  return config;
+}
 
 #endif  // ANU_CONFIG_H
