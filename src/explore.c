@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 #include <time.h>
 
 #include "config.h"
+#include "defs.h"
 #include "kvec.h"
 #include "log.h"
 #include "util.h"
@@ -51,17 +53,83 @@ static ALWAYS_INLINE int compare_strings (const void *restrict a,
 
 /* END OF DECLARATIONS */
 
-/* Video extensions */
-static const char *video_extensions[] = {
-  "3g2", "3gp",  "amv",  "asf", "avi", "f4a", "f4b",  "f4p", "f4v",
-  "flv", "gifv", "m4p",  "m4v", "mkv", "mng", "mod",  "mov", "mp2",
-  "mp4", "mpe",  "mpeg", "mpg", "mpv", "mxf", "nsv",  "ogg", "ogv",
-  "qt",  "rm",   "roq",  "rrc", "svi", "vob", "webm", "wmv", "yuv"};
+#define fourcc_code(a, b, c, d)                                      \
+  ((uint32_t) (a) | ((uint32_t) (b) << 8) | ((uint32_t) (c) << 16) | \
+   ((uint32_t) (d) << 24))
 
-static const size_t VIDEO_EXTENSIONS_COUNT = ANU_ARRAY_SIZE(video_extensions);
+/*
+ * X Macro Table for Video Extensions, 4CC codes and string representations
+ * Format: X(Enum Identifier, char1, char2, char3, char4, lowercase, UPPERCASE)
+ */
+WARNING_PUSH
+DISABLE_WARNING_UNUSED_ALL
+
+#define VIDEO_EXTENSIONS_TABLE                            \
+  X(ANU_EXT_4CC_3G2, '3', 'g', '2', ' ', "3g2", "3G2")    \
+  X(ANU_EXT_4CC_3GP, '3', 'g', 'p', ' ', "3gp", "3GP")    \
+  X(ANU_EXT_4CC_AMV, 'a', 'm', 'v', ' ', "amv", "AMV")    \
+  X(ANU_EXT_4CC_ASF, 'a', 's', 'f', ' ', "asf", "ASF")    \
+  X(ANU_EXT_4CC_AVI, 'a', 'v', 'i', ' ', "avi", "AVI")    \
+  X(ANU_EXT_4CC_F4A, 'f', '4', 'a', ' ', "f4a", "F4A")    \
+  X(ANU_EXT_4CC_F4B, 'f', '4', 'b', ' ', "f4b", "F4B")    \
+  X(ANU_EXT_4CC_F4P, 'f', '4', 'p', ' ', "f4p", "F4P")    \
+  X(ANU_EXT_4CC_F4V, 'f', '4', 'v', ' ', "f4v", "F4V")    \
+  X(ANU_EXT_4CC_FLV, 'f', 'l', 'v', ' ', "flv", "FLV")    \
+  X(ANU_EXT_4CC_GIFV, 'g', 'i', 'f', 'v', "gifv", "GIFV") \
+  X(ANU_EXT_4CC_M4P, 'm', '4', 'p', ' ', "m4p", "M4P")    \
+  X(ANU_EXT_4CC_M4V, 'm', '4', 'v', ' ', "m4v", "M4V")    \
+  X(ANU_EXT_4CC_MKV, 'm', 'k', 'v', ' ', "mkv", "MKV")    \
+  X(ANU_EXT_4CC_MNG, 'm', 'n', 'g', ' ', "mng", "MNG")    \
+  X(ANU_EXT_4CC_MOD, 'm', 'o', 'd', ' ', "mod", "MOD")    \
+  X(ANU_EXT_4CC_MOV, 'm', 'o', 'v', ' ', "mov", "MOV")    \
+  X(ANU_EXT_4CC_MP2, 'm', 'p', '2', ' ', "mp2", "MP2")    \
+  X(ANU_EXT_4CC_MP4, 'm', 'p', '4', ' ', "mp4", "MP4")    \
+  X(ANU_EXT_4CC_MPE, 'm', 'p', 'e', ' ', "mpe", "MPE")    \
+  X(ANU_EXT_4CC_MPEG, 'm', 'p', 'e', 'g', "mpeg", "MPEG") \
+  X(ANU_EXT_4CC_MPG, 'm', 'p', 'g', ' ', "mpg", "MPG")    \
+  X(ANU_EXT_4CC_MPV, 'm', 'p', 'v', ' ', "mpv", "MPV")    \
+  X(ANU_EXT_4CC_MXF, 'm', 'x', 'f', ' ', "mxf", "MXF")    \
+  X(ANU_EXT_4CC_NSV, 'n', 's', 'v', ' ', "nsv", "NSV")    \
+  X(ANU_EXT_4CC_OGG, 'o', 'g', 'g', ' ', "ogg", "OGG")    \
+  X(ANU_EXT_4CC_OGV, 'o', 'g', 'v', ' ', "ogv", "OGV")    \
+  X(ANU_EXT_4CC_QT, 'q', 't', ' ', ' ', "qt", "QT")       \
+  X(ANU_EXT_4CC_RM, 'r', 'm', ' ', ' ', "rm", "RM")       \
+  X(ANU_EXT_4CC_ROQ, 'r', 'o', 'q', ' ', "roq", "ROQ")    \
+  X(ANU_EXT_4CC_RRC, 'r', 'r', 'c', ' ', "rrc", "RRC")    \
+  X(ANU_EXT_4CC_SVI, 's', 'v', 'i', ' ', "svi", "SVI")    \
+  X(ANU_EXT_4CC_VOB, 'v', 'o', 'b', ' ', "vob", "VOB")    \
+  X(ANU_EXT_4CC_WEBM, 'w', 'e', 'b', 'm', "webm", "WEBM") \
+  X(ANU_EXT_4CC_WMV, 'w', 'm', 'v', ' ', "wmv", "WMV")    \
+  X(ANU_EXT_4CC_YUV, 'y', 'u', 'v', ' ', "yuv", "YUV")
+
+/* Enum of 4cc codes */
+#define X(id, c1, c2, c3, c4, lower, upper) id = fourcc_code(c1, c2, c3, c4),
+
+typedef enum { VIDEO_EXTENSIONS_TABLE } ANU_VIDEO_4CC;
+
+#undef X
+
+/* Array of 4cc codes for videos */
+#define X(id, c1, c2, c3, c4, lower, upper) id,
+
+static const uint32_t video_4ccs[] = {/* NOLINT (unused-const-variable) */
+                                      VIDEO_EXTENSIONS_TABLE};
+#undef X
+
+/* Array of lowercase strings for video extensions */
+#define X(id, c1, c2, c3, c4, lower, upper) lower,
+static const char *video_exts_lower[] = {VIDEO_EXTENSIONS_TABLE};
+#undef X
+
+/* Array of uppercase strings for video extensions */
+#define X(id, c1, c2, c3, c4, lower, upper) upper,
+static const char *video_exts_upper[] = {VIDEO_EXTENSIONS_TABLE};
+#undef X
 
 static const int VIDEO_EXTENSION_MAX_LENGTH = 4;
 static const int VIDEO_EXTENSION_MIN_LENGTH = 2;
+
+WARNING_POP
 
 /* Check extension of filename */
 int anu_path_extension_supported (char *path) {
@@ -73,10 +141,10 @@ int anu_path_extension_supported (char *path) {
     return 0;
   }
 
-  char file_ext_lower[5] = {0};
-
   /* Skip over the dot... */
   char *extension = dot + 1;
+
+  uint8_t bytes[4] = {' ', ' ', ' ', ' '};
 
   int i = 0;
   for (; i < 5; i++) {
@@ -85,12 +153,12 @@ int anu_path_extension_supported (char *path) {
     if (c == '\0') {
       break;
     }
-    /* Reached 5th character, extension is too long */
+    /* Reached 5th character, extension is too long for a 4CC code */
     if (i == VIDEO_EXTENSION_MAX_LENGTH) {
       return 0;
     }
 
-    file_ext_lower[i] = (char) anu_util_tolower(c);
+    bytes[i] = (uint8_t) anu_util_tolower(c);
   }
 
   /* If i was less than two characters */
@@ -98,25 +166,22 @@ int anu_path_extension_supported (char *path) {
     return 0;
   }
 
-  /* Search if extension is within array (binary searching) */
-  int low = 0;
-  int high = (int) VIDEO_EXTENSIONS_COUNT - 1;
+  uint32_t ext_4cc = fourcc_code(bytes[0], bytes[1], bytes[2], bytes[3]);
 
-  while (low <= high) {
-    int mid = low + ((high - low) / 2);
-    int cmp = strcmp(file_ext_lower, video_extensions[mid]);
+/* Match against supported formats */
+/*  X outputs just the enum id followed by a comma */
+#define X(id, c1, c2, c3, c4, lower, upper) id,
+/* Force expansion of our X macro inside the IN_SET macro */
+#define EXPAND_IN_SET(...) IN_SET(__VA_ARGS__)
+  /* Call IN_SET with the macro table */
+  int is_supported = EXPAND_IN_SET(
+      ext_4cc,
+      VIDEO_EXTENSIONS_TABLE 0x00000000 /* Dummy value to absorb the trailing comma (4cc code will never be 0) */
+  );
 
-    if (cmp == 0) {
-      return 1;
-    }
-    if (cmp < 0) {
-      high = mid - 1;
-    } else {
-      low = mid + 1;
-    }
-  }
-
-  return 0;
+#undef EXPAND_IN_SET
+#undef X
+  return is_supported;
 }
 
 /**
