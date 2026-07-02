@@ -340,7 +340,7 @@ static inline anukrta_config default_config (void) {
 
   anukrta_config config = {
     .segments = 3,
-    .threshold = 15,
+    .threshold = 8,
     .hash_algorithm = ANU_HASH_ALGO_DCT,
     .skip_duration = 3,
     .thread_count = 1,
