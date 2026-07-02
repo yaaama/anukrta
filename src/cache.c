@@ -2,9 +2,13 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 
+#include "explore.h"
 #include "log.h"
+#include "mem.h"
 #include "sqlite3.h"
+#include "util.h"
 
 static void cache_finalize_statements (anu_cache_ctx *ctx) {
   if (ctx->stmt_check_cache) {
@@ -344,7 +348,7 @@ anu_cache_ctx *cache_open_db (const char *db_path) {
 
   /* TODO Add cleanup function for context
    * TODO Return pointer using return_ptr macro */
-  anu_cache_ctx *ctx __free(cache_ctx) = calloc(1, sizeof(anu_cache_ctx));
+  anu_cache_ctx *ctx __free(cache_ctx) = xcalloc(1, sizeof(anu_cache_ctx));
   sqlite3 *db = NULL;
 
   /* Try opening database file */

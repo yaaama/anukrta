@@ -1,6 +1,7 @@
 #include "video.h"
 
 #include <assert.h>
+#include <errno.h> /* IWYU pragma: keep */
 #include <inttypes.h>
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
@@ -11,7 +12,6 @@
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
 #include <libavutil/mathematics.h>
-#include <libavutil/mem.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
@@ -201,6 +201,7 @@ static ALWAYS_INLINE _nonnull_all_ AVStream *vreader_video_stream (
  *
  */
 static size_t vreader_get_duration (anu_vreader *vreader) {
+
   AVStream *vid_stream = vreader_video_stream(vreader);
 
   /* duration in stream-base */
@@ -233,9 +234,9 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
  * @param target_ts Target time stamp (in streams own time base).
  * @return 0 on success, anything else on failure.
  *
- * @note When `av_seek_frame` fails, this function returns its value.
+ * @note When `av_seek_frame` fails, this function returns its error code.
  */
-static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
+static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
 
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
@@ -264,9 +265,11 @@ static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
  *
  * @return bool Whether there is a pixel in that row that has a pixel value above the threshold.
  */
-static inline bool row_has_video (const uint8_t *const row,
-                                  const int width,
-                                  const int threshold) {
+static inline _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *const row,
+                                                      const int width,
+                                                      const int threshold) {
+  ANU_ASSUME(width >= 0 && threshold > 0);
+
   for (int i = 0; i < width; i++) {
     if (row[i] > threshold) {
       return true;
@@ -278,20 +281,22 @@ static inline bool row_has_video (const uint8_t *const row,
 /* Detects the bounding box of non-black pixels */
 static inline bool anu_detect_black_borders (AVFrame *frame,
                                              const int threshold,
-                                             cropping *crop) {
+                                             cropping *crop_out) {
 
-  int w = frame->width;
-  int h = frame->height;
-  int linesize = frame->linesize[0];
-  uint8_t *y_plane = frame->data[0];
+  const int w = frame->width;
+  const int h = frame->height;
+  const ptrdiff_t linesize = frame->linesize[0];
+  const uint8_t *const y_plane = frame->data[0];
 
   int top = 0;
   int bottom = h - 1;
 
+  const uint8_t *row_ptr = y_plane;
+
   while ((top < h) /* Top bound */
-         && !(row_has_video(y_plane + ((ptrdiff_t) (top * linesize)), w,
-                            threshold))) {
+         && !(row_has_video(row_ptr, w, threshold))) {
     ++top;
+    row_ptr += linesize;
   }
 
   /* Return false if frame is completely black */
@@ -299,23 +304,26 @@ static inline bool anu_detect_black_borders (AVFrame *frame,
     return false;
   }
 
+  const uint8_t *bottom_ptr = y_plane + (bottom * linesize);
+
   /* Find bottom bound */
-  while ((bottom > top) &&
-         !(row_has_video(y_plane + ((ptrdiff_t) bottom * linesize), w,
-                         threshold))) {
+  while ((bottom > top) && !(row_has_video(bottom_ptr, w, threshold))) {
     --bottom;
+    bottom_ptr -= linesize;
   }
 
   int left = w - 1;
   int right = 0;
 
-  for (int y = top; y <= bottom; y++) {
-    const uint8_t *row = y_plane + ((ptrdiff_t) y * linesize);
+  /* Reset row pointer */
+  row_ptr = y_plane + (top * linesize);
+
+  for (int y = top; y <= bottom; y++, row_ptr += linesize) {
 
     /* Find the first non-black pixel from the left */
     /* We only need to check up to our current known 'left' */
-    for (int x = 0; x <= left; x++) {
-      if (row[x] > threshold) {
+    for (int x = 0; x < left; x++) {
+      if (row_ptr[x] > threshold) {
         left = x;
         break;
       }
@@ -323,8 +331,8 @@ static inline bool anu_detect_black_borders (AVFrame *frame,
 
     /* Find the first non-black pixel from the right */
     /* We only need to check down to our current known 'right' */
-    for (int x = w - 1; x >= right; x--) {
-      if (row[x] > threshold) {
+    for (int x = w - 1; x > right; x--) {
+      if (row_ptr[x] > threshold) {
         right = x;
         break;
       }
@@ -336,10 +344,12 @@ static inline bool anu_detect_black_borders (AVFrame *frame,
     }
   }
 
-  crop->x = left;
-  crop->y = top;
-  crop->w = (right - left) + 1;
-  crop->h = (bottom - top) + 1;
+  crop_out->x = left;
+  crop_out->y = top;
+  ANU_ASSUME(((right - left) + 1) > 0);
+  crop_out->w = (right - left) + 1;
+  ANU_ASSUME(((bottom - top) + 1) > 0);
+  crop_out->h = (bottom - top) + 1;
   return true;
 }
 

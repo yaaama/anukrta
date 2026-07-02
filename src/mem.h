@@ -6,6 +6,8 @@
 
 #include "util.h"
 
+/* NOLINTBEGIN (bugprone-unsafe-functions) */
+
 #ifndef XALLOC_EXIT_CODE
 #  define XALLOC_EXIT_CODE EXIT_FAILURE
 #endif
@@ -68,5 +70,7 @@ static inline _alloc_(2) _warn_unused_
 }
 
 #define xtcalloc(type, nmem) xcalloc(nmem, sizeof(type))
+
+/* NOLINTEND */
 
 #endif  // MEM_H_

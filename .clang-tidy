@@ -63,8 +63,13 @@ CheckOptions:
   - key: concurrency-mt-unsafe.FunctionSet
     value: glibc
     # Do not auto-insert these headers
-  - key:   misc-include-cleaner.IgnoreHeaders
-    value: '(bits/.*|asm/.*|asm-generic/.*)'
+  - key: misc-include-cleaner.IgnoreHeaders
+    value: "(bits/.*|asm/.*|asm-generic/.*)"
+  - key: bugprone-unsafe-functions.CustomFunctions
+    value: |
+      ^malloc$, xmalloc,;
+      ^calloc$, xcalloc,;
+      ^realloc$, xrealloc,;
   # Naming conventions (C style)
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
     value: "(log_.*|'^_.*')"

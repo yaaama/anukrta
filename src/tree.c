@@ -9,15 +9,12 @@
 #include <stdlib.h>
 
 #include "kvec.h"
+#include "mem.h"
 #include "util.h"
 
 bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
 
-  bk_node *node = calloc(1, sizeof(bk_node));
-
-  if (!node) {
-    return NULL;
-  }
+  bk_node *node = xmalloc(1 * sizeof(*node));
 
   node->hash = hash;
   node->children = NULL;
@@ -84,10 +81,7 @@ static void bkTree_insert_internal (bk_node *node,
         (node->child_capacity > 0) ? (node->child_capacity * 2) : 2;
     assert(new_cap > node->child_capacity);
     bk_child_edge *temp =
-        realloc(node->children, new_cap * sizeof(bk_child_edge));
-    if (!temp) {
-      ANU_DIE("Failed to allocate memory for BK Tree edges.");
-    }
+        xrealloc(node->children, new_cap * sizeof(bk_child_edge));
     node->children = temp;
     node->child_capacity = new_cap;
   }
