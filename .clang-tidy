@@ -13,6 +13,7 @@ Checks: >
   misc-*,
   clang-analyzer-*,
   -clang-analyzer-security.insecureAPI.*,
+  -clang-analyzer-unix.Malloc, Does not play well with using __free__ attributes,
   -*cert-err33-c,
   -cert-dcl51-cpp,
   -cert-dcl37-c,
@@ -22,11 +23,13 @@ Checks: >
   -readability-magic-numbers,
   -readability-avoid-unconditional-preprocessor-if,
   -readability-non-const-parameter,
+  readability-redundant-function-ptr-dereference,
   readability-redundant-casting,
+  readability-avoid-const-params-in-decls,
   -misc-no-recursion,
+  misc-include-cleaner,
   -*unused-*,
   -*swappable-parameters,
-  -misc-include-cleaner,
   -clang-diagnostic-padded,
   modernize-use-designated-initializers,
   -altera-*, Checks related to OpenCL programming for FPGAs. Not relevant,
@@ -37,7 +40,6 @@ Checks: >
   -bugprone-swapped-arguments,
   -llvm-header-guard, We use #ANU_...,
   -llvmlibc-restrict-system-libc-headers, We want to use glibc,
-  -misc-include-cleaner, Looks useful but redundant with IWYU. We may replace IWYU with this one day,
   -cppcoreguidelines-macro-to-enum,
   -cppcoreguidelines-avoid-magic-numbers,
   -hicpp-signed-bitwise,
@@ -60,6 +62,9 @@ FormatStyle: file
 CheckOptions:
   - key: concurrency-mt-unsafe.FunctionSet
     value: glibc
+    # Do not auto-insert these headers
+  - key:   misc-include-cleaner.IgnoreHeaders
+    value: '(bits/.*|asm/.*)'
   # Naming conventions (C style)
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
     value: "(log_.*|'^_.*')"
