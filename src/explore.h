@@ -1,15 +1,16 @@
 #ifndef ANU_EXPLORE_H
 #define ANU_EXPLORE_H
 
-#include <dirent.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
 
 #include "config.h"
+#include "defs.h"
 #include "kvec.h"
 #include "util.h"
 
@@ -64,7 +65,7 @@ static ALWAYS_INLINE _nonnull_all_ char *anu_file_get_filename (anu_file *f) {
  */
 typedef kvec_t(anu_file) anu_file_vec;
 
-/* Destructor for anu_file_vec */
+/** Destructor for anu_file_vec */
 static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
 
   if (!v) {

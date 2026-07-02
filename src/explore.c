@@ -35,22 +35,22 @@ static inline void cleanup_path_vec (path_vec *v) {
 DEFINE_FREE(path_vec, path_vec, cleanup_path_vec(&_T))
 
 /**
- *  Declarations of static functions
- */
-static int handle_path_pointing_to_file(char *p, anu_file_vec *f) _nonnull_all_;
-
-/**
  * @brief Compare strings lexicographically.
  * Helper function for quick-sort
  * Compares 'a' with 'b' lexicographically using its ASCII values
  * e.g. a="Hello" , b="Hi"
  * (H - H) = 0
  * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
-static ALWAYS_INLINE int compare_strings (const void *restrict a,
-                                          const void *restrict b) {
+static ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a,
+                                                    const void *restrict b) {
   return strcmp(*(const char *const *) a, *(const char *const *) b);
 }
 
+/**
+ *  Declarations of static functions
+ */
+static int handle_path_pointing_to_file(char *path,
+                                        anu_file_vec *files_out) _nonnull_all_;
 /* END OF DECLARATIONS */
 
 #define fourcc_code(a, b, c, d)                                      \
@@ -205,7 +205,9 @@ char *anu_path_basename (char *path) {
 /**
  * @brief Get filename, excluding the extension.
  **/
-char *anu_path_basename_stem (char *path, char *out, size_t out_size) {
+char *anu_path_basename_stem (char *restrict path,
+                              char *restrict out,
+                              size_t out_size) {
   assert(out_size > 0);
 
   /* Get files name */
@@ -438,7 +440,7 @@ void anu_explore_scan_directories (anukrta_config *config,
   /* Sort paths lexicographically:
    * So "/a/b" will be sorted before "/a/b/c" */
   qsort((void *) real_paths.items, valid_paths, sizeof(char *),
-        compare_strings);
+        anu_cmp_str_lexicographic);
 
   size_t unique_path_idx = 1;
 

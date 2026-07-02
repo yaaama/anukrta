@@ -1,7 +1,6 @@
 /* Video similarity tool */
 
 #ifdef ANU_DEBUG
-#  pragma message "Compilation in DEBUG mode."
 #  ifdef NDEBUG
 #    undef NDEBUG
 #  endif
@@ -19,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "cache.h"
 #include "cli.h"
