@@ -64,7 +64,7 @@ CheckOptions:
     value: glibc
     # Do not auto-insert these headers
   - key:   misc-include-cleaner.IgnoreHeaders
-    value: '(bits/.*|asm/.*)'
+    value: '(bits/.*|asm/.*|asm-generic/.*)'
   # Naming conventions (C style)
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
     value: "(log_.*|'^_.*')"
