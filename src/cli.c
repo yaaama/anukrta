@@ -50,7 +50,7 @@ static void print_help (void) {
 
   PRINT_HEADING("Algorithm & Tuning");
   PRINT_OPT("-s, --segments=int", "Number of segments to hash for each video (default: 3).");
-  PRINT_OPT("-t, --threshold=int", "Maximum distance threshold (default 15).");
+  PRINT_OPT("-t, --threshold=int", "Maximum distance threshold (default 8).");
   PRINT_OPT("", "Ranges from 0 to 64 (0 being the most similar).");
   PRINT_OPT("--skip-duration=int", "Skip videos shorter than N seconds (default 3).");
 
@@ -74,6 +74,7 @@ static void print_help (void) {
 
 void anu_cli_print_configuration (anukrta_config *config) {
 
+  /* This should be larger than the longest configuration option name  */
   const int OPT_W = 30;
 
 #define PRINT_HEADING(text) fprintf(stdout, "\n----- %s -----\n", text)
@@ -83,11 +84,11 @@ void anu_cli_print_configuration (anukrta_config *config) {
   fprintf(stdout, "  %-*s : %zu\n", OPT_W, cfg, val)
 #define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "YES" : "NO")
 
-  /* clang-format off */
   flags32 rtflags = config->runtime_flags;
   flags32 detflags = config->detect_flags;
   flags32 reportflags = config->report_flags;
 
+  /* clang-format off */
   fprintf(stdout, "\n===== Runtime Configuration =====\n");
   PRINT_HEADING("General");
 
@@ -259,7 +260,7 @@ static inline int handle_bool_flag (flags32 *flag_var,
                                     const char *restrict arg_name,
                                     const char *restrict arg_val) {
   /* No argument provided: default to whatever */
-  if (arg_val == NULL) {
+  if (!arg_val) {
     /* If default value of flag is TRUE */
     if (default_value) {
       ANU_SET_FLAG(*flag_var, flag_mask);
@@ -270,8 +271,9 @@ static inline int handle_bool_flag (flags32 *flag_var,
   }
 
   int res = parse_bool_arg(arg_name, arg_val);
+  /* Parsing failed */
   if (res == -1) {
-    return -1; /* Parsing failed */
+    return -1;
   }
 
   if (res) {
@@ -318,28 +320,28 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
  * COMMANDS:
  * These will cause the program to exit early.
  */
-    {"help",               no_argument,          NULL,                CMD_HELP},                   // -h | --help
-    {"version",            no_argument,          NULL,                CMD_VERSION},                // --version
+    {"help",               no_argument,          NULL,  CMD_HELP},                   // -h | --help
+    {"version",            no_argument,          NULL,  CMD_VERSION},                // --version
 /*
  * RUNTIME CONFIG:
  * Options to customise how the program does things.
  */
-    {"threshold",          required_argument,    NULL,                ARG_THRESHOLD},              // -t | --threshold
-    {"segments",           required_argument,    NULL,                ARG_SEGMENTS},               // -s | --segments
-    {"threads",            required_argument,    NULL,                ARG_THREADS},                // --threads
-    {"skip-duration",      required_argument,    NULL,                ARG_SKIP_DURATION},          // --skip-duration
+    {"threshold",          required_argument,    NULL,  ARG_THRESHOLD},              // -t | --threshold
+    {"segments",           required_argument,    NULL,  ARG_SEGMENTS},               // -s | --segments
+    {"threads",            required_argument,    NULL,  ARG_THREADS},                // --threads
+    {"skip-duration",      required_argument,    NULL,  ARG_SKIP_DURATION},          // --skip-duration
 /*
  * FLAGS
  */
     /* TODO: Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
-    {"verbose",            no_argument,          NULL,                FLAG_VERBOSE},               // -v | --verbose
-    {"dry-run",            no_argument,          NULL,                FLAG_DRY_RUN},               // --dry-run
-    {"detect-black",       optional_argument,    NULL,                FLAG_DETECT_BLACK_FRAME},    // --detect-black
-    {"detect-rotation",    optional_argument,    NULL,                FLAG_DETECT_ROTATION},       // --detect-rotation
-    {"detect-bars",        optional_argument,    NULL,                FLAG_DETECT_BARS},           // --detect-bars
-    {"cache",              optional_argument,    NULL,                FLAG_CACHE},                 // --cache
+    {"verbose",            no_argument,          NULL,  FLAG_VERBOSE},               // -v | --verbose
+    {"dry-run",            no_argument,          NULL,  FLAG_DRY_RUN},               // --dry-run
+    {"detect-black",       optional_argument,    NULL,  FLAG_DETECT_BLACK_FRAME},    // --detect-black
+    {"detect-rotation",    optional_argument,    NULL,  FLAG_DETECT_ROTATION},       // --detect-rotation
+    {"detect-bars",        optional_argument,    NULL,  FLAG_DETECT_BARS},           // --detect-bars
+    {"cache",              optional_argument,    NULL,  FLAG_CACHE},                 // --cache
 
-    {0,                    0,                    0,                   0         }};                // END
+    {0,                    0,                    0,     0         }};                // END
   /* clang-format on */
 
   /* Short options */
@@ -375,28 +377,13 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     }
 
     switch (opt) {
-
-      /* Matches for flags that are handled automatically (--dry-run for example) */
-      case AUTO_HANDLE:
-        {
-          break;
-        }
-
       /* When an option expects an argument but does not receive one */
       case ':':
         {
           const char *long_name = get_long_opt_name(optopt, anukrta_opts);
 
-          if (long_name) {
-            /* It was a long option (e.g., --threads) */
-            fprintf(stderr, "%s: Option '--%s' requires an argument.\n",
-                    program_name, long_name);
-          } else {
-            /* It was a short option (e.g., -t) */
-            fprintf(stderr, "%s: Option '-%c' requires an argument.\n",
-                    program_name, optopt);
-          }
-
+          fprintf(stderr, "%s: Option '%s' requires an argument.\n",
+                  program_name, (long_name ? long_name : arg_invoked));
           fprintf(stderr, "Try '%s --help' for more information.\n",
                   program_name);
           goto exit_error;
@@ -405,13 +392,8 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
         {
           if (optopt) {
             const char *long_name = get_long_opt_name(optopt, anukrta_opts);
-            if (long_name) {
-              fprintf(stderr, "%s: Unrecognized option '--%s'.\n", program_name,
-                      long_name);
-            } else {
-              fprintf(stderr, "%s: Unrecognized option '-%c'.\n", program_name,
-                      optopt);
-            }
+            fprintf(stderr, "%s: Unrecognized option '%s'.\n", program_name,
+                    (long_name ? long_name : arg_invoked));
           } else {
             /* optopt is sometimes 0 for unrecognized long options in certain libc implementations */
             fprintf(stderr, "%s: Unrecognized option.\n", program_name);
