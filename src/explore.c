@@ -8,7 +8,6 @@
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -300,6 +299,8 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
 
     ANU_ASSUME(curr_path != NULL);
 
+    size_t curr_path_len = strlen(curr_path);
+
     /* Directory stream */
     DIR *dir __free(dir_close) = NULL;
     dir = opendir(curr_path);
@@ -310,9 +311,10 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
 
     /* Try getting file descriptor */
     int dir_fd = dirfd(dir);
-    /* If dirfd fails then we just try searching the current directory */
+    /* If dirfd fails then we skip */
     if (dir_fd < 0) {
-      dir_fd = AT_FDCWD;
+      log_warn("Failed to get directory fd for: %s", curr_path);
+      continue;
     }
     struct dirent *dp;
 
@@ -324,42 +326,63 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       char *name = dp->d_name;
 
       /* Check for whether file is '.' or '..' */
-      if (name[0] == '.') {
-        if (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')) {
-          continue;
-        }
-      }
-      unsigned char type = dp->d_type;
-      /* Stat buffer */
-      struct stat statb;
-
-      /* Ignore symlinks, sockets, devices, etc. */
-      if ((type != DT_REG) && (type != DT_DIR) && (type != DT_UNKNOWN)) {
+      if ((name[0] == '.' && name[1] == '\0') ||
+          (name[1] == '.' && name[2] == '\0')) {
         continue;
       }
 
-      /* Check path for supported extension */
-      if (type != DT_DIR && type == DT_REG &&
-          !anu_path_extension_supported(name)) {
+      unsigned char type = dp->d_type;
+      /* Stat buffer */
+      struct stat statb;
+      bool stat_called = false;
+
+      if (UNLIKELY(type == DT_UNKNOWN)) {
+        if (fstatat(dir_fd, name, &statb, 0) != 0) {
+          continue;
+        }
+        stat_called = true;
+        if (S_ISDIR(statb.st_mode)) {
+          type = DT_DIR;
+        } else if (S_ISREG(statb.st_mode)) {
+          type = DT_REG;
+        } else {
+          continue;  // Ignore sockets, devices, etc.
+        }
+      }
+
+      /* Ignore any type of entry that is:
+       * 1: Not a regular file
+         2: Not a directory
+         3: Not 'unknown' (symlinks, sockets, devices, etc). */
+      if ((type != DT_REG) && (type != DT_DIR)) {
         continue;
       }
 
       /* If its a directory push it to our directory stack */
       if (type == DT_DIR) {
         char *dir_path;
-        if (asprintf(&dir_path, "%s/%s", curr_path, name) == -1) {
+        if (UNLIKELY(asprintf(&dir_path, "%s/%s", curr_path, name) == -1)) {
           log_error("Could not allocate memory for directory path!");
         }
         kv_push(dirstack, dir_path);
         continue;
       }
 
-      /* Run stat on path */
-      if (fstatat(dir_fd, dp->d_name, &statb, 0) != 0) {
+      /*
+       * NOTE: File type is guarenteed to be 'DT_REG' (a regular file) from here
+       */
+
+      /* Check path for supported extension */
+      if (!anu_path_extension_supported(name)) {
+        continue;
+      }
+
+      /* Run stat on path if not already called */
+      if (!stat_called && fstatat(dir_fd, dp->d_name, &statb, 0) != 0) {
         log_warn("Failed to fstatat file '%s/%s'", curr_path, name);
         continue;
       }
-      if (statb.st_size == 0) {
+      if (UNLIKELY(statb.st_size == 0)) {
         log_debug("File size is 0 '%s/%s'", curr_path, name);
         continue;
       }
@@ -368,20 +391,19 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       char *final_path;
       int final_path_len = asprintf(&final_path, "%s/%s", curr_path, name);
 
-      if (final_path_len == -1) {
+      if (UNLIKELY(final_path_len == -1)) {
         log_error("Failed to allocate memory for path variable.");
         continue;
       }
-      size_t name_len = strlen(name);
-      anu_file newfile = {
-        .size = (usize) statb.st_size,
-        .ctime = (usize) statb.st_ctime,
-        .mtime = (usize) statb.st_mtime,
-        .ino = statb.st_ino,
-        .dev = statb.st_dev,
-        .path = final_path,
-        .name_offset = (u32) ((size_t) final_path_len - name_len),
-        .media_type = ANU_MEDIA_TYPE_VIDEO};
+
+      anu_file newfile = {.size = (usize) statb.st_size,
+                          .ctime = (usize) statb.st_ctime,
+                          .mtime = (usize) statb.st_mtime,
+                          .ino = statb.st_ino,
+                          .dev = statb.st_dev,
+                          .path = final_path,
+                          .name_offset = (u32) (curr_path_len + 1),
+                          .media_type = ANU_MEDIA_TYPE_VIDEO};
 
       kv_push(*files_out, newfile);
     }
