@@ -465,7 +465,7 @@ static int scale_frame (anu_vreader *vr,
   /* Number of bytes/bits per pixel */
   int bytes_per_pixel = desc->comp[0].step;
 
-  const uint8_t *src_slices[4] = {NULL};
+  const uint8_t *src_slices[4] = {0};
   int src_linesizes[4] = {0};
 
   /* Advance Y-plane safely based on bytes per pixel */
@@ -654,9 +654,11 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     log_trace("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
               hashes_out[i]);
     ++frames_decoded;
+
+    /* NOTE: Continue before we fall into the failure label */
     continue;
 
-    /**
+    /*
      * Jump here when an error occurs and we want to skip over this particular hash.
      * We assign 0's in order to indicate an error has occured and that a hash was not produced.
      */

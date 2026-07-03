@@ -288,6 +288,7 @@ anu_report anu_generate_report (anu_file_vec *files,
   /* Union-Find to identify the groups */
   usize *parent __free(ptr) = NULL;
   parent = xmalloc(file_count * sizeof(*parent) * 2);
+
   usize *rank = parent + file_count;
 
   for (usize i = 0; i < file_count; i++) {
@@ -327,9 +328,6 @@ anu_report anu_generate_report (anu_file_vec *files,
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
   u64_vec *buckets = xcalloc(file_count, sizeof(*buckets));
-  if (!buckets) {
-    ANU_DIE("Failed to allocate memory.");
-  }
 
   /* Every bucket is their own parent in the beginning */
   for (u64 i = 0; i < file_count; i++) {

@@ -333,7 +333,6 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 /*
  * FLAGS
  */
-    /* TODO: Let user specify verbosity (e.g '-vvvv' for trace granularity verbosity) */
     {"verbose",            no_argument,          NULL,  FLAG_VERBOSE},               // -v | --verbose
     {"dry-run",            no_argument,          NULL,  FLAG_DRY_RUN},               // --dry-run
     {"detect-black",       optional_argument,    NULL,  FLAG_DETECT_BLACK_FRAME},    // --detect-black
