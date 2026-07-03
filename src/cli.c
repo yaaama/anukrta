@@ -116,7 +116,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
   PRINT_CONFIG_STR("Detect Black Frames", FLAG_VAL(detflags, DETECT_BLACK_FRAME));
   PRINT_CONFIG_STR("Detect Rotation", FLAG_VAL(detflags, DETECT_ROTATION));
   /* clang-format on */
-  fprintf(stdout, "\n");
+  fprintf(stdout, "--------------------\n");
 #undef PRINT_HEADING
 #undef PRINT_CONFIG_STR
 #undef PRINT_CONFIG_ZU

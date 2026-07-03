@@ -336,33 +336,13 @@ static int anukrta_driver (anukrta_config *config) {
   return 0;
 }
 
-int main (int argc, char *argv[]) {
-
-  /* Retrieve default configuration */
-  anukrta_config config = anukrta_default_config();
-
-  /* Option parsing return value */
-  int parsing_return = anu_cli_parse_options(&config, argc, argv);
-
-  /* Exit if non zero or if config has exit_early flag set */
-  if (parsing_return ||
-      (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_EXIT_EARLY))) {
-    return parsing_return;
-  }
-
-  /* Logging Setup */
-  pthread_mutex_t log_mutex;
-  pthread_mutex_init(&log_mutex, NULL);
+static void anukrta_setup_logging (int anu_log_lvl,
+                                   pthread_mutex_t *logging_mutex) {
 
   int log_lvl = 0;
   int libav_log_lvl = 0;
-  u32 verbosity_lvl = ANU_GET_VERBOSITY(config.runtime_flags);
 
-  if (verbosity_lvl > 0) {
-    anu_cli_print_configuration(&config);
-  }
-
-  switch (verbosity_lvl) {
+  switch (anu_log_lvl) {
     case 3:
       {
         log_lvl = LOG_TRACE;
@@ -390,9 +370,34 @@ int main (int argc, char *argv[]) {
   }
 
   av_log_set_level(libav_log_lvl);
-  init_logger(log_lvl, &log_mutex, log_lock_callback);
+  init_logger(log_lvl, logging_mutex, log_lock_callback);
+}
+
+int main (int argc, char *argv[]) {
+
+  /* Retrieve default configuration */
+  anukrta_config config = anukrta_default_config();
+
+  /* Option parsing return value */
+  int parsing_return = anu_cli_parse_options(&config, argc, argv);
+
+  /* Exit if non zero or if config has exit_early flag set */
+  if (parsing_return ||
+      (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_EXIT_EARLY))) {
+    return parsing_return;
+  }
+
+  /* Logging Setup */
+  pthread_mutex_t log_mutex;
+  pthread_mutex_init(&log_mutex, NULL);
+
+  int logging_level = ANU_GET_VERBOSITY(config.runtime_flags);
+  if (logging_level > 0) {
+    anu_cli_print_configuration(&config);
+  }
+  anukrta_setup_logging(logging_level, &log_mutex);
+
   /* Start of program */
-  printf("\n\n--------------------\n");
 
   log_info("%s now running...", argv[0]);
 
