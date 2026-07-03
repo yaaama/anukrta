@@ -14,7 +14,6 @@
 
 #include "config.h"
 #include "defs.h"
-#include "log.h"
 #include "util.h"
 
 #define CLI_NAME "anukrta"
@@ -540,7 +539,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
     config->paths = argv + optind;
 
     for (int i = optind; i < argc; i++) {
-      log_debug("Path %d  %s\n", (i + 1), argv[i]);
+      printf("%s\n", argv[i]);
     }
 
   } else {
