@@ -14,6 +14,7 @@
 
 #include "config.h"
 #include "defs.h"
+#include "log.h"
 #include "util.h"
 
 #define CLI_NAME "anukrta"
@@ -101,7 +102,7 @@ void anu_cli_print_configuration (anukrta_config *config) {
   PRINT_CONFIG_STR("Scan Current Directory", FLAG_VAL(rtflags, RT_SCAN_CURR_DIR));
   PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, RT_CACHE));
 
-    PRINT_HEADING("Algorithm Settings");
+  PRINT_HEADING("Algorithm Settings");
   PRINT_CONFIG_ZU("Segments to hash", config->segments);
   PRINT_CONFIG_ZU("Maximum Distance Threshold", config->threshold);
   PRINT_CONFIG_ZU("Skip videos shorter than", config->skip_duration);
@@ -356,7 +357,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   u32 verbosity_level = 0;
   bool explicit_thread_count = false;
 
-  while (1) {
+  for (;;) {
     option_index = -1;
 
     // NOLINTBEGIN (concurrency-mt-unsafe)
@@ -522,8 +523,6 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
           ANU_UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
         }
     }
-    /* Reset for short options */
-    option_index = -1;
   }
 
   if (verbosity_level > 0) {
@@ -532,15 +531,16 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
   }
 
   /* Process remaining positional arguments */
-  if (optind < argc) {
-    int positional_arg_count = argc - optind;
+
+  int positional_arg_count = argc - optind;
+  if (positional_arg_count > 0) {
     printf("\n--- Input Directories (%d) ---\n", positional_arg_count);
 
     config->paths_count = (size_t) positional_arg_count;
-    config->paths = &argv[optind];
+    config->paths = argv + optind;
 
     for (int i = optind; i < argc; i++) {
-      printf("  %s\n", argv[i]);
+      log_debug("Path %d  %s\n", (i + 1), argv[i]);
     }
 
   } else {

@@ -391,7 +391,11 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
   return 0;
 }
 
-/* TODO: Add a check for hard linked files (files with same inode number) */
+/**
+ * Scan through directories stored in config.
+ *
+ * @todo Add a check for hard linked files (files with same inode number)
+ */
 void anu_explore_scan_directories (anukrta_config *config,
                                    anu_file_vec *files) {
 
