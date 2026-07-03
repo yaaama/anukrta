@@ -27,15 +27,15 @@ DEFINE_FREE(cache_ctx, anu_cache_ctx *, if (_T) cache_ctx_destroy(&_T))
  * @name Database Transaction Helpers
  * @brief Transaction helpers for bulk operations.
  */
-static inline int cache_begin_transaction (anu_cache_ctx *ctx) {
+static ALWAYS_INLINE int cache_begin_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
 }
 
-static inline int cache_rollback_transaction (anu_cache_ctx *ctx) {
+static ALWAYS_INLINE int cache_rollback_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "ROLLBACK;", NULL, NULL, NULL);
 }
 
-static inline int cache_commit_transaction (anu_cache_ctx *ctx) {
+static ALWAYS_INLINE int cache_commit_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
 }
 
