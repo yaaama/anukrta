@@ -82,11 +82,42 @@ static void log_lock_callback (bool lock, void *udata) {
   }
 }
 
-static void init_logger (int verbosity,
-                         pthread_mutex_t *log_mutex,
-                         void (*lock_cb)(bool, void *)) {
-  log_set_level(verbosity);
-  log_set_lock(lock_cb, log_mutex);
+static void anukrta_setup_logging (int anu_log_lvl,
+                                   pthread_mutex_t *logging_mutex) {
+
+  int log_lvl = 0;
+  int libav_log_lvl = 0;
+
+  switch (anu_log_lvl) {
+    case 3:
+      {
+        log_lvl = LOG_TRACE;
+        libav_log_lvl = AV_LOG_VERBOSE;
+        break;
+      }
+    case 2:
+      {
+        log_lvl = LOG_DEBUG;
+        libav_log_lvl = AV_LOG_INFO;
+        break;
+      }
+    case 1:
+      {
+        log_lvl = LOG_INFO;
+        libav_log_lvl = AV_LOG_INFO;
+        break;
+      }
+    default:
+      {
+        libav_log_lvl = AV_LOG_ERROR;
+        log_lvl = LOG_ERROR;
+        break;
+      }
+  }
+
+  av_log_set_level(libav_log_lvl);
+  log_set_level(log_lvl);
+  log_set_lock(log_lock_callback, logging_mutex);
 }
 
 static void *hash_worker_thread (void *arg) {
@@ -334,43 +365,6 @@ static int anukrta_driver (anukrta_config *config) {
   sqlite3_shutdown();
 
   return 0;
-}
-
-static void anukrta_setup_logging (int anu_log_lvl,
-                                   pthread_mutex_t *logging_mutex) {
-
-  int log_lvl = 0;
-  int libav_log_lvl = 0;
-
-  switch (anu_log_lvl) {
-    case 3:
-      {
-        log_lvl = LOG_TRACE;
-        libav_log_lvl = AV_LOG_VERBOSE;
-        break;
-      }
-    case 2:
-      {
-        log_lvl = LOG_DEBUG;
-        libav_log_lvl = AV_LOG_INFO;
-        break;
-      }
-    case 1:
-      {
-        log_lvl = LOG_INFO;
-        libav_log_lvl = AV_LOG_INFO;
-        break;
-      }
-    default:
-      {
-        libav_log_lvl = AV_LOG_ERROR;
-        log_lvl = LOG_ERROR;
-        break;
-      }
-  }
-
-  av_log_set_level(libav_log_lvl);
-  init_logger(log_lvl, logging_mutex, log_lock_callback);
 }
 
 int main (int argc, char *argv[]) {
