@@ -189,7 +189,7 @@ static void execute_hash_worker_threads (anukrta_config *config,
     int success = (pthread_join(threads[i], NULL) == 0);
     threads_joined += success;
     if (!success) {
-      log_warn("Failed to create thread #%d", i);
+      log_warn("Failed to join thread #%d", i);
     }
   }
 
