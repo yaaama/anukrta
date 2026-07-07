@@ -529,6 +529,26 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 #define ANU_TOGGLE_FLAG(mask, flag) ((mask) ^= (flag))
 
 /**
+ * @def ANU_UPDATED_FLAG
+ * @brief Returns a NEW mask with flag(s) conditionally set or cleared based on 'b'.
+ * @note Does NOT modify the original mask in place.
+ */
+#define ANU_UPDATED_FLAG(orig, flag, b) \
+  ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
+
+/**
+ * @def ANU_SET_FLAG_WHEN
+ * @brief Conditionally sets or clears a flag in the bitmask in place.
+ *
+ * ```c
+ * // Sets STATUS_RUNNING if 'is_moving' is true, clears it if false.
+ * ANU_SET_FLAG_WHEN(player_state, STATUS_RUNNING, is_moving);
+ * ```
+ */
+#define ANU_SET_FLAG_WHEN(mask, flag, b) \
+  ((mask) = ANU_UPDATED_FLAG(mask, flag, b))
+
+/**
  * @def ANU_HAS_ALL_FLAGS
  * @brief Checks if ALL specified flags are set.
  * @note If flag is 0, this will return true.
@@ -538,7 +558,7 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * }
  * ```
  */
-#define ANU_HAS_ALL_FLAGS(mask, flag) (((mask) & (flag)) == (flag))
+#define ANU_HAS_ALL_FLAGS(mask, flag) ((~(mask) & (flag)) == (0))
 
 /**
  * @def ANU_HAS_ANY_FLAG
