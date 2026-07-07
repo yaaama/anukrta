@@ -72,7 +72,7 @@ static void print_help (void) {
 #undef PRINT_OPT
 }
 
-void anu_cli_print_configuration (anukrta_config *config) {
+void anu_cli_print_configuration (anu_config *config) {
 
   /* This should be larger than the longest configuration option name  */
   const int OPT_W = 30;
@@ -285,7 +285,7 @@ static inline int handle_bool_flag (flags32 *flag_var,
   return 0;
 }
 
-int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
+int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
 
   const char *program_name = CLI_NAME;
 

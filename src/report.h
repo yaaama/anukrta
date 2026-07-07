@@ -2,9 +2,10 @@
 #define ANU_REPORT_H
 
 #include "config.h"
+#include "defs.h"
 #include "explore.h"
+#include "kvec.h"
 #include "tree.h"
-#include "util.h"
 
 /* List of a list of file ids */
 /* [0 : [id1,id2], 1: [id2,id3]] */
@@ -18,13 +19,13 @@ typedef struct {
   anu_report_groups groups;
 } anu_report;
 
-void anu_print_report(anukrta_config *config,
+void anu_print_report(anu_config *config,
                       anu_report *report,
                       anu_file_vec *files,
                       u64 *hashes);
 anu_report anu_generate_report(anu_file_vec *files,
                                u64 *hashes,
-                               anukrta_config *config,
+                               anu_config *config,
                                bk_node *tree);
 
 void anu_report_destroy(anu_report *report);

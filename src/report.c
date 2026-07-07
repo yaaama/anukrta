@@ -172,7 +172,7 @@ static bool is_better_file (const anu_file *restrict candidate,
  */
 static void elect_best_file (u64_vec *group,
                              anu_file_vec *files,
-                             anukrta_config *config) {
+                             anu_config *config) {
 
   /* Exit early if no strategy or if group is just 1 file */
   usize group_count = kv_size(*group);
@@ -207,7 +207,7 @@ static void elect_best_file (u64_vec *group,
   }
 }
 
-void anu_print_report (anukrta_config *config,
+void anu_print_report (anu_config *config,
                        anu_report *report,
                        anu_file_vec *files,
                        u64 *hashes) {
@@ -275,7 +275,7 @@ void anu_print_report (anukrta_config *config,
 
 anu_report anu_generate_report (anu_file_vec *files,
                                 u64 *hashes,
-                                anukrta_config *config,
+                                anu_config *config,
                                 bk_node *tree) {
 
   usize file_count = kv_size(*files);

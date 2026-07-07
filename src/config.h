@@ -75,7 +75,7 @@ typedef enum report_flags : uint32_t {
 } report_flags;
 
 /* Structure describing the configuration settings to use for this run. */
-typedef struct anukrta_config {
+typedef struct anu_config {
   /** Array of file/directory paths to process. */
   char **paths;
   /** Video length shorter than this will be skipped (seconds) */
@@ -103,11 +103,11 @@ typedef struct anukrta_config {
   /** Strategy for determining the 'best' file out of a group of duplicates.
    * @see `best_file_strat`. */
   best_file_strat best_file_strategy;
-} anukrta_config;
+} anu_config;
 
-static ALWAYS_INLINE _const_ anukrta_config anukrta_default_config (void) {
+static ALWAYS_INLINE _const_ anu_config anukrta_default_config (void) {
 
-  anukrta_config config = {
+  anu_config config = {
     .segments = 3,
     .threshold = 8,
     .hash_algorithm = ANU_HASH_ALGO_DCT,

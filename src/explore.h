@@ -86,7 +86,7 @@ static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
 /* Define auto cleanup function */
 DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
 
-void anu_explore_scan_directories(anukrta_config *config,
+void anu_explore_scan_directories(anu_config *config,
                                   anu_file_vec *files_out) _nonnull_all_;
 
 int anu_explore_recursive_filewalk(char *path,

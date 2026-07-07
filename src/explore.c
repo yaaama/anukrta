@@ -418,8 +418,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
  *
  * @todo Add a check for hard linked files (files with same inode number)
  */
-void anu_explore_scan_directories (anukrta_config *config,
-                                   anu_file_vec *files) {
+void anu_explore_scan_directories (anu_config *config, anu_file_vec *files) {
 
   /* Check if we need to scan current directory */
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR)) {

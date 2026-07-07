@@ -49,7 +49,7 @@ typedef struct worker_args {
   anu_file_vec *files;
 
   /** Pointer to program configuration. */
-  anukrta_config *config;
+  anu_config *config;
 
   /** Array of hashes that are produced during thread execution. */
   uint64_t *hashes;
@@ -124,7 +124,7 @@ static void *hash_worker_thread (void *arg) {
   worker_args *targs = (worker_args *) arg;
 
   const size_t segments = targs->config->segments;
-  anukrta_config *config = targs->config;
+  anu_config *config = targs->config;
   worker_result *results = targs->results;
   anu_file *items = targs->files->items;
   u64 *hashes = targs->hashes;
@@ -153,7 +153,7 @@ static void *hash_worker_thread (void *arg) {
   return NULL;
 }
 
-static void execute_hash_worker_threads (anukrta_config *config,
+static void execute_hash_worker_threads (anu_config *config,
                                          worker_args *args,
                                          size_t file_count) {
   /* NOTE: Thread count should not exceed file count */
@@ -196,7 +196,7 @@ static void execute_hash_worker_threads (anukrta_config *config,
   log_debug("Joined %d threads.", threads_joined);
 }
 
-static int anukrta_driver (anukrta_config *config) {
+static int anukrta_driver (anu_config *config) {
 
   assert(config->segments > 0);
 
@@ -370,12 +370,13 @@ static int anukrta_driver (anukrta_config *config) {
 int main (int argc, char *argv[]) {
 
   /* Retrieve default configuration */
-  anukrta_config config = anukrta_default_config();
+  anu_config config = anukrta_default_config();
 
   /* Option parsing return value */
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
-  /* Exit if non zero or if config has exit_early flag set */
+  /* Exit if non zero return value OR
+   * if config has exit_early flag set */
   if (parsing_return ||
       (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_EXIT_EARLY))) {
     return parsing_return;

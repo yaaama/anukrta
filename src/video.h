@@ -13,7 +13,6 @@
 #include "config.h"
 #include "defs.h"
 #include "explore.h"
-#include "util.h"
 
 /* Maximum number of video segments to process */
 #define ANU_MAX_VIDEO_SEGMENTS 20
@@ -37,7 +36,7 @@ typedef struct anu_vreader {
 } anu_vreader;
 
 enum ANU_STATUS anu_video_hash(anu_file *file,
-                               anukrta_config *config,
+                               anu_config *config,
                                uint64_t *hashes_out,
                                uint64_t *frame_timestamps_out);
 

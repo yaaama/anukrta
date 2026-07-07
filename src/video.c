@@ -549,7 +549,7 @@ static int video_reader_get_frame (anu_vreader *vreader) {
 }
 
 enum ANU_STATUS anu_video_hash (anu_file *file,
-                                anukrta_config *config,
+                                anu_config *config,
                                 uint64_t *hashes_out,
                                 uint64_t *frame_timestamps_out) {
 
