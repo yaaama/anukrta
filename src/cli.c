@@ -559,7 +559,7 @@ int anu_cli_parse_options (anukrta_config *config, int argc, char **argv) {
 exit_error:
   {
     ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
-    ret = 22;
+    ret = EINVAL;
     return ret;
   }
 }
