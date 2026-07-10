@@ -313,9 +313,6 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
   /* name, has_arg, flag, val */
   const struct option anukrta_opts[] = {
 
-  /* NOTE: Realigning struct in Emacs:
-     prefix-arg + align-regexp --> ,\(\s-*\) --> 1 --> 4 --> yes
-   */
 /*
  * COMMANDS:
  * These will cause the program to exit early.

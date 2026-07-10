@@ -21,6 +21,9 @@
 #define GLUE(a, b) a##b
 #define JOIN(a, b) GLUE(a, b)
 
+#define UNIQ_T(x, uniq) JOIN(__unique_prefix_, JOIN(x, uniq))
+#define UNIQ __COUNTER__
+
 #ifndef __has_builtin
 #  define __has_builtin(x) 0
 #endif
@@ -574,6 +577,8 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * @{
  */
 
+#define VOID_0 ((void) 0)
+
 /** @def ANU_ARRAY_SIZE
  * @brief Calculate the length of a C array
  *
@@ -698,7 +703,6 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
              CASE_F_6, CASE_F_5, CASE_F_4, CASE_F_3, CASE_F_2, CASE_F_1)       \
   (__VA_ARGS__)
 
-#define VOID_0 ((void) 0)
 #define assert_cc(expr) _Static_assert(expr, #expr)
 
 #define ELEMENTSOF(x)                                          \
@@ -724,6 +728,25 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
     }                                                                                               \
     _found;                                                                                         \
   })
+
+// NOLINTBEGIN (bugprone-macro-parentheses)
+#define _FOREACH_ARRAY(i, array, num, m, end)   \
+  for (typeof(array[0]) *i = (array), *end = ({ \
+         typeof(num) m = (num);                 \
+         (i && m > 0) ? i + m : NULL;           \
+       });                                      \
+       end && i < end; i++)
+
+#define FOREACH_ARRAY(i, array, num) \
+  _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
+
+#define FOREACH_ELEMENT(i, array) FOREACH_ARRAY(i, array, ELEMENTSOF(array))
+
+#define _STRV_FOREACH(s, l, i) \
+  for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
+
+#define STRV_FOREACH(s, l) _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
+/* NOLINTEND */
 
 /**
  * @name Time conversion utilities

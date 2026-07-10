@@ -35,8 +35,7 @@
 #include "video.h"
 
 /**
-/**
- * @brief Callback function for logger.
+ * Callback function for logger.
  */
 static void log_lock_callback (bool lock, void *udata) {
   pthread_mutex_t *mutex = (pthread_mutex_t *) udata;
@@ -47,6 +46,12 @@ static void log_lock_callback (bool lock, void *udata) {
   }
 }
 
+/**
+ * Setup loggers for internal logging and libav.
+ *
+ * @param anu_log_lvl Integer logging level.
+ * @param logging_mutex Mutex to pass to logger.
+ */
 static void anukrta_setup_logging (int anu_log_lvl,
                                    pthread_mutex_t *logging_mutex) {
 
@@ -364,7 +369,7 @@ int main (int argc, char *argv[]) {
   /* Retrieve default configuration */
   anu_config config = anukrta_default_config();
 
-  /* Option parsing return value */
+  /* Return code after parsing CLI options */
   int parsing_return = anu_cli_parse_options(&config, argc, argv);
 
   /* Exit if non zero return value OR
