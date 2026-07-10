@@ -2,8 +2,10 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
+#include "defs.h"
 #include "explore.h"
 #include "log.h"
 #include "mem.h"
@@ -62,6 +64,41 @@ static const char *DATABASE_SCHEMA[] = {
   "PRAGMA foreign_keys = ON;"
   /* Keep temp files in memory */
   "PRAGMA temp_store = MEMORY;"};
+
+static ALWAYS_INLINE int safe_param_index (sqlite3_stmt *stmt,
+                                           const char *param_name) {
+  int idx = sqlite3_bind_parameter_index(stmt, param_name);
+  if (idx == 0) {
+    fprintf(
+        stderr,
+        "FATAL DATABASE ERROR: Bind parameter '%s' not found in statement!\n",
+        param_name);
+    assert(0 && "Missing bind parameter!");
+    exit(EXIT_FAILURE);  // NOLINT (concurrency-mt-unsafe)
+  }
+  return idx;
+}
+
+static inline int safe_bind_i64 (sqlite3_stmt *stmt,
+                                 const char *param_name,
+                                 const i64 val) {
+  int idx = safe_param_index(stmt, param_name);
+  return sqlite3_bind_int64(stmt, idx, val);
+}
+
+static inline int safe_bind_int (sqlite3_stmt *stmt,
+                                 const char *param_name,
+                                 const int val) {
+  int idx = safe_param_index(stmt, param_name);
+  return sqlite3_bind_int(stmt, idx, val);
+}
+
+static inline int safe_bind_txt_static (sqlite3_stmt *stmt,
+                                        const char *param_name,
+                                        const char *val) {
+  int idx = safe_param_index(stmt, param_name);
+  return sqlite3_bind_text(stmt, idx, val, -1, SQLITE_STATIC);
+}
 
 static void cache_finalize_statements (anu_cache_ctx *ctx) {
   if (ctx->stmt_check_cache) {
@@ -189,10 +226,10 @@ int cache_is_file_valid (anu_cache_ctx *ctx,
                          size_t *out_duration_us) {
 
   sqlite3_stmt *stmt_check_cache = ctx->stmt_check_cache;
-  sqlite3_bind_text(stmt_check_cache, 1, file->path, -1, SQLITE_STATIC);
-  sqlite3_bind_int64(stmt_check_cache, 2, (sqlite3_int64) file->size);
-  sqlite3_bind_int64(stmt_check_cache, 3, (sqlite3_int64) file->mtime);
-  sqlite3_bind_int64(stmt_check_cache, 4, (sqlite3_int64) file->ctime);
+  safe_bind_txt_static(stmt_check_cache, ":path", file->path);
+  safe_bind_i64(stmt_check_cache, ":size", (sqlite3_int64) file->size);
+  safe_bind_i64(stmt_check_cache, ":mtime", (sqlite3_int64) file->mtime);
+  safe_bind_i64(stmt_check_cache, ":ctime", (sqlite3_int64) file->ctime);
 
   int ret = sqlite3_step(stmt_check_cache);
 
@@ -216,33 +253,44 @@ static int init_db__prepare_statements (anu_cache_ctx *ctx) {
 
   sqlite3 *db = ctx->db;
 
-#define PREPARE(sql, stmt)                                                     \
-  result = sqlite3_prepare_v3(db, sql, -1, SQLITE_PREPARE_PERSISTENT, &(stmt), \
-                              NULL);                                           \
-  if (result != SQLITE_OK)                                                     \
-  return result
+#define PREPARE(sql, stmt, expected_params)                             \
+  do {                                                                  \
+    result = sqlite3_prepare_v3(db, sql, -1, SQLITE_PREPARE_PERSISTENT, \
+                                &(stmt), NULL);                         \
+    if (result != SQLITE_OK)                                            \
+      return result;                                                    \
+    assert(sqlite3_bind_parameter_count(stmt) == (expected_params) &&   \
+           "SQL parameter count mismatch!");                            \
+  } while (0);
 
   /* Check path AND metadata, if metadata does not match then we know the hash is outdated */
   PREPARE(
-      "SELECT id, duration_us FROM files WHERE path = ? AND file_size = ? AND "
-      "mtime = ? AND "
-      "ctime = ?",
-      ctx->stmt_check_cache);
+      "SELECT id, duration_us FROM files "
+      "WHERE path = :path "
+      "AND size = :size "
+      "AND mtime = :mtime "
+      "AND ctime = :ctime",
+      ctx->stmt_check_cache, 4);
 
   /* INSERT OR REPLACE: If the file path exists but metadata changed, this deletes the old row.
      Because of ON DELETE CASCADE, it also automatically wipes the old hashes */
   PREPARE(
-      "INSERT OR REPLACE INTO files (path, media_type, file_size, mtime, "
-      "ctime, duration_us, last_hashed) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ctx->stmt_upsert_file);
+      "INSERT OR REPLACE INTO files "
+      "(path, media_type, size, mtime, ctime, duration_us, last_hashed) "
+      "VALUES "
+      "(:path, :media_type, :size, :mtime, :ctime, :duration_us, "
+      ":last_hashed)",
+      ctx->stmt_upsert_file, 7);
 
   PREPARE(
-      "INSERT INTO hashes (file_id, hash, frame_timestamp_us) VALUES (?, ?, ?)",
-      ctx->stmt_insert_hash);
+      "INSERT INTO hashes (file_id, hash, frame_ts) "
+      "VALUES (:file_id, :hash, :frame_ts)",
+      ctx->stmt_insert_hash, 3);
   PREPARE(
-      "SELECT hash, frame_timestamp_us FROM hashes WHERE file_id = ? ORDER BY "
-      "frame_timestamp_us ASC",
-      ctx->stmt_get_hashes);
+      "SELECT hash, frame_ts FROM hashes "
+      "WHERE file_id = :file_id "
+      "ORDER BY frame_ts ASC",
+      ctx->stmt_get_hashes, 1);
 
 #undef PREPARE
   return SQLITE_OK;
@@ -266,13 +314,14 @@ int cache_upsert_file (anu_cache_ctx *ctx,
                        uint64_t time_of_hash,
                        uint64_t *row_id_out) {
   sqlite3_stmt *stmt_upsert_file = ctx->stmt_upsert_file;
-  sqlite3_bind_text(stmt_upsert_file, 1, file->path, -1, SQLITE_STATIC);
-  sqlite3_bind_int(stmt_upsert_file, 2, file->media_type);
-  sqlite3_bind_int64(stmt_upsert_file, 3, (sqlite3_int64) file->size);
-  sqlite3_bind_int64(stmt_upsert_file, 4, (sqlite3_int64) file->mtime);
-  sqlite3_bind_int64(stmt_upsert_file, 5, (sqlite3_int64) file->ctime);
-  sqlite3_bind_int64(stmt_upsert_file, 6, (sqlite3_int64) file->duration_us);
-  sqlite3_bind_int64(stmt_upsert_file, 7, (sqlite3_int64) time_of_hash);
+  safe_bind_txt_static(stmt_upsert_file, ":path", file->path);
+  safe_bind_int(stmt_upsert_file, ":media_type", file->media_type);
+  safe_bind_i64(stmt_upsert_file, ":size", (sqlite3_int64) file->size);
+  safe_bind_i64(stmt_upsert_file, ":mtime", (sqlite3_int64) file->mtime);
+  safe_bind_i64(stmt_upsert_file, ":ctime", (sqlite3_int64) file->ctime);
+  safe_bind_i64(stmt_upsert_file, ":duration_us",
+                (sqlite3_int64) file->duration_us);
+  safe_bind_i64(stmt_upsert_file, ":last_hashed", (sqlite3_int64) time_of_hash);
 
   int ret = sqlite3_step(stmt_upsert_file);
   if (ret != SQLITE_DONE) {
@@ -309,9 +358,10 @@ int cache_insert_hash (anu_cache_ctx *ctx,
                        uint64_t frame_timestamp_us) {
   sqlite3_stmt *stmt_insert_hash = ctx->stmt_insert_hash;
   /* Storing 64-bit uint as sqlite 64-bit signed int. The bit pattern stays the same. */
-  sqlite3_bind_int64(stmt_insert_hash, 1, (sqlite3_int64) file_id);
-  sqlite3_bind_int64(stmt_insert_hash, 2, (sqlite3_int64) hash);
-  sqlite3_bind_int64(stmt_insert_hash, 3, (sqlite3_int64) frame_timestamp_us);
+  safe_bind_i64(stmt_insert_hash, ":file_id", (sqlite3_int64) file_id);
+  safe_bind_i64(stmt_insert_hash, ":hash", (sqlite3_int64) hash);
+  safe_bind_i64(stmt_insert_hash, ":frame_ts",
+                (sqlite3_int64) frame_timestamp_us);
 
   int ret = sqlite3_step(stmt_insert_hash);
   if (ret != SQLITE_DONE) {
@@ -334,7 +384,7 @@ int cache_get_hashes (anu_cache_ctx *ctx,
   }
 
   sqlite3_stmt *stmt_get_hashes = ctx->stmt_get_hashes;
-  sqlite3_bind_int64(stmt_get_hashes, 1, (sqlite3_int64) file_id);
+  safe_bind_i64(stmt_get_hashes, ":file_id", (sqlite3_int64) file_id);
 
   size_t count = 0;
   int ret;
