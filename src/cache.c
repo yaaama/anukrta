@@ -4,9 +4,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
+#include "config.h"
 #include "defs.h"
 #include "explore.h"
+#include "kvec.h"
 #include "log.h"
 #include "mem.h"
 #include "sqlite3.h"
@@ -98,6 +101,47 @@ static inline int safe_bind_txt_static (sqlite3_stmt *stmt,
                                         const char *val) {
   int idx = safe_param_index(stmt, param_name);
   return sqlite3_bind_text(stmt, idx, val, -1, SQLITE_STATIC);
+}
+
+void cache_sync_results_maybe (anu_cache_ctx *ctx,
+                               anu_config *config,
+                               anu_file_vec *files,
+                               enum ANU_STATUS *result_codes,
+                               u64 *hashes,
+                               u64 *frame_ts) {
+
+  if (!ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE) || !ctx) {
+    return;
+  }
+
+  const size_t file_count = kv_size(*files);
+  time_t curr_time = time(NULL);
+
+  cache_begin_transaction(ctx);
+
+  for (usize i = 0; i < file_count; i++) {
+    if (result_codes[i] != ANU_OK) {
+      continue;
+    }
+
+    /* Add/upsert file to database */
+    anu_file *file = &kv_A(*files, i);  // File
+    u64 row_out = 0;  // Row of file in database after insertion
+
+    if (cache_upsert_file(ctx, file, (u64) curr_time, &row_out) != 0 ||
+        !row_out) {
+      log_error("Failed to upsert file %s", file->path);
+      continue;
+    }
+
+    for (usize k = 0; k < config->segments; k++) {
+      usize curr_seg_idx = (i * config->segments) + k;
+      cache_insert_hash(ctx, row_out, hashes[curr_seg_idx],
+                        frame_ts[curr_seg_idx]);
+    }
+  }
+
+  cache_commit_transaction(ctx);
 }
 
 static void cache_finalize_statements (anu_cache_ctx *ctx) {

@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "config.h"
+#include "defs.h"
 #include "explore.h"
 #include "sqlite3.h"
 #include "util.h"
@@ -28,14 +30,24 @@ DEFINE_FREE(cache_ctx, anu_cache_ctx *, if (_T) cache_ctx_destroy(&_T))
  * @brief Transaction helpers for bulk operations.
  */
 static ALWAYS_INLINE int cache_begin_transaction (anu_cache_ctx *ctx) {
+  if (!ctx) {
+    return 0;
+  }
   return sqlite3_exec(ctx->db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
 }
 
 static ALWAYS_INLINE int cache_rollback_transaction (anu_cache_ctx *ctx) {
+
+  if (!ctx) {
+    return 0;
+  }
   return sqlite3_exec(ctx->db, "ROLLBACK;", NULL, NULL, NULL);
 }
 
 static ALWAYS_INLINE int cache_commit_transaction (anu_cache_ctx *ctx) {
+  if (!ctx) {
+    return 0;
+  }
   return sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
 }
 
@@ -60,4 +72,12 @@ int cache_get_hashes(anu_cache_ctx *ctx,
                      uint64_t *out_hashes,
                      uint64_t *out_timestamps,
                      size_t *out_count);
+
+void cache_sync_results_maybe(anu_cache_ctx *ctx,
+                              anu_config *config,
+                              anu_file_vec *files,
+                              enum ANU_STATUS *result_codes,
+                              u64 *hashes,
+                              u64 *frame_ts);
+
 #endif  // ANU_CACHE_H_
