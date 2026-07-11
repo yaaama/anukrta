@@ -93,7 +93,7 @@ static void anukrta_setup_logging (int anu_log_lvl,
 /**
  * @brief Context data passed to threads.
  */
-typedef struct worker_args {
+typedef struct hash_tworker_ctx {
   /** Pointer to file queue that needs to be hashed. */
   anu_file_vec *files;
 
@@ -117,10 +117,10 @@ typedef struct worker_args {
 
   /** Array of result codes from threads. */
   enum ANU_STATUS *results;
-} worker_args;
+} hash_tworker_ctx;
 
 static void *hash_worker_thread (void *arg) {
-  worker_args *targs = (worker_args *) arg;
+  hash_tworker_ctx *targs = (hash_tworker_ctx *) arg;
 
   const size_t segments = targs->config->segments;
   anu_config *config = targs->config;
@@ -153,7 +153,7 @@ static void *hash_worker_thread (void *arg) {
 }
 
 static void execute_hash_worker_threads (anu_config *config,
-                                         worker_args *args,
+                                         hash_tworker_ctx *args,
                                          size_t file_count) {
   /* NOTE: Thread count should not exceed file count */
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
@@ -290,7 +290,7 @@ static int anukrta_driver (anu_config *config) {
   atomic_size_t current_file_idx = 0;
 
   /* Package the arguments */
-  worker_args thread_ctx = {
+  hash_tworker_ctx thread_ctx = {
     .files = &files,
     .config = config,
     .hashes = hashes,
