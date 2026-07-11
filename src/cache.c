@@ -125,8 +125,9 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
     }
 
     /* Add/upsert file to database */
-    anu_file *file = &kv_A(*files, i);  // File
-    u64 row_out = 0;  // Row of file in database after insertion
+    anu_file *file = &kv_A(*files, i); /* File */
+    /* Row of file in database after insertion */
+    u64 row_out = 0;
 
     if (cache_upsert_file(ctx, file, (u64) curr_time, &row_out) != 0 ||
         !row_out) {
