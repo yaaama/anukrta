@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <time.h>
 
 #include "config.h"
@@ -14,12 +13,12 @@
 #include "kvec.h"
 #include "util.h"
 
-enum ANU_MEDIA_TYPE {
+typedef enum ANU_MEDIA_TYPE {
   ANU_MEDIA_TYPE_UNKNOWN = -1,
   ANU_MEDIA_TYPE_VIDEO,
   ANU_MEDIA_TYPE_IMAGE,
   ANU_MEDIA_TYPE_AUDIO,
-};
+} ANU_MEDIA_TYPE;
 
 typedef struct anu_file {
   /** Path of file. */
@@ -40,11 +39,11 @@ typedef struct anu_file {
   /** File modification time. */
   u64 mtime;
 
-  /** Device ID (either 32bit or 64). */
-  dev_t dev;
+  /** Device ID */
+  u64 dev;
 
-  /** Inode number (either 32bit or 64). */
-  ino_t ino;
+  /** Inode number */
+  u64 ino;
 
   /** Index for when name starts in path. */
   u32 name_offset;
