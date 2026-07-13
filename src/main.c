@@ -195,6 +195,21 @@ static void execute_hash_worker_threads (anu_config *config,
   log_debug("Joined %d threads.", threads_joined);
 }
 
+/**
+ * Main driver for program.
+ *
+ * We conduct most of our business logic here:
+ * - Search for files and collect the files we are interested in.
+ * - Check for files that are already hashed.
+ * - Retrieve cached hashes.
+ * - Hash new files.
+ * - Store hashed results.
+ * - Print report of the run.
+ *
+ * @param config
+ *
+ * @return
+ */
 static int anukrta_driver (anu_config *config) {
 
   assert(config->segments > 0);
