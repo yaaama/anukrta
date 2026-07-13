@@ -227,20 +227,21 @@ static int anukrta_driver (anu_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   uint64_t *hashes __free(ptr) = NULL;
+  /* Timestamps associated with hashes */
   uint64_t *timestamps __free(ptr) = NULL;
+  /* Return value of hash worker threads */
   enum ANU_STATUS *thread_results __free(ptr) = NULL;
+  /* File queue */
+  size_t *pending_indices __free(ptr) = NULL;
 
   hashes = xmalloc(hash_collection_len * sizeof(*hashes));
   timestamps = xmalloc(hash_collection_len * sizeof(*timestamps));
   thread_results = xmalloc(file_count * sizeof(*thread_results));
+  pending_indices = xcalloc(file_count, sizeof(*pending_indices));
+  size_t pending_count = 0;
 
   /* Open the database */
   anu_cache_ctx *db __free(cache_ctx) = NULL;
-
-  /* File queue */
-  size_t *pending_indices __free(ptr) = NULL;
-  pending_indices = xcalloc(file_count, sizeof(size_t));
-  size_t pending_count = 0;
 
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
 
