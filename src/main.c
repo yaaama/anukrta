@@ -216,7 +216,7 @@ static int anukrta_driver (anu_config *config) {
 
   /* Initialise file queue */
   anu_file_vec files __free(anu_file_vec) = {0};
-  kv_init(files);
+  kv_ensure_space(files, 64);
 
   /* Scan path(s) and store in files queue */
   anu_explore_scan_directories(config, &files);
