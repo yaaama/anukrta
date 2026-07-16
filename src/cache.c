@@ -249,7 +249,6 @@ static int init_db__schema (anu_cache_ctx *ctx) {
 
   if (ret != SQLITE_OK) {
     log_error("Failed to create hashes table (%s)", err_msg);
-
     cache_rollback_transaction(ctx);
     sqlite3_free(err_msg);
     return ret;
@@ -489,7 +488,7 @@ anu_cache_ctx *cache_open_db (const char *db_path) {
   /* Execute database pragmas
    * NOTE: This must be the first thing run after opening database */
   if (init_db__pragmas(ctx) != SQLITE_OK) {
-    log_error("Could not execute pragmas: (%s)", sqlite3_errmsg(db));
+    log_error("Could not execute pragmas");
     return NULL;
   }
 
