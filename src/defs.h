@@ -27,7 +27,7 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 
 /** @} */  // END Type Definitions
 
-enum ANU_STATUS : int32_t {
+typedef enum ANU_STATUS : int32_t {
   ANU_OK = 0,              /**< Function executed successfully. */
   ANU_IO_FAIL,             /**< IO failure. */
   ANU_OOM,                 /**< Out of memory/ could not allocate memory. */
@@ -37,7 +37,7 @@ enum ANU_STATUS : int32_t {
   ANU_VIDEO_LEN_SHORT,     /**< Video file is too short to process. */
   ANU_FRAME_BLACK,         /**< Frame is too dark to process. */
   ANU_LIBAV_FAIL,          /**< Some error occured whilst using libav */
-};
+} ANU_STATUS;
 
 /**
  * @def CACHE_LINE_SIZE

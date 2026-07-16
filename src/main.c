@@ -195,6 +195,38 @@ static void execute_hash_worker_threads (anu_config *config,
   log_debug("Joined %d threads.", threads_joined);
 }
 
+/* Tries to load a single file from cache. */
+static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
+                                                   size_t segments_needed,
+                                                   anu_file *file,
+                                                   size_t file_idx,
+                                                   uint64_t *hashes,
+                                                   uint64_t *timestamps) {
+  if (!db) {
+    return false;
+  }
+
+  uint64_t row_id = 0;
+  uint64_t duration = 0;
+
+  if (!cache_is_file_valid(db, file, &row_id, &duration)) {
+    return false;
+  }
+
+  size_t out_count = 0;
+  size_t offset = file_idx * segments_needed;
+
+  int ret = cache_get_hashes(db, row_id, segments_needed, hashes + offset,
+                             timestamps + offset, &out_count);
+
+  if (ret != 0 || out_count != segments_needed) {
+    return false;
+  }
+
+  file->duration_us = (size_t) duration;
+  return true;
+}
+
 /**
  * Main driver for program.
  *
@@ -203,7 +235,6 @@ static void execute_hash_worker_threads (anu_config *config,
  * - Check for files that are already hashed.
  * - Retrieve cached hashes.
  * - Hash new files.
- * - Store hashed results.
  * - Print report of the run.
  *
  * @param config
@@ -255,48 +286,43 @@ static int anukrta_driver (anu_config *config) {
   pending_indices = xcalloc(file_count, sizeof(*pending_indices));
   size_t pending_count = 0;
 
-  /* Open the database */
-  anu_cache_ctx *db __free(cache_ctx) = NULL;
+  /* Database context, will remain NULL if caching is disabled */
+  anu_cache_ctx *cache_ctx __free(cache_ctx) = NULL;
 
+  /* Setup sqlite3 for use if caching is enabled */
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
-
-    /* Initialise SQLite3 */
+    log_debug("Initialising SQLite3 library and opening database");
     cache_init_once();
-    db = cache_open_db("cache.db");
-    if (!db) {
-      log_warn(
-          "Failed to open cache database. Proceeding with caching disabled.");
-      ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
-    }
+    cache_ctx = cache_open_db("cache.db");
+  }
 
+  /* If caching is enabled:
+   * TODO Check for # of files stored in database and only run loop if > 0
+   */
+  if (cache_ctx) {
     log_info("Checking database cache for already hashed files...");
+
     for (size_t i = 0; i < file_count; i++) {
+
       anu_file *file = &kv_A(files, i);
-      uint64_t row_id = 0;
-      uint64_t file_duration_us = 0;
-
-      /* If its already cached... */
-      if (cache_is_file_valid(db, file, &row_id, &file_duration_us)) {
-        size_t out_count = 0;
-        size_t hash_off = i * config->segments;
-
-        /* Retrieve the hashes & timestamps directly into our arrays */
-        int ret =
-            cache_get_hashes(db, row_id, config->segments, hashes + hash_off,
-                             timestamps + hash_off, &out_count);
-
-        /* Only use cache if the database contains the EXACT amount of segments we requested */
-        if (ret == 0 && out_count == config->segments) {
-          thread_results[i] = ANU_STATUS_FILE_CACHED;
-          file->duration_us = (size_t) file_duration_us;
-        }
+      if (anu_try_load_from_cache(cache_ctx, config->segments, file, i, hashes,
+                                  timestamps)) {
+        /* If file is successfully loaded from cache mark it as so */
+        thread_results[i] = ANU_STATUS_FILE_CACHED;
       } else {
-        pending_indices[pending_count++] = i;
+        /* Else add it to our work queue */
+        pending_indices[pending_count] = i;
+        ++pending_count;
       }
     }
-  } else {
+  } else { /* If caching is DISABLED: */
+    log_warn(
+        "Failed to open cache database. Proceeding with caching disabled.");
+    ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
+    /* Add all files found to our work queue */
     for (size_t i = 0; i < file_count; i++) {
-      pending_indices[pending_count++] = i;
+      pending_indices[pending_count] = i;
+      ++pending_count;
     }
   }
 
@@ -320,12 +346,12 @@ static int anukrta_driver (anu_config *config) {
   if (pending_count > 0) {
     execute_hash_worker_threads(config, &thread_ctx, pending_count);
   } else {
-    log_info("All %zu files already exist in cache. Skipping hashing phase.",
+    log_info("All %zu files already exist in cache, Skipping hashing phase.",
              file_count);
   }
 
   /* Cache the results (if caching enabled) */
-  cache_sync_results_maybe(db, config, &files, thread_results, hashes,
+  cache_sync_results_maybe(cache_ctx, config, &files, thread_results, hashes,
                            timestamps);
 
   bk_node *filetree = NULL;
@@ -349,13 +375,15 @@ static int anukrta_driver (anu_config *config) {
       continue;
     }
 
+    /* File was loaded from cache */
     if (result == ANU_STATUS_FILE_CACHED) {
-      log_info("File %s previously hashed (loaded from cache).",
-               anu_file_get_filename(file));
+      log_debug("File `%s` previously hashed (loaded from cache).",
+                anu_file_get_filename(file));
     }
 
     if (result == ANU_OK || result == ANU_STATUS_FILE_CACHED) {
 
+      /* Add items to bk hash */
       for (size_t segment_off = 0; segment_off < config->segments;
            segment_off++) {
         size_t curr_seg_idx = file_idx + segment_off;
@@ -365,7 +393,9 @@ static int anukrta_driver (anu_config *config) {
     }
   }
 
+  /* Generate report */
   anu_report report = anu_generate_report(&files, hashes, config, filetree);
+  /* Print report */
   anu_print_report(config, &report, &files, hashes);
 
   /* CLEANUP */
