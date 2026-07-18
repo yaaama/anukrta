@@ -6,7 +6,7 @@ PREPROC_DEFS :=
 
 # --- C Flags ---
 # Development
-DEV_FLAGS := -Og -g3 \
+DEV_FLAGS := -O0 -g3 \
 -Wformat=2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -Wnull-dereference \
 -Wstack-protector -fstack-protector-strong -fstack-clash-protection -fcf-protection \
 -Wmisleading-indentation -fstrict-aliasing -Wstrict-aliasing -Wstrict-overflow \
