@@ -22,40 +22,35 @@ enum DATABASE_SCHEMA_TABLE_IDX {
 };
 
 static const char *DATABASE_SCHEMA[] = {
-  /* FILES TABLE */
+  /*
+   * FILES TABLE
+   */
   "CREATE TABLE IF NOT EXISTS files ("
-  /* Auto incrementing file ID */
-  "  id INTEGER PRIMARY KEY,"
-  /* Path to file */
-  "  path TEXT NOT NULL UNIQUE,"
-  /* Mimetype */
-  "  media_type INTEGER NOT NULL,"
-  /* Size in bytes */
-  "  size INTEGER NOT NULL,"
-  /* Modification timestamp */
-  "  mtime INTEGER NOT NULL,"
-  /* Creation timestamp */
-  "  ctime INTEGER NOT NULL,"
-  /* Duration of video or 0 if stillframe */
-  "  duration_us INTEGER NOT NULL,"
-  "  last_hashed INTEGER NOT NULL" /* Hashing timestamp */
+  "  id INTEGER PRIMARY KEY,"       /* Auto incrementing file ID */
+  "  path TEXT NOT NULL UNIQUE,"    /* Path to file */
+  "  media_type INTEGER NOT NULL,"  /* Mimetype */
+  "  size INTEGER NOT NULL,"        /* Size in bytes */
+  "  mtime INTEGER NOT NULL,"       /* Modification timestamp */
+  "  ctime INTEGER NOT NULL,"       /* Creation timestamp */
+  "  duration_us INTEGER NOT NULL," /* Duration of video or 0 if stillframe */
+  "  last_hashed INTEGER NOT NULL"  /* Hashing timestamp */
   ");",
-  /* HASHES TABLE */
+
+  /*
+   * HASHES TABLE
+   */
   "CREATE TABLE IF NOT EXISTS hashes ("
-  /* File ID the hash belongs to */
-  "  file_id INTEGER NOT NULL,"
-  /* Hash value (64 bits) */
-  "  hash INTEGER NOT NULL,"
-  /* Frame timestamp of hash */
-  "  frame_ts INTEGER NOT NULL,"
-  /* Composite Primary Key */
-  "  PRIMARY KEY (file_id, frame_ts),"
-  /* file_id in table is referring to files.id */
-  "  FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE"
-  ") WITHOUT ROWID;"
-  /* Create an index on the hash value */
-  "CREATE INDEX IF NOT EXISTS idx_hash_lookup ON hashes(hash);",
-  /* PRAGMAS */
+  "  file_id INTEGER NOT NULL,"        /* File ID the hash belongs to */
+  "  hash INTEGER NOT NULL,"           /* Hash value (64 bits) */
+  "  frame_ts INTEGER NOT NULL,"       /* Frame timestamp of hash */
+  "  PRIMARY KEY (file_id, frame_ts)," /* Composite Primary Key */
+  "  FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE" /* file_id in table is referring to files.id */
+  ") WITHOUT ROWID;" /* Without ROWID skips creating builtin row id column */
+  "CREATE INDEX IF NOT EXISTS idx_hash_lookup ON hashes(hash);", /* Create an index on the hash value */
+
+  /*
+   * PRAGMAS
+   */
   /* Some performance settings */
   /* Write ahead logging: Writes to a temp file for logs and then copies it over to database later */
   "PRAGMA journal_mode = WAL;"
