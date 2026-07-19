@@ -1,6 +1,7 @@
 #include "cache.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +112,7 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
 
   const size_t file_count = kv_size(*files);
   time_t curr_time = time(NULL);
+  size_t sync_count = 0; /* Counter for number of records upserted/inserted */
 
   cache_begin_transaction(ctx);
 
@@ -135,9 +137,13 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
       cache_insert_hash(ctx, row_out, hashes[curr_seg_idx],
                         frame_ts[curr_seg_idx]);
     }
+
+    ++sync_count;
   }
 
   cache_commit_transaction(ctx);
+  log_info("Finished syncing results: %zu file records written/updated.",
+           sync_count);
 }
 
 static void cache_finalize_statements (anu_cache_ctx *ctx) {
@@ -185,6 +191,7 @@ int cache_close_db (anu_cache_ctx *ctx) {
   }
 
   ctx->db = NULL;
+  log_debug("Database connection closed successfully.");
   return 0;
 }
 
@@ -276,10 +283,14 @@ int cache_is_file_valid (anu_cache_ctx *ctx,
     *out_file_id = (uint64_t) sqlite3_column_int64(stmt_check_cache, 0);
     *out_duration_us = (uint64_t) sqlite3_column_int64(stmt_check_cache, 1);
     sqlite3_reset(stmt_check_cache);
+    log_trace("Cache HIT: File '%s' is valid (ID: %zu, Duration: %zu us)",
+              file->path, *out_file_id, *out_duration_us);
+
     /* File is in DB and hasn't had any metadata changes */
     return 1;
   }
-
+  log_trace("Cache MISS: File '%s' either not found or metadata changed",
+            file->path);
   sqlite3_reset(stmt_check_cache);
   return 0;
 }
@@ -363,16 +374,19 @@ int cache_upsert_file (anu_cache_ctx *ctx,
   safe_bind_i64(stmt_upsert_file, ":last_hashed", (sqlite3_int64) time_of_hash);
 
   int ret = sqlite3_step(stmt_upsert_file);
+  u64 row_id = 0;
   if (ret != SQLITE_DONE) {
     log_error("Failed to upsert file: %s",
               sqlite3_errmsg(sqlite3_db_handle(stmt_upsert_file)));
+  } else {
+    row_id = (uint64_t) sqlite3_last_insert_rowid(
+        sqlite3_db_handle(stmt_upsert_file));
+    log_trace("Upserted file record: '%s' -> Row ID: %" PRIu64, file->path,
+              row_id);
   }
   /* Because of the schema, if this was a REPLACE, previous hashes were automatically deleted! */
   if (row_id_out) {
-    *row_id_out = (ret == SQLITE_DONE)
-                      ? (uint64_t) sqlite3_last_insert_rowid(
-                            sqlite3_db_handle(stmt_upsert_file))
-                      : 0;
+    *row_id_out = (ret == SQLITE_DONE) ? row_id : 0;
   }
 
   sqlite3_reset(stmt_upsert_file);
