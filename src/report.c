@@ -224,9 +224,9 @@ void anu_print_report (anu_config *config,
 
   printf("Found %zu duplicate groups from %zu files\n", group_count,
          file_count);
-  printf("\n----------------------------------------");
-  printf("\n\"Best\" file strategy: '%s'\n", strat_str);
-  printf("----------------------------------------\n");
+  printf("\n+----------------------------------------------+");
+  printf("\n \"Best\" file strategy: '%s'\n", strat_str);
+  printf("+----------------------------------------------+\n");
 
   bool print_dupe_labels = config->best_file_strategy != BEST_FILE_NONE;
   bool report_verbose =
@@ -256,14 +256,13 @@ void anu_print_report (anu_config *config,
 
       /* Label Best and dupes if strategy is not none */
       if (print_dupe_labels) {
-        printf("%s %s\n", (j == 0 ? "  [BEST]" : "    [DUPE]"), file->path);
+        printf("%s %s\n", (j == 0 ? "  [BEST]" : "        "), file->path);
       } else {
         printf("  %s\n", file->path);
       }
 
-      printf("\t[%zu] | size: %-10s | time: %-15s | duration: %-.2fs\n",
-             file_id, human_sizing, time_str,
-             anu_time_microseconds_to_seconds(file->duration_us));
+      printf("%20s | %-.2fs | %-15s\n", human_sizing,
+             anu_time_microseconds_to_seconds(file->duration_us), time_str);
 
       if (report_verbose) {
         print_file_hashes((hashes + (file_id * config->segments)),
