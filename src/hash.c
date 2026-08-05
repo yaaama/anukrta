@@ -27,8 +27,6 @@
 #define DCT_INT_FIXED_SCALE_Q30 (1LL << DCT_INT_SCALE_BITS_Q30)
 
 #define DCT_AC_COEFFICIENT_HALF_DENOM (DCT_AC_COEFFICIENT_COUNT / 2)
-/** Error threshold for when working with FLOAT weights */
-#define DCT_FLOAT_EPISILON 0.001F
 
 /** Error threshold when working with scaled fixed-point weights */
 #define DCT_INT_EPISILON ((int64_t) (DCT_INT_FIXED_SCALE_Q30 / 1000))
