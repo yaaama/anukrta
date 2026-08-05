@@ -75,21 +75,22 @@ static void print_help (void) {
 void anu_cli_print_configuration (anu_config *config) {
 
   /* This should be larger than the longest configuration option name  */
-  const int OPT_W = 30;
+  const int OPT_W = 28;
 
-#define PRINT_HEADING(text) fprintf(stdout, "\n----- %s -----\n", text)
+#define PRINT_HEADING(text) fprintf(stdout, "\n [%s] \n", text)
 #define PRINT_CONFIG_STR(cfg, val) \
-  fprintf(stdout, "  %-*s : %s\n", OPT_W, cfg, val)
+  fprintf(stdout, "   %-*s : %s\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_ZU(cfg, val) \
-  fprintf(stdout, "  %-*s : %zu\n", OPT_W, cfg, val)
-#define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "YES" : "NO")
+  fprintf(stdout, "   %-*s : %zu\n", OPT_W, cfg, val)
+#define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "TRUE" : "FALSE")
 
   flags32 rtflags = config->runtime_flags;
   flags32 detflags = config->detect_flags;
   flags32 reportflags = config->report_flags;
 
   /* clang-format off */
-  fprintf(stdout, "\n===== Runtime Configuration =====\n");
+  fputc('\n', stdout);
+  fputs("+-------- Runtime Configuration --------+", stdout);
   PRINT_HEADING("General");
 
   /* Verbosity */
@@ -115,11 +116,13 @@ void anu_cli_print_configuration (anu_config *config) {
   PRINT_CONFIG_STR("Detect Black Frames", FLAG_VAL(detflags, DETECT_BLACK_FRAME));
   PRINT_CONFIG_STR("Detect Rotation", FLAG_VAL(detflags, DETECT_ROTATION));
   /* clang-format on */
-  fprintf(stdout, "--------------------\n");
 #undef PRINT_HEADING
 #undef PRINT_CONFIG_STR
 #undef PRINT_CONFIG_ZU
 #undef FLAG_VAL
+
+  fputs("+----------------------------------------+\n", stdout);
+  fflush(stdout);
 }
 
 /* Helper to reverse-lookup long option names */
@@ -540,7 +543,6 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
     }
 
   } else {
-    printf("\n--- Scanning Current Directory ---\n");
     ANU_SET_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR);
     config->paths_count = 1;
     config->paths = NULL;
