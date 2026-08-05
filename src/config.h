@@ -44,15 +44,15 @@ typedef enum runtime_flags : uint32_t {
 
 /* START: BEST_FILE_STRATEGIES */
 #define BEST_FILE_STRATEGIES(X)                                 \
-  X(BEST_FILE_NONE, "No strategy")                              \
-  X(BEST_FILE_LARGEST, "Largest file")                          \
-  X(BEST_FILE_SMALLEST, "Smallest file")                        \
-  X(BEST_FILE_CTIME_OLDEST, "Oldest change time (ctime)")       \
-  X(BEST_FILE_CTIME_NEWEST, "Newest change time (ctime)")       \
-  X(BEST_FILE_MTIME_OLDEST, "Oldest modification time (mtime)") \
-  X(BEST_FILE_MTIME_NEWEST, "Newest modification time (mtime)") \
-  X(BEST_FILE_LONGEST, "Longest video duration")                \
-  X(BEST_FILE_SHORTEST, "Shortest video duration")
+  X(BEST_FILE_NONE, "No Strategy")                              \
+  X(BEST_FILE_LARGEST, "Largest File")                          \
+  X(BEST_FILE_SMALLEST, "Smallest File")                        \
+  X(BEST_FILE_CTIME_OLDEST, "Oldest Change Time (ctime)")       \
+  X(BEST_FILE_CTIME_NEWEST, "Newest Change Time (ctime)")       \
+  X(BEST_FILE_MTIME_OLDEST, "Oldest Modification Time (mtime)") \
+  X(BEST_FILE_MTIME_NEWEST, "Newest Modification Time (mtime)") \
+  X(BEST_FILE_LONGEST, "Longest Video Duration")                \
+  X(BEST_FILE_SHORTEST, "Shortest Video Duration")
 
 #define GENERATE_ENUM(ENUM_NAME, STRING_VAL) ENUM_NAME,
 
