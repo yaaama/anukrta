@@ -202,10 +202,6 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
                                                    size_t file_idx,
                                                    uint64_t *hashes,
                                                    uint64_t *timestamps) {
-  if (!db) {
-    return false;
-  }
-
   uint64_t row_id = 0;
   uint64_t duration = 0;
 
