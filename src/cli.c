@@ -36,18 +36,22 @@ static long get_available_threads (void) {
 static void print_help (void) {
   const int OPT_W = 30;
 
+  static const char *example =
+      "anukrta --cache=no --verbose --segments=5 /dir/one/ /dir/two/ "
+      "videoFile.mp4";
+
   anu_config cfg = anukrta_default_config();
 
-#define PRINT_HEADING(text) fprintf(stderr, "\n%s:\n", text)
-#define PRINT_OPT(opt, ...)                 \
-  do {                                      \
-    fprintf(stderr, "  %-*s ", OPT_W, opt); \
-    fprintf(stderr, __VA_ARGS__);           \
-    fprintf(stderr, "\n");                  \
+#define PRINT_HEADING(text) fprintf(stderr, "\n  %s:\n", text)
+#define PRINT_OPT(opt, ...)                   \
+  do {                                        \
+    fprintf(stderr, "    %-*s ", OPT_W, opt); \
+    fprintf(stderr, __VA_ARGS__);             \
+    fprintf(stderr, "\n");                    \
   } while (0)
 
   /* clang-format off */
-  fprintf(stderr, "\nUsage: " CLI_NAME " [OPTIONS...] [PATH]\n\n");
+  fprintf(stderr, "\nUsage: " CLI_NAME " [OPTIONS...] [PATH]\n");
 
   PRINT_HEADING("General Options");
   PRINT_OPT("-h, --help", "Show this help message.");
@@ -69,16 +73,18 @@ static void print_help (void) {
   PRINT_OPT("--detect-rotation=bool", "Detect rotated videos (default: %s).",
             ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_ROTATION) ? "true" : "false");
 
+
+  PRINT_HEADING("Report");
+  PRINT_OPT("--print-hashes", "Print hashes for files in final report.");
+
   PRINT_HEADING("Execution & Storage");
   PRINT_OPT("--threads=int", "Number of threads to use (uses all available threads by default).");
-  PRINT_OPT("--print-hashes", "Print hashes for files in final report.");
   PRINT_OPT("--cache=bool", "Database cache should be used (default: %s).",
             ANU_HAS_ANY_FLAG(cfg.runtime_flags, RT_CACHE) ? "true" : "false");
 
 
-  fprintf(stderr, "\nExample usage:\n  anukrta --cache=no --verbose --segments=5 /dir/one/ /dir/two/ videoFile.mp4\n");
+  fprintf(stderr, "\n  Example:\n    %s\n\n", example);
 
-  fprintf(stderr, "\n");
   /* clang-format on */
 
 #undef PRINT_HEADING
