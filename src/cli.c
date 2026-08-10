@@ -71,6 +71,7 @@ static void print_help (void) {
 
   PRINT_HEADING("Execution & Storage");
   PRINT_OPT("--threads=int", "Number of threads to use (uses all available threads by default).");
+  PRINT_OPT("--print-hashes", "Print hashes for files in final report.");
   PRINT_OPT("--cache=bool", "Database cache should be used (default: %s).",
             ANU_HAS_ANY_FLAG(cfg.runtime_flags, RT_CACHE) ? "true" : "false");
 
@@ -320,6 +321,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
     FLAG_DETECT_BLACK_FRAME,
     FLAG_DETECT_BARS,
     FLAG_DETECT_ROTATION,
+    FLAG_REPORT_PRINT_HASHES
   };
 
   /* clang-format off */
@@ -347,6 +349,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
  */
     {"verbose",            no_argument,          NULL,  FLAG_VERBOSE},               // -v | --verbose
     {"dry-run",            no_argument,          NULL,  FLAG_DRY_RUN},               // --dry-run
+    {"print-hashes",       no_argument,          NULL,  FLAG_REPORT_PRINT_HASHES},   // --print-hashes
     {"detect-black",       optional_argument,    NULL,  FLAG_DETECT_BLACK_FRAME},    // --detect-black
     {"detect-rotation",    optional_argument,    NULL,  FLAG_DETECT_ROTATION},       // --detect-rotation
     {"detect-bars",        optional_argument,    NULL,  FLAG_DETECT_BARS},           // --detect-bars
@@ -451,6 +454,12 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
                                arg_invoked, optarg) != 0) {
             goto exit_error;
           }
+          break;
+        }
+      /* --print-hashes */
+      case FLAG_REPORT_PRINT_HASHES:
+        {
+          ANU_SET_FLAG(config->report_flags, REPORT_PRINT_HASHES);
           break;
         }
 
