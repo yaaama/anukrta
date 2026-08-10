@@ -36,8 +36,15 @@ static long get_available_threads (void) {
 static void print_help (void) {
   const int OPT_W = 30;
 
+  anu_config cfg = anukrta_default_config();
+
 #define PRINT_HEADING(text) fprintf(stderr, "\n%s:\n", text)
-#define PRINT_OPT(opt, desc) fprintf(stderr, "  %-*s %s\n", OPT_W, opt, desc)
+#define PRINT_OPT(opt, ...)                 \
+  do {                                      \
+    fprintf(stderr, "  %-*s ", OPT_W, opt); \
+    fprintf(stderr, __VA_ARGS__);           \
+    fprintf(stderr, "\n");                  \
+  } while (0)
 
   /* clang-format off */
   fprintf(stderr, "\nUsage: " CLI_NAME " [OPTIONS...] [PATH]\n\n");
@@ -49,19 +56,24 @@ static void print_help (void) {
   PRINT_OPT("--dry-run", "Simulate the run without making changes.");
 
   PRINT_HEADING("Algorithm & Tuning");
-  PRINT_OPT("-s, --segments=int", "Number of segments to hash for each video (default: 3).");
-  PRINT_OPT("-t, --threshold=int", "Maximum distance threshold (default 8).");
-  PRINT_OPT("", "Ranges from 0 to 64 (0 being the most similar).");
-  PRINT_OPT("--skip-duration=int", "Skip videos shorter than N seconds (default 3).");
+  PRINT_OPT("-s, --segments=int",  "Number of segments to hash for each video (default: %zu).", cfg.segments);
+  PRINT_OPT("-t, --threshold=int", "Maximum distance threshold (default: %zu).", cfg.threshold);
+  PRINT_OPT("",                    "Ranges from 0 to 64 (0 being the most similar).");
+  PRINT_OPT("--skip-duration=int", "Skip videos shorter than N seconds (default: %zu).", cfg.skip_duration);
 
   PRINT_HEADING("Detection");
-  PRINT_OPT("--detect-black=bool", "Detect black frames and skip over them (default: yes).");
-  PRINT_OPT("--detect-bars=bool", "Detect bars around video (e.g. letterboxing) (default: yes).");
-  PRINT_OPT("--detect-rotation=bool", "Detect rotated videos (default: yes).");
+  PRINT_OPT("--detect-black=bool", "Detect black frames and skip over them (default: %s).",
+            ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_BLACK_FRAME) ? "true" : "false");
+  PRINT_OPT("--detect-bars=bool", "Detect bars around video (e.g. letterboxing) (default: %s).",
+            ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_BARS) ? "true" : "false");
+  PRINT_OPT("--detect-rotation=bool", "Detect rotated videos (default: %s).",
+            ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_ROTATION) ? "true" : "false");
 
   PRINT_HEADING("Execution & Storage");
-  PRINT_OPT("--threads=int", "Number of threads to use (default ALL).");
-  PRINT_OPT("--cache=bool", "Results should be stored in cache (default: yes).");
+  PRINT_OPT("--threads=int", "Number of threads to use (uses all available threads by default).");
+  PRINT_OPT("--cache=bool", "Database cache should be used (default: %s).",
+            ANU_HAS_ANY_FLAG(cfg.runtime_flags, RT_CACHE) ? "true" : "false");
+
 
   fprintf(stderr, "\nExample usage:\n  anukrta --cache=no --verbose --segments=5 /dir/one/ /dir/two/ videoFile.mp4\n");
 
