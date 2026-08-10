@@ -228,7 +228,7 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
 /**
  * @brief Seek to timestamp.
  *
- * Seeks to a specified timestamp.
+ * Seeks to nearest preceding keyframe from target timestamp.
  *
  * @param vreader VideoReader instance.
  * @param target_ts Target time stamp (in streams own time base).
