@@ -67,17 +67,15 @@ _unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (
 static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
   assert(f_path && vreader);
 
-  /*
-   * Default video stream index to invalid number.
-   */
+  /* Assign video stream index to invalid index by default */
   vreader->video_stream_idx = -1;
 
+  int errcode = 0;
   /*
    * Initialise FORMAT CONTEXT.
    * This step will check if file is existent, can be opened, etc.
    */
   /* Opens input file and guesses format of file */
-  int errcode = 0;
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
   if (errcode != 0) {
