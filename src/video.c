@@ -383,9 +383,7 @@ hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
  * @retval 0 Success.
  * @retval -1 Failure to get or set the software scaler's colourspace.
  */
-static int normalise_sws_colourspace (AVFrame *frame, SwsContext *context) {
-
-  int src_range = (frame->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+static int normalise_sws_colourspace (SwsContext *context, int src_range) {
 
   /* We want our output hash to use the full 0-255 range for max precision */
   int dst_range = 1;
@@ -438,40 +436,82 @@ static int scale_frame (anu_vreader *vr,
     }
   }
 
-  /* Initialize the Scaler (SwsContext) */
-  /* Convert from Source Format -> Gray8 @ 8x8 */
-  vr->sws_ctx = sws_getCachedContext(
-      vr->sws_ctx, crop.w, crop.h, AV_PIX_FMT_GRAY8, matrix_size, matrix_size,
-      AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
+  enum AVPixelFormat src_format = src->format;
+  int src_range = (src->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+
+  /* HACK: Map deprecated "J" formats to standard formats and force full range pixel format.
+   * This is required otherwise ffmpeg will give us the warning:
+   * `deprecated pixel format used, make sure you did set range correctly`
+   */
+  switch (src->format) {
+    case AV_PIX_FMT_YUVJ420P:
+      src_format = AV_PIX_FMT_YUV420P;
+      src_range = AVCOL_RANGE_JPEG;
+      break;
+    case AV_PIX_FMT_YUVJ422P:
+      src_format = AV_PIX_FMT_YUV422P;
+      src_range = AVCOL_RANGE_JPEG;
+      break;
+    case AV_PIX_FMT_YUVJ444P:
+      src_format = AV_PIX_FMT_YUV444P;
+      src_range = AVCOL_RANGE_JPEG;
+      break;
+    case AV_PIX_FMT_YUVJ440P:
+      src_format = AV_PIX_FMT_YUV440P;
+      src_range = AVCOL_RANGE_JPEG;
+      break;
+    default:
+      break;
+  }
+
+  /* Previous sws context used */
+  struct SwsContext *prev_ctx = vr->sws_ctx;
+  /* Initialize the Scaler, converting pixel fmt from `src_format` to AV_PIX_FMT_GRAY8 (grayscale) */
+  vr->sws_ctx = sws_getCachedContext(vr->sws_ctx, crop.w, crop.h, src_format,
+                                     matrix_size, matrix_size, AV_PIX_FMT_GRAY8,
+                                     SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("%s: Failed to create scaling context.", fname);
     return ANU_LIBAV_FAIL;
   }
 
-  /* Normalise colourspaces */
-  if (normalise_sws_colourspace(vr->frame, vr->sws_ctx)) {
-    log_error("%s: Colourspace normalisation failed.", fname);
-    return ANU_LIBAV_FAIL;
+  /* Normalise colourspaces IF sws_ctx is not the same as the previous context */
+  if (prev_ctx != vr->sws_ctx) {
+    if (normalise_sws_colourspace(vr->sws_ctx, src_range)) {
+      log_error("%s: Colourspace normalisation failed.", fname);
+      return ANU_LIBAV_FAIL;
+    }
   }
 
-  const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(src->format);
+  const AVPixFmtDescriptor *pixelfmt_desc = av_pix_fmt_desc_get(src_format);
 
-  if (!desc) {
+  if (!pixelfmt_desc) {
     log_error("%s: No pixel format description found.", fname);
     return ANU_LIBAV_FAIL;
   }
 
-  /* Number of bytes/bits per pixel */
-  int bytes_per_pixel = desc->comp[0].step;
+  /* Fetch horizontal and vertical shift from pixel format */
+  int h_shift = pixelfmt_desc->log2_chroma_w;
+  int v_shift = pixelfmt_desc->log2_chroma_h;
 
   const uint8_t *src_slices[4] = {0};
   int src_linesizes[4] = {0};
 
-  /* Advance Y-plane safely based on bytes per pixel */
-  src_slices[0] = src->data[0] + ((ptrdiff_t) crop.y * src->linesize[0]) +
-                  ((ptrdiff_t) crop.x * bytes_per_pixel);
-  src_linesizes[0] = src->linesize[0];
+  /* Advance pointers for all available planes based on cropping */
+  for (int i = 0; (i < 4 && src->data[i]); i++) {
+    /* Chroma planes (usually 1 and 2) need to be shifted depending on subsampling */
+    int x_shift = (i == 1 || i == 2) ? h_shift : 0;
+    int y_shift = (i == 1 || i == 2) ? v_shift : 0;
+
+    /* Find the bytes per pixel step for this specific plane */
+    int bytes_per_pixel = pixelfmt_desc->comp[0].step;
+    src_slices[i] = src->data[i] +
+                    ((ptrdiff_t) (crop.y >> y_shift) * src->linesize[i]) +
+                    ((ptrdiff_t) (crop.x >> x_shift) * bytes_per_pixel);
+
+    src_linesizes[i] = src->linesize[i];
+  }
 
   /* Setup destination pointers to write DIRECTLY into flat matrix */
   uint8_t *dst_slices[4] = {matrix, NULL, NULL, NULL};
