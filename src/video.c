@@ -434,6 +434,12 @@ static int scale_frame (anu_vreader *vr,
       log_warn("%s: Frame is completely black.", fname);
       return ANU_FRAME_BLACK;
     }
+
+    /* Quantise the cropping to EVEN numbers only */
+    crop.x &= ~1;
+    crop.y &= ~1;
+    crop.w &= ~1;
+    crop.h &= ~1;
   }
 
   enum AVPixelFormat src_format = src->format;
@@ -466,10 +472,11 @@ static int scale_frame (anu_vreader *vr,
 
   /* Previous sws context used */
   struct SwsContext *prev_ctx = vr->sws_ctx;
+
   /* Initialize the Scaler, converting pixel fmt from `src_format` to AV_PIX_FMT_GRAY8 (grayscale) */
   vr->sws_ctx = sws_getCachedContext(vr->sws_ctx, crop.w, crop.h, src_format,
                                      matrix_size, matrix_size, AV_PIX_FMT_GRAY8,
-                                     SWS_AREA, NULL, NULL, NULL);
+                                     SWS_FAST_BILINEAR, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("%s: Failed to create scaling context.", fname);
