@@ -662,8 +662,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
     int errcode = 0;
 
-    log_debug("[%s] Segment [%zu/%zu]", fname, i + 1, config->segments);
-    log_debug("  Seeking to PTS %ld (%.1f seconds)", seek_target_sb,
+    log_debug("[%s] Segment [%zu/%zu] -> Seeking PTS '%ld' (%.1f s)", fname,
+              i + 1, config->segments, seek_target_sb,
               anu_time_microseconds_to_seconds((size_t) seek_target_us));
 
     /* Seek to timestamp */
