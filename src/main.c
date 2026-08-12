@@ -285,8 +285,9 @@ static int anukrta_driver (anu_config *config) {
   /* Database context, will remain NULL if caching is disabled */
   anu_cache_ctx *cache_ctx __free(cache_ctx) = NULL;
 
+  bool cache_enabled = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE);
   /* Setup sqlite3 for use if caching is enabled */
-  if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
+  if (cache_enabled) {
     log_debug("Initialising SQLite3 library and opening database");
     cache_init_once();
     cache_ctx = cache_open_db("cache.db");
@@ -311,10 +312,15 @@ static int anukrta_driver (anu_config *config) {
         ++pending_count;
       }
     }
-  } else { /* If caching is DISABLED: */
-    log_warn(
-        "Failed to open cache database. Proceeding with caching disabled.");
+  } else {
+    /* If caching is enabled but cache db was not opened, then we print an error */
+    if (cache_enabled) {
+      log_error(
+          "Failed to open cache database! Proceeding with caching disabled.");
+    }
+
     ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
+
     /* Add all files found to our work queue */
     for (size_t i = 0; i < file_count; i++) {
       pending_indices[pending_count] = i;
