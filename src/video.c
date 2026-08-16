@@ -37,6 +37,8 @@ typedef struct cropping {
   int h;
 } cropping;
 
+static int video_reader_get_frame(anu_vreader *vreader);
+
 static ALWAYS_INLINE _pure_ size_t pts_to_useconds (int64_t pts,
                                                     AVRational timebase) {
   assert(pts >= 0);
@@ -253,6 +255,42 @@ static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
    * old position before decoding frames from the new position. */
   avcodec_flush_buffers(vreader->codec_ctx);
   return 0;
+}
+
+/**
+ * Seeks to target_pts and then decodes forward til target is reached.
+ * @param vreader Video reader.
+ * @param target_pts Target pts to reach.
+ * @param min_pts pts of decoded frame must not be lower than this value.
+ */
+static int vreader_seek_and_read_to_target (anu_vreader *vreader,
+                                            int64_t target_pts,
+                                            int64_t min_pts) {
+
+  int ret = vreader_seek_pts(vreader, target_pts);
+  if (ret != 0) {
+    return ret;
+  }
+
+  for (;;) {
+    ret = video_reader_get_frame(vreader);
+    if (ret != ANU_OK) {
+      return ret; /* EOF or decoding error */
+    }
+
+    int64_t current_pts = vreader->frame->pts;
+    if (current_pts == AV_NOPTS_VALUE) {
+      current_pts = vreader->frame->best_effort_timestamp;
+    }
+
+    /* Check if we reach desired target pts OR
+       we reach a frame higher than minimum pts */
+    if ((current_pts >= target_pts) && (current_pts > min_pts)) {
+      return ANU_OK;
+    }
+
+    av_frame_unref(vreader->frame);
+  }
 }
 
 /**
@@ -649,36 +687,56 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
 
   const AVRational stream_timebase = vid_stream_ptr->time_base;
+  /* Previously decoded frames PTS */
+  int64_t last_pts = -1;
 
   for (size_t i = 0; i < config->segments; i++) {
 
+    /* Target to seek to in microseconds */
     seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
-    /* NOTE: As long as our duration values are positive, all of this casting is fine */
 
     /* Target timestamp in streams time base (tick) */
     int64_t seek_target_sb =
         av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
+
     int errcode = 0;
 
-    log_debug("[%s] Segment [%zu/%zu] -> Seeking PTS '%ld' (%.1f s)", fname,
-              i + 1, config->segments, seek_target_sb,
+    log_trace("[%s] Segment [%zu/%zu] -> Attempting seek to PTS '%ld' (%.1f s)",
+              fname, i + 1, config->segments, seek_target_sb,
               anu_time_microseconds_to_seconds((size_t) seek_target_us));
 
     /* Seek to timestamp */
-    errcode = vreader_seek_pts(&vreader, seek_target_sb);
+    errcode =
+        vreader_seek_and_read_to_target(&vreader, seek_target_sb, last_pts);
     if (errcode != ANU_OK) {
       log_error("[%s] Could not seek to segment `%zu` (PTS `%ld`): %s", fname,
                 i, seek_target_sb, av_err2str(errcode));
       goto failure;
     }
 
+    int64_t frame_pts_sb = (vreader.frame->pts != AV_NOPTS_VALUE)
+                               ? vreader.frame->pts
+                               : vreader.frame->best_effort_timestamp;
+    size_t frame_pts_us =
+        pts_to_useconds(frame_pts_sb, vid_stream_ptr->time_base);
+    double frame_pts_s = anu_time_microseconds_to_seconds(frame_pts_us);
+
     /* After seeking to the necessary timestamp, we want to retrieve the frame */
     errcode = video_reader_get_frame(&vreader);
     if (errcode != ANU_OK) {
-      log_error("[%s] Could not decode frame `%ld`: `%s`", fname,
+      log_error("[%s] Could not decode frame for pts target `%ld`: `%s`", fname,
                 seek_target_sb, av_err2str(errcode));
       goto failure;
     }
+
+    log_info(
+        "[%s] Segment [%zu/%zu] -> Decoded Frame (PTS='%ld' us='%ld' "
+        "s='%.1f') ",
+        fname, (i + 1), config->segments, frame_pts_sb, frame_pts_us,
+        frame_pts_s);
+
+    /* Keep track of frame PTS so we can seek to a higher one next iteration */
+    last_pts = frame_pts_sb;
 
     /* Scale down frame to 32x32 and check for black bars */
     errcode = scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
@@ -695,9 +753,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
      * If everything was SUCCESSFUL
      */
     hashes_out[i] = hash_decoded_frame(matrix, config->hash_algorithm);
-    frame_timestamps_out[i] = (u64) seek_target_us;
-    log_trace("[%s] Frame '%ld' => %lX", fname, vreader.codec_ctx->frame_num,
-              hashes_out[i]);
+    frame_timestamps_out[i] = (u64) frame_pts_sb;
+    log_info("[%s] Frame '%ld' => %lX", fname, frame_pts_sb, hashes_out[i]);
     ++frames_decoded;
 
     /* NOTE: Continue before we fall into the failure label */
