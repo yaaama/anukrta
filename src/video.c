@@ -7,11 +7,16 @@
 #include <libavcodec/codec.h>
 #include <libavcodec/codec_par.h>
 #include <libavcodec/packet.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
+#include <libavutil/display.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
 #include <libavutil/mathematics.h>
+#include <libavutil/mem.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
@@ -38,6 +43,27 @@ typedef struct cropping {
 } cropping;
 
 static int video_reader_get_frame(anu_vreader *vreader);
+
+static inline int normalise_angle_360 (int angle) {
+  return (((angle % 360) + 360) % 360);
+}
+
+static inline int get_video_stream_rotation (anu_vreader *vr) {
+  /* Search the side data array inside the codec parameters */
+  AVStream *stream = vr->fmt_ctx->streams[vr->video_stream_idx];
+  const AVPacketSideData *sd = av_packet_side_data_get(
+      stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data,
+      AV_PKT_DATA_DISPLAYMATRIX);
+
+  if (!sd) {
+    return 0;
+  }
+
+  int32_t *display_matrix = (int32_t *) sd->data;
+  int rotation = (int) av_display_rotation_get(display_matrix);
+
+  return rotation;
+}
 
 static ALWAYS_INLINE _pure_ size_t pts_to_useconds (int64_t pts,
                                                     AVRational timebase) {
@@ -631,6 +657,110 @@ static int video_reader_get_frame (anu_vreader *vreader) {
   }
 }
 
+typedef struct filter_ctx {
+  AVFilterContext *buffersink_ctx;
+  AVFilterContext *buffersrc_ctx;
+  AVFilterGraph *filter_graph;
+  int init;
+} filter_ctx;
+
+static int init_rotation_filter_graph (filter_ctx *fctx,
+                                       AVFrame *frame,
+                                       AVRational time_base,
+                                       int rotation_normalised) {
+  char args[512];
+  int ret = 0;
+
+  enum FILTER_FOR_ANGLE { _90_DEGREES = 0, _180_DEGREES = 1, _270_DEGREES = 2 };
+
+  const char *filter_strings[3] = {[_90_DEGREES] = "transpose=2",
+                                   [_180_DEGREES] = "hflip,vflip",
+                                   [_270_DEGREES] = "transpose=1"};
+
+  const char *filter_desc = NULL;
+
+  switch (rotation_normalised) {
+    case 90:
+      filter_desc = filter_strings[_90_DEGREES];
+      break;
+    case 180:
+      filter_desc = filter_strings[_180_DEGREES];
+      break;
+    case 270:
+      filter_desc = filter_strings[_270_DEGREES];
+      break;
+    default:
+      log_error("Cannot handle %d rotation.", rotation_normalised);
+      return AVERROR(EINVAL);
+  }
+
+  const AVFilter *buffersrc = avfilter_get_by_name("buffer");
+  const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+  AVFilterInOut *outputs = avfilter_inout_alloc();
+  AVFilterInOut *inputs = avfilter_inout_alloc();
+
+  fctx->filter_graph = avfilter_graph_alloc();
+  if (!outputs || !inputs || !fctx->filter_graph) {
+    ret = AVERROR(ENOMEM);
+    goto end;
+  }
+
+  snprintf(args, sizeof(args),
+           "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+           frame->width, frame->height, frame->format, time_base.num,
+           time_base.den, frame->sample_aspect_ratio.num,
+           frame->sample_aspect_ratio.den);
+
+  ret = avfilter_graph_create_filter(&fctx->buffersrc_ctx, buffersrc, "in",
+                                     args, NULL, fctx->filter_graph);
+  if (ret < 0) {
+    goto end;
+  }
+
+  AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
+  if (par) {
+    par->format = frame->format;
+    par->time_base = time_base;
+    par->width = frame->width;
+    par->height = frame->height;
+    par->sample_aspect_ratio = frame->sample_aspect_ratio;
+    par->color_space = frame->colorspace;
+    par->color_range = frame->color_range;
+
+    av_buffersrc_parameters_set(fctx->buffersrc_ctx, par);
+    av_freep((void *) &par); /* Free the allocated struct */
+  }
+
+  ret = avfilter_graph_create_filter(&fctx->buffersink_ctx, buffersink, "out",
+                                     NULL, NULL, fctx->filter_graph);
+  if (ret < 0) {
+    goto end;
+  }
+
+  outputs->name = av_strdup("in");
+  outputs->filter_ctx = fctx->buffersrc_ctx;
+  outputs->pad_idx = 0;
+  outputs->next = NULL;
+
+  inputs->name = av_strdup("out");
+  inputs->filter_ctx = fctx->buffersink_ctx;
+  inputs->pad_idx = 0;
+  inputs->next = NULL;
+
+  ret = avfilter_graph_parse_ptr(fctx->filter_graph, filter_desc, &inputs,
+                                 &outputs, NULL);
+  if (ret < 0) {
+    goto end;
+  }
+
+  ret = avfilter_graph_config(fctx->filter_graph, NULL);
+
+end:
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+  return ret;
+}
+
 enum ANU_STATUS anu_video_hash (anu_file *file,
                                 anu_config *config,
                                 uint64_t *hashes_out,
@@ -690,6 +820,20 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   /* Previously decoded frames PTS */
   int64_t last_pts = -1;
 
+  /* Filter context in case we need to run any filters on frames */
+  filter_ctx fctx = {0};
+  /* Filtered frame */
+  AVFrame *filtered_frame = NULL;
+
+  /* Check for whether stream should be rotated (this is a metadata check) */
+  int rotation = get_video_stream_rotation(&vreader);
+  int rotation_normalised = normalise_angle_360(rotation);
+  if (rotation_normalised) {
+    log_info("[%s]: Detected rotation: %d degrees (%d degrees normalised)\n",
+             vreader.fmt_ctx->url, rotation, rotation_normalised);
+    filtered_frame = av_frame_alloc();
+  }
+
   for (size_t i = 0; i < config->segments; i++) {
 
     /* Target to seek to in microseconds */
@@ -738,6 +882,39 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     /* Keep track of frame PTS so we can seek to a higher one next iteration */
     last_pts = frame_pts_sb;
 
+    /* If there is a rotation required, then do it now: */
+    if (rotation_normalised) {
+
+      /* If filter context not initialised, lets initialise it now */
+      if (!fctx.init) {
+        int ret = init_rotation_filter_graph(
+            &fctx, vreader.frame, stream_timebase, rotation_normalised);
+        if (ret < 0) {
+          log_error("[%s] Failed to init filter graph: %s", fname,
+                    av_err2str(ret));
+          goto failure;
+        }
+        fctx.init = 1;
+      }
+
+      /* Add frame to filter */
+      errcode = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame,
+                                             AV_BUFFERSRC_FLAG_KEEP_REF);
+      if (errcode < 0) {
+        goto failure;
+      }
+
+      /* Retrieve filtered frame */
+      errcode = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame);
+      if (errcode < 0) {
+        goto failure;
+      }
+
+      /* Swap original frame out with the new filtered one. */
+      av_frame_unref(vreader.frame);
+      av_frame_move_ref(vreader.frame, filtered_frame);
+    }
+
     /* Scale down frame to 32x32 and check for black bars */
     errcode = scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
                           ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS));
@@ -772,6 +949,14 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
                config->segments);
     }
   }
+
+  if (filtered_frame) {
+    av_frame_free(&filtered_frame);
+  }
+  if (fctx.init) {
+    avfilter_graph_free(&fctx.filter_graph);
+  }
+
   log_trace("[%s] DONE. Processed %d frames.", fname, frames_decoded);
   return ANU_OK;
 }
