@@ -76,6 +76,7 @@ static void print_help (void) {
 
   PRINT_HEADING("Report");
   PRINT_OPT("--print-hashes", "Print hashes for files in final report.");
+  PRINT_OPT("--print-unique", "Include unique files (files without duplicates) in final report.");
 
   PRINT_HEADING("Execution & Storage");
   PRINT_OPT("--threads=int", "Number of threads to use (uses all available threads by default).");
@@ -129,6 +130,7 @@ void anu_cli_print_configuration (anu_config *config) {
 
   PRINT_HEADING("Report Flags");
   PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, REPORT_PRINT_HASHES));
+  PRINT_CONFIG_STR("Print Unique Files in Report", FLAG_VAL(reportflags, REPORT_PRINT_UNIQUE_FILES));
 
   PRINT_HEADING("Detection Flags");
   PRINT_CONFIG_STR("Detect Bars", FLAG_VAL(detflags, DETECT_BARS));
@@ -327,7 +329,8 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
     FLAG_DETECT_BLACK_FRAME,
     FLAG_DETECT_BARS,
     FLAG_DETECT_ROTATION,
-    FLAG_REPORT_PRINT_HASHES
+    FLAG_REPORT_PRINT_HASHES,
+    FLAG_REPORT_PRINT_UNIQUE,
   };
 
   /* clang-format off */
@@ -356,6 +359,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
     {"verbose",            no_argument,          NULL,  FLAG_VERBOSE},               // -v | --verbose
     {"dry-run",            no_argument,          NULL,  FLAG_DRY_RUN},               // --dry-run
     {"print-hashes",       no_argument,          NULL,  FLAG_REPORT_PRINT_HASHES},   // --print-hashes
+    {"print-unique",       no_argument,          NULL,  FLAG_REPORT_PRINT_UNIQUE},   // --print-unique
     {"detect-black",       optional_argument,    NULL,  FLAG_DETECT_BLACK_FRAME},    // --detect-black
     {"detect-rotation",    optional_argument,    NULL,  FLAG_DETECT_ROTATION},       // --detect-rotation
     {"detect-bars",        optional_argument,    NULL,  FLAG_DETECT_BARS},           // --detect-bars
@@ -466,6 +470,17 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
       case FLAG_REPORT_PRINT_HASHES:
         {
           ANU_SET_FLAG(config->report_flags, REPORT_PRINT_HASHES);
+          break;
+        }
+
+      case REPORT_PRINT_UNIQUE_FILES:
+        {
+
+          /* --print-unique defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES,
+                               true, arg_invoked, optarg) != 0) {
+            goto exit_error;
+          }
           break;
         }
 

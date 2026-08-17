@@ -113,7 +113,7 @@ static void print_file_hashes (u64 *hashes, usize hash_count) {
     printf("%016" PRIX64 " ", hashes[i]);
   }
 
-  printf("]\n");
+  printf("]");
 }
 
 static bool is_better_file (const anu_file *restrict candidate,
@@ -267,8 +267,30 @@ void anu_print_report (anu_config *config,
       if (report_verbose) {
         print_file_hashes((hashes + (file_id * config->segments)),
                           config->segments);
+        printf("\n");
       }
     }
+  }
+
+  if (!ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES)) {
+    return;
+  }
+
+  usize unique_count = kv_size(report->unique);
+  printf("\nFound %zu unique files.\n", unique_count);
+
+  for (usize i = 0; i < unique_count; i++) {
+    usize file_id = kv_A(report->unique, i);
+    anu_file *file = &files->items[file_id];
+
+    // Print unique file information...
+    printf("  %s\n", file->path);
+    if (report_verbose) {
+      print_file_hashes((hashes + (file_id * config->segments)),
+                        config->segments);
+    }
+
+    printf("\n");
   }
 }
 
@@ -283,6 +305,7 @@ anu_report anu_generate_report (anu_file_vec *files,
   if (file_count == 0 || tree == NULL) {
     return report;
   }
+  kv_init(report.unique);
 
   /* Union-Find to identify the groups */
   usize *parent __free(ptr) = NULL;
@@ -342,7 +365,12 @@ anu_report anu_generate_report (anu_file_vec *files,
 
     usize bucket_size = kv_size(buckets[i]);
 
-    /* Destroy any buckets with less than 1 file */
+    if (bucket_size == 1) {
+      /* Unique file */
+      kv_push(report.unique, kv_A(buckets[i], 0));
+    }
+
+    /* Destroy buckets with less than 1 file */
     if (bucket_size <= 1) {
       kv_destroy(buckets[i]);
     } else {
@@ -362,4 +390,5 @@ void anu_report_destroy (anu_report *report) {
     kv_destroy(*vec);
   }
   kv_destroy(report->groups);
+  kv_destroy(report->unique);
 }

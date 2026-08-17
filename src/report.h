@@ -17,6 +17,7 @@ typedef kvec_t(u64_vec) anu_report_groups;
  */
 typedef struct {
   anu_report_groups groups;
+  u64_vec unique;
 } anu_report;
 
 void anu_print_report(anu_config *config,

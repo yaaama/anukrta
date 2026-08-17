@@ -72,6 +72,7 @@ static const char *const BEST_FILE_STRAT_STRINGS[] = {
 
 typedef enum report_flags : uint32_t {
   REPORT_PRINT_HASHES = (1U << 0),
+  REPORT_PRINT_UNIQUE_FILES = (1U << 1),
 } report_flags;
 
 /* Structure describing the configuration settings to use for this run. */
@@ -123,6 +124,7 @@ static ALWAYS_INLINE _const_ anu_config anukrta_default_config (void) {
   ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
   ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
   ANU_SET_FLAG(config.runtime_flags, RT_CACHE);
+  ANU_SET_FLAG(config.report_flags, REPORT_PRINT_UNIQUE_FILES);
   return config;
 }
 
