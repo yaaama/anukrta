@@ -239,8 +239,6 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
   /* duration in stream-base */
   int64_t duration_in_sb = vid_stream->duration;
   AVRational stream_timebase = vid_stream->time_base;
-  log_trace("Time base for stream: `%d/%d`", stream_timebase.num,
-            stream_timebase.den);
 
   if (duration_in_sb == AV_NOPTS_VALUE) {
     duration_in_sb =
