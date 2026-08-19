@@ -3,6 +3,7 @@ BasedOnStyle: Google
 AllowShortIfStatementsOnASingleLine: false
 BreakBeforeTernaryOperators: true
 BreakAdjacentStringLiterals: true
+ColumnLimit: 108
 IndentCaseBlocks: true
 IndentCaseLabels: true
 IndentExternBlock: Indent
