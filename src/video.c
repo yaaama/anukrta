@@ -72,10 +72,9 @@ static inline int get_video_stream_rotation (anu_vreader *vr) {
   return rotation;
 }
 
-static ALWAYS_INLINE _pure_ size_t pts_to_useconds (int64_t pts,
-                                                    AVRational timebase) {
-  assert(pts >= 0);
-  return (size_t) av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+static ALWAYS_INLINE _pure_ int64_t pts_to_useconds (int64_t pts,
+                                                     AVRational timebase) {
+  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
 _unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (
@@ -254,8 +253,9 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
     return (size_t) duration_in_sb;
   }
 
-  return duration_in_sb > 0 ? pts_to_useconds(duration_in_sb, stream_timebase)
-                            : 0;
+  return duration_in_sb > 0
+             ? (size_t) pts_to_useconds(duration_in_sb, stream_timebase)
+             : 0;
 }
 
 /**
@@ -875,9 +875,18 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     int64_t frame_pts_sb = (vreader.frame->pts != AV_NOPTS_VALUE)
                                ? vreader.frame->pts
                                : vreader.frame->best_effort_timestamp;
-    size_t frame_pts_us =
+    int64_t frame_pts_us =
         pts_to_useconds(frame_pts_sb, vid_stream_ptr->time_base);
-    double frame_pts_s = anu_time_microseconds_to_seconds(frame_pts_us);
+
+    if (frame_pts_us < 0) {
+      log_warn(
+          "[%s] ??? Frame timestamp is negative (%ld usecs), defaulting to 0.",
+          fname, frame_pts_us);
+      frame_pts_us = 0;
+    }
+
+    double frame_pts_s =
+        anu_time_microseconds_to_seconds((size_t) frame_pts_us);
 
     /* After seeking to the necessary timestamp, we want to retrieve the frame */
     errcode = video_reader_get_frame(&vreader);
