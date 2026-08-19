@@ -765,6 +765,9 @@ static int init_rotation_filter_graph (filter_ctx *fctx,
 end:
   avfilter_inout_free(&inputs);
   avfilter_inout_free(&outputs);
+  if (ret < 0 && fctx->filter_graph) {
+    avfilter_graph_free(&fctx->filter_graph);
+  }
   return ret;
 }
 
