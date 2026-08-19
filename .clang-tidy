@@ -64,7 +64,7 @@ CheckOptions:
     value: glibc
     # Do not auto-insert these headers
   - key: misc-include-cleaner.IgnoreHeaders
-    value: "(bits/.*|asm/.*|asm-generic/.*)"
+    value: "bits/.*;asm/.*;asm-generic/.*"
   - key: bugprone-unsafe-functions.CustomFunctions
     value: |
       ^malloc$, xmalloc,;
