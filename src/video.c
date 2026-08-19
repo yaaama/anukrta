@@ -15,6 +15,7 @@
 #include <libavutil/display.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
+#include <libavutil/imgutils.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/mem.h>
 #include <libavutil/pixdesc.h>
@@ -565,24 +566,28 @@ static int scale_frame (anu_vreader *vr,
     return ANU_LIBAV_FAIL;
   }
 
-  /* Fetch horizontal and vertical shift from pixel format */
-  int h_shift = pixelfmt_desc->log2_chroma_w;
+  /* Fetch vertical shift from pixel format */
   int v_shift = pixelfmt_desc->log2_chroma_h;
 
   const uint8_t *src_slices[4] = {0};
   int src_linesizes[4] = {0};
 
+  int x_byte_offsets[4] = {0};
+  int ret = av_image_fill_linesizes(x_byte_offsets, src_format, crop.x);
+  if (ret < 0) {
+    log_error("%s: Failed to calculate cropping offsets: %s", fname,
+              av_err2str(ret));
+    return ANU_LIBAV_FAIL;
+  }
+
   /* Advance pointers for all available planes based on cropping */
   for (int i = 0; (i < 4 && src->data[i]); i++) {
     /* Chroma planes (usually 1 and 2) need to be shifted depending on subsampling */
-    int x_shift = (i == 1 || i == 2) ? h_shift : 0;
     int y_shift = (i == 1 || i == 2) ? v_shift : 0;
 
-    /* Find the bytes per pixel step for this specific plane */
-    int bytes_per_pixel = pixelfmt_desc->comp[0].step;
     src_slices[i] = src->data[i] +
                     ((ptrdiff_t) (crop.y >> y_shift) * src->linesize[i]) +
-                    ((ptrdiff_t) (crop.x >> x_shift) * bytes_per_pixel);
+                    x_byte_offsets[i];
 
     src_linesizes[i] = src->linesize[i];
   }
