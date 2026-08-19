@@ -88,12 +88,10 @@ uint64_t dct_hash (const uint8_t *restrict input_pixels) {
   /* Pass 1: 1D DCT on Rows */
 
   for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-    const int32_t *restrict weight_ptr =
-        &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
+    const int32_t *restrict weight_ptr = &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
 
     for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-      const uint8_t *restrict row_ptr =
-          &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
+      const uint8_t *restrict row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
 
       int32_t sum = 0;
 
@@ -114,8 +112,7 @@ uint64_t dct_hash (const uint8_t *restrict input_pixels) {
 
     for (ptrdiff_t v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
       /* v is our output column index */
-      const int32_t *restrict weight_ptr =
-          &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
+      const int32_t *restrict weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
 
       int64_t sum = 0;
 
@@ -133,8 +130,7 @@ uint64_t dct_hash (const uint8_t *restrict input_pixels) {
     sum_pixels += dct_result[i];
   }
 
-  int64_t round_adj = (sum_pixels >= 0) ? DCT_AC_COEFFICIENT_HALF_DENOM
-                                        : -DCT_AC_COEFFICIENT_HALF_DENOM;
+  int64_t round_adj = (sum_pixels >= 0) ? DCT_AC_COEFFICIENT_HALF_DENOM : -DCT_AC_COEFFICIENT_HALF_DENOM;
   int64_t mean = (sum_pixels + round_adj) / DCT_AC_COEFFICIENT_COUNT;
 
   /* Calculate threshold.

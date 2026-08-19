@@ -5,10 +5,7 @@
 #include <stdio.h>
 
 /* Helper to visualise matrix */
-void print_matrix_float (FILE *fp,
-                         const float *matrix,
-                         const int rows,
-                         const int cols) {
+void print_matrix_float (FILE *fp, const float *matrix, const int rows, const int cols) {
   fprintf(fp, "--- %dx%d Visual Dump ---\n", cols, rows);
   for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
     for (int x = 0; x < cols; x++) {

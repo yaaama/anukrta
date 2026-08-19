@@ -47,9 +47,7 @@ void bk_tree_node_free (bk_node *node) {
 }
 
 // NOLINTBEGIN (*recursion)
-static void bkTree_insert_internal (bk_node *node,
-                                    uint64_t hash,
-                                    uint64_t file_id) {
+static void bkTree_insert_internal (bk_node *node, uint64_t hash, uint64_t file_id) {
   // NOLINTEND
   uint64_t node_hash = node->hash;
   unsigned int hamming_dist = hamming_distance(node_hash, hash);
@@ -77,11 +75,9 @@ static void bkTree_insert_internal (bk_node *node,
 
   /* Check capacity and grow the array if necessary */
   if (node->child_count == node->child_capacity) {
-    size_t new_cap =
-        (node->child_capacity > 0) ? (node->child_capacity * 2) : 2;
+    size_t new_cap = (node->child_capacity > 0) ? (node->child_capacity * 2) : 2;
     assert(new_cap > node->child_capacity);
-    bk_child_edge *temp =
-        xrealloc(node->children, new_cap * sizeof(bk_child_edge));
+    bk_child_edge *temp = xrealloc(node->children, new_cap * sizeof(bk_child_edge));
     node->children = temp;
     node->child_capacity = new_cap;
   }
@@ -101,10 +97,7 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
   bkTree_insert_internal(*tree_ptr, hash, file_id);
 }
 
-void bk_tree_search (bk_node *root,
-                     uint64_t hash,
-                     size_t tolerance,
-                     u64_vec *groups_out) {
+void bk_tree_search (bk_node *root, uint64_t hash, size_t tolerance, u64_vec *groups_out) {
 
   assert(tolerance <= 64);
 
@@ -144,9 +137,7 @@ void bk_tree_search (bk_node *root,
 }
 
 // NOLINTBEGIN (*recursion)
-static void bk_node_print_recursive (bk_node *node,
-                                     size_t depth,
-                                     int edge_distance) {
+static void bk_node_print_recursive (bk_node *node, size_t depth, int edge_distance) {
   // NOLINTEND
   if (UNLIKELY(!node)) {
     return;
@@ -179,8 +170,7 @@ static void bk_node_print_recursive (bk_node *node,
      file_ids) */
   for (size_t i = 0; i < node->child_count; i++) {
     ANU_ASSUME(node->children[i].distance <= 64);
-    bk_node_print_recursive(node->children[i].node, depth + 1,
-                            (int) node->children[i].distance);
+    bk_node_print_recursive(node->children[i].node, depth + 1, (int) node->children[i].distance);
   }
 }
 

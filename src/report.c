@@ -38,10 +38,7 @@ static usize find_set (usize i, usize *parent) {
 }
 
 /* Merges the sets containing elements 'i' and 'j' */
-static void unite_sets (usize i,
-                        usize j,
-                        usize *restrict parent,
-                        usize *restrict rank) {
+static void unite_sets (usize i, usize j, usize *restrict parent, usize *restrict rank) {
   usize root_i = find_set(i, parent);
   usize root_j = find_set(j, parent);
 
@@ -79,8 +76,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
      We multiply the remainder by 100, then divide by 1024 (by shifting).
      This gives us a perfectly safe 0-99 value. */
     usize decimals = (remainder * 100) >> 10;
-    c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals,
-                units_iec[unit_index]);
+    c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals, units_iec[unit_index]);
   } else {
     c = sprintf(buf, "%" PRIu64 " %s", n_bytes, units_iec[unit_index]);
   }
@@ -88,9 +84,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf) {
   return buf;
 }
 
-static char *get_date_from_epoch (time_t *epoch_time,
-                                  usize buf_size,
-                                  char *buf) {
+static char *get_date_from_epoch (time_t *epoch_time, usize buf_size, char *buf) {
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
@@ -170,9 +164,7 @@ static bool is_better_file (const anu_file *restrict candidate,
  * @brief Elect the best file based on strategy.
  * @todo Make this accept a function pointer and write our strategies separately.
  */
-static void elect_best_file (u64_vec *group,
-                             anu_file_vec *files,
-                             anu_config *config) {
+static void elect_best_file (u64_vec *group, anu_file_vec *files, anu_config *config) {
 
   /* Exit early if no strategy or if group is just 1 file */
   usize group_count = kv_size(*group);
@@ -230,8 +222,7 @@ static void print_file_item (const anu_config *config,
     printf("  %s\n", file->path);
   }
 
-  printf("%20s | %-.2fs | %-15s\n", sz,
-         anu_time_microseconds_to_seconds(file->duration_us), dt);
+  printf("%20s | %-.2fs | %-15s\n", sz, anu_time_microseconds_to_seconds(file->duration_us), dt);
 
   if (hashes && ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES)) {
     print_file_hashes(hashes + (file_id * config->segments), config->segments);
@@ -271,15 +262,13 @@ void anu_print_report (anu_config *config,
   size_t skipped_count = kv_size(report->skipped);
   const char *strat_str = BEST_FILE_STRAT_STRINGS[config->best_file_strategy];
 
-  printf("Found %zu duplicate groups from %zu files\n", group_count,
-         file_count);
+  printf("Found %zu duplicate groups from %zu files\n", group_count, file_count);
   printf("\n+----------------------------------------------+");
   printf("\n \"Best\" file strategy: '%s'\n", strat_str);
   printf("+----------------------------------------------+\n");
 
   bool use_tags = (config->best_file_strategy != BEST_FILE_NONE);
-  bool print_unique =
-      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
+  bool print_unique = ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
 
   for (usize i = 0; i < group_count; i++) {
     u64_vec *group = &kv_A(report->groups, i);
@@ -287,8 +276,7 @@ void anu_print_report (anu_config *config,
 
     for (usize j = 0; j < kv_size(*group); j++) {
       const char *tag = (j == 0 && use_tags) ? "  [BEST]" : "        ";
-      print_file_item(config, files, results[j], hashes, timestamps,
-                      kv_A(*group, j), tag);
+      print_file_item(config, files, results[j], hashes, timestamps, kv_A(*group, j), tag);
     }
   }
 
@@ -296,8 +284,7 @@ void anu_print_report (anu_config *config,
     printf("\nFound %zu unique files:\n", unique_count);
     for (usize i = 0; i < unique_count; i++) {
       usize file_id = kv_A(report->unique, i);
-      print_file_item(config, files, results[file_id], hashes, timestamps,
-                      file_id, NULL);
+      print_file_item(config, files, results[file_id], hashes, timestamps, file_id, NULL);
     }
   }
 

@@ -40,21 +40,18 @@ DEFINE_FREE(path_vec, path_vec, cleanup_path_vec(&_T))
  * e.g. a="Hello" , b="Hi"
  * (H - H) = 0
  * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
-static ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a,
-                                                    const void *restrict b) {
+static ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a, const void *restrict b) {
   return strcmp(*(const char *const *) a, *(const char *const *) b);
 }
 
 /**
  *  Declarations of static functions
  */
-static int handle_path_pointing_to_file(char *path,
-                                        anu_file_vec *files_out) _nonnull_all_;
+static int handle_path_pointing_to_file(char *path, anu_file_vec *files_out) _nonnull_all_;
 /* END OF DECLARATIONS */
 
-#define fourcc_code(a, b, c, d)                                      \
-  ((uint32_t) (a) | ((uint32_t) (b) << 8) | ((uint32_t) (c) << 16) | \
-   ((uint32_t) (d) << 24))
+#define fourcc_code(a, b, c, d) \
+  ((uint32_t) (a) | ((uint32_t) (b) << 8) | ((uint32_t) (c) << 16) | ((uint32_t) (d) << 24))
 
 /*
  * X Macro Table for Video Extensions, 4CC codes and string representations
@@ -204,9 +201,7 @@ char *anu_path_basename (char *path) {
 /**
  * @brief Get filename, excluding the extension.
  **/
-char *anu_path_basename_stem (char *restrict path,
-                              char *restrict out,
-                              size_t out_size) {
+char *anu_path_basename_stem (char *restrict path, char *restrict out, size_t out_size) {
   assert(out_size > 0);
 
   /* Get files name */
@@ -326,8 +321,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       char *name = dp->d_name;
 
       /* Check for whether file is '.' or '..' */
-      if ((name[0] == '.' && name[1] == '\0') ||
-          (name[1] == '.' && name[2] == '\0')) {
+      if ((name[0] == '.' && name[1] == '\0') || (name[1] == '.' && name[2] == '\0')) {
         continue;
       }
 
@@ -464,8 +458,7 @@ void anu_explore_scan_directories (anu_config *config, anu_file_vec *files) {
 
   /* Sort paths lexicographically:
    * So "/a/b" will be sorted before "/a/b/c" */
-  qsort((void *) real_paths.items, valid_paths, sizeof(char *),
-        anu_cmp_str_lexicographic);
+  qsort((void *) real_paths.items, valid_paths, sizeof(char *), anu_cmp_str_lexicographic);
 
   size_t unique_path_idx = 1;
 
@@ -483,17 +476,14 @@ void anu_explore_scan_directories (anu_config *config, anu_file_vec *files) {
        * avoiding similar names (e.g. prev="/dir", curr="/dir-2")
        * Also handle cases where path is '/'
        */
-      if ((current[prev_len] == '\0') || (current[prev_len] == '/') ||
-          (prev_len == 1 && prev[0] == '/')) {
+      if ((current[prev_len] == '\0') || (current[prev_len] == '/') || (prev_len == 1 && prev[0] == '/')) {
         is_subset = true;
       }
     }
 
     /* If we found a redundant path */
     if (is_subset) {
-      log_debug(
-          "Skipping overlapping or duplicate path: '%s' (covered by '%s')",
-          current, prev);
+      log_debug("Skipping overlapping or duplicate path: '%s' (covered by '%s')", current, prev);
       /* Free the redundant path as we are now removing it from the vector */
       free(current);
 

@@ -74,14 +74,10 @@
   WARNING_DISABLE_GCC(name)
 
 /* Unused variables, parameters, or functions */
-#define DISABLE_WARNING_UNUSED_VARIABLE \
-  WARNING_DISABLE_SHARED("-Wunused-variable")
-#define DISABLE_WARNING_UNUSED_PARAMETER \
-  WARNING_DISABLE_SHARED("-Wunused-parameter")
-#define DISABLE_WARNING_UNUSED_FUNCTION \
-  WARNING_DISABLE_SHARED("-Wunused-function")
-#define DISABLE_WARNING_UNUSED_CONST_VAR \
-  WARNING_DISABLE_SHARED("-Wunused-const-variable")
+#define DISABLE_WARNING_UNUSED_VARIABLE WARNING_DISABLE_SHARED("-Wunused-variable")
+#define DISABLE_WARNING_UNUSED_PARAMETER WARNING_DISABLE_SHARED("-Wunused-parameter")
+#define DISABLE_WARNING_UNUSED_FUNCTION WARNING_DISABLE_SHARED("-Wunused-function")
+#define DISABLE_WARNING_UNUSED_CONST_VAR WARNING_DISABLE_SHARED("-Wunused-const-variable")
 
 #define DISABLE_WARNING_UNUSED_ALL \
   DISABLE_WARNING_UNUSED_CONST_VAR \
@@ -92,10 +88,8 @@
 #define DISABLE_WARNING_SIGN_COMPARE WARNING_DISABLE_SHARED("-Wsign-compare")
 #define DISABLE_WARNING_SHADOW WARNING_DISABLE_SHARED("-Wshadow")
 #define DISABLE_WARNING_CONVERSION WARNING_DISABLE_SHARED("-Wconversion")
-#define DISABLE_WARNING_STRICT_ALIASING \
-  WARNING_DISABLE_SHARED("-Wstrict-aliasing")
-#define DISABLE_WARNING_FALLTHROUGH \
-  WARNING_DISABLE_SHARED("-Wimplicit-fallthrough")
+#define DISABLE_WARNING_STRICT_ALIASING WARNING_DISABLE_SHARED("-Wstrict-aliasing")
+#define DISABLE_WARNING_FALLTHROUGH WARNING_DISABLE_SHARED("-Wimplicit-fallthrough")
 #define DISABLE_WARNING_PADDED WARNING_DISABLE_SHARED("-Wpadded")
 
 /** @} */  // END COMPILER WARNING CONTROLS
@@ -444,9 +438,7 @@
 /**
  * @brief Dummy function to ensure we check pointers during the close.
  */
-static ALWAYS_INLINE _warn_unused_ void *__ptr_must_check (void *p) {
-  return p;
-}
+static ALWAYS_INLINE _warn_unused_ void *__ptr_must_check (void *p) { return p; }
 
 /**
  * @def DEFINE_FREE
@@ -536,8 +528,7 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * @brief Returns a NEW mask with flag(s) conditionally set or cleared based on 'b'.
  * @note Does NOT modify the original mask in place.
  */
-#define ANU_UPDATED_FLAG(orig, flag, b) \
-  ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
+#define ANU_UPDATED_FLAG(orig, flag, b) ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
 
 /**
  * @def ANU_SET_FLAG_WHEN
@@ -548,8 +539,7 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * ANU_SET_FLAG_WHEN(player_state, STATUS_RUNNING, is_moving);
  * ```
  */
-#define ANU_SET_FLAG_WHEN(mask, flag, b) \
-  ((mask) = ANU_UPDATED_FLAG(mask, flag, b))
+#define ANU_SET_FLAG_WHEN(mask, flag, b) ((mask) = ANU_UPDATED_FLAG(mask, flag, b))
 
 /**
  * @def ANU_HAS_ALL_FLAGS
@@ -592,9 +582,8 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * Licensed under Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0/
  * Renamed to `ANU_ARRAY_SIZE`.
  */
-#define ANU_ARRAY_SIZE(array)             \
-  ((sizeof(array) / sizeof((array)[0])) / \
-   ((size_t) (!(sizeof(array) % sizeof((array)[0])))))
+#define ANU_ARRAY_SIZE(array) \
+  ((sizeof(array) / sizeof((array)[0])) / ((size_t) (!(sizeof(array) % sizeof((array)[0])))))
 
 /**
  * @def ARRAY_LAST_ENTRY
@@ -611,8 +600,7 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 /**
  * @def ANU_ZERO_MEMORY
  * @brief Zero out memory. */
-#define ZERO_MEMORY(pointer, count, type) \
-  memset((pointer), 0, (count) * sizeof(type))
+#define ZERO_MEMORY(pointer, count, type) memset((pointer), 0, (count) * sizeof(type))
 
 /* clang-format off */
 #define CASE_F_1(X) case X:
@@ -681,34 +669,28 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 #define CASE_F_64(X, ...) case X: CASE_F_63(__VA_ARGS__)
 /* clang-format on */
 
-#define GET_CASE_F(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13,     \
-                   _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, \
-                   _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, \
-                   _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, \
-                   _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, \
-                   _62, _63, _64, NAME, ...)                                   \
+#define GET_CASE_F(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, \
+                   _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36,  \
+                   _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53,  \
+                   _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64, NAME, ...)                     \
   NAME
 
-#define FOR_EACH_MAKE_CASE(...)                                                \
-  GET_CASE_F(__VA_ARGS__, CASE_F_64, CASE_F_63, CASE_F_62, CASE_F_61,          \
-             CASE_F_60, CASE_F_59, CASE_F_58, CASE_F_57, CASE_F_56, CASE_F_55, \
-             CASE_F_54, CASE_F_53, CASE_F_52, CASE_F_51, CASE_F_50, CASE_F_49, \
-             CASE_F_48, CASE_F_47, CASE_F_46, CASE_F_45, CASE_F_44, CASE_F_43, \
-             CASE_F_42, CASE_F_41, CASE_F_40, CASE_F_39, CASE_F_38, CASE_F_37, \
-             CASE_F_36, CASE_F_35, CASE_F_34, CASE_F_33, CASE_F_32, CASE_F_31, \
-             CASE_F_30, CASE_F_29, CASE_F_28, CASE_F_27, CASE_F_26, CASE_F_25, \
-             CASE_F_24, CASE_F_23, CASE_F_22, CASE_F_21, CASE_F_20, CASE_F_19, \
-             CASE_F_18, CASE_F_17, CASE_F_16, CASE_F_15, CASE_F_14, CASE_F_13, \
-             CASE_F_12, CASE_F_11, CASE_F_10, CASE_F_9, CASE_F_8, CASE_F_7,    \
-             CASE_F_6, CASE_F_5, CASE_F_4, CASE_F_3, CASE_F_2, CASE_F_1)       \
+#define FOR_EACH_MAKE_CASE(...)                                                                        \
+  GET_CASE_F(__VA_ARGS__, CASE_F_64, CASE_F_63, CASE_F_62, CASE_F_61, CASE_F_60, CASE_F_59, CASE_F_58, \
+             CASE_F_57, CASE_F_56, CASE_F_55, CASE_F_54, CASE_F_53, CASE_F_52, CASE_F_51, CASE_F_50,   \
+             CASE_F_49, CASE_F_48, CASE_F_47, CASE_F_46, CASE_F_45, CASE_F_44, CASE_F_43, CASE_F_42,   \
+             CASE_F_41, CASE_F_40, CASE_F_39, CASE_F_38, CASE_F_37, CASE_F_36, CASE_F_35, CASE_F_34,   \
+             CASE_F_33, CASE_F_32, CASE_F_31, CASE_F_30, CASE_F_29, CASE_F_28, CASE_F_27, CASE_F_26,   \
+             CASE_F_25, CASE_F_24, CASE_F_23, CASE_F_22, CASE_F_21, CASE_F_20, CASE_F_19, CASE_F_18,   \
+             CASE_F_17, CASE_F_16, CASE_F_15, CASE_F_14, CASE_F_13, CASE_F_12, CASE_F_11, CASE_F_10,   \
+             CASE_F_9, CASE_F_8, CASE_F_7, CASE_F_6, CASE_F_5, CASE_F_4, CASE_F_3, CASE_F_2, CASE_F_1) \
   (__VA_ARGS__)
 
 #define assert_cc(expr) _Static_assert(expr, #expr)
 
-#define ELEMENTSOF(x)                                          \
-  (__builtin_choose_expr(                                      \
-      !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
-      sizeof(x) / sizeof((x)[0]), VOID_0))
+#define ELEMENTSOF(x)                                                             \
+  (__builtin_choose_expr(!__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                         sizeof(x) / sizeof((x)[0]), VOID_0))
 
 /**
  * Instead of writing if (x || y)...
@@ -737,13 +719,11 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
        });                                      \
        end && i < end; i++)
 
-#define FOREACH_ARRAY(i, array, num) \
-  _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
+#define FOREACH_ARRAY(i, array, num) _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
 
 #define FOREACH_ELEMENT(i, array) FOREACH_ARRAY(i, array, ELEMENTSOF(array))
 
-#define _STRV_FOREACH(s, l, i) \
-  for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
+#define _STRV_FOREACH(s, l, i) for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
 
 #define STRV_FOREACH(s, l) _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
 /* NOLINTEND */
@@ -765,10 +745,8 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
  * @param microseconds The value in us.
  * @return The equivalent value in seconds.
  */
-static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (
-    size_t microseconds) {
-  return (microseconds > 0) ? ((double) microseconds / ANU_TIME_ONE_SEC_IN_US)
-                            : 0;
+static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (size_t microseconds) {
+  return (microseconds > 0) ? ((double) microseconds / ANU_TIME_ONE_SEC_IN_US) : 0;
 }
 
 /**
@@ -776,10 +754,8 @@ static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (
  * @param seconds The value in decimal seconds.
  * @return The equivalent value in microseconds.
  */
-static ALWAYS_INLINE _const_ size_t
-anu_time_seconds_to_microseconds (double seconds) {
-  return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US)
-                       : 0;
+static ALWAYS_INLINE _const_ size_t anu_time_seconds_to_microseconds (double seconds) {
+  return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US) : 0;
 }
 
 /** @} */  // END TIME
@@ -796,15 +772,13 @@ anu_time_seconds_to_microseconds (double seconds) {
 #define MAXIMUM(X, Y) ((X) > (Y) ? (X) : (Y))
 
 /** Return largest number between X, Y, and Z*/
-#define MAXIMUM_3(X, Y, Z) \
-  ((X) > (Y) ? ((X) > (Z) ? (X) : (Z)) : ((Y) > (Z) ? (Y) : (Z)))
+#define MAXIMUM_3(X, Y, Z) ((X) > (Y) ? ((X) > (Z) ? (X) : (Z)) : ((Y) > (Z) ? (Y) : (Z)))
 
 /** Return smallest number between X and Y */
 #define MINIMUM(X, Y) ((X) < (Y) ? (X) : (Y))
 
 /** Return smallest number between X, Y, and Z*/
-#define MININUM_3(X, Y, Z) \
-  ((X) < (Y) ? ((X) < (Z) ? (X) : (Z)) : ((Y) < (Z) ? (Y) : (Z)))
+#define MININUM_3(X, Y, Z) ((X) < (Y) ? ((X) < (Z) ? (X) : (Z)) : ((Y) < (Z) ? (Y) : (Z)))
 
 /** Absolute value of X */
 #define ABSOLUTE(X) ((X) > 0 ? (X) : -(X))
@@ -822,14 +796,13 @@ anu_time_seconds_to_microseconds (double seconds) {
 #define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM((_val), (_max)), (_min))
 
 /** Round up 32 bit integer variable to next power of 2. */
-#define ROUNDUP_32(X)                                                         \
-  (--(X), (X) |= (X) >> 1, (X) |= (X) >> 2, (X) |= (X) >> 4, (X) |= (X) >> 8, \
-   (X) |= (X) >> 16, ++(X))
+#define ROUNDUP_32(X) \
+  (--(X), (X) |= (X) >> 1, (X) |= (X) >> 2, (X) |= (X) >> 4, (X) |= (X) >> 8, (X) |= (X) >> 16, ++(X))
 
 /** Round up 64 bit integer variable to next power of 2. */
-#define ROUNDUP_64(X)                                                         \
-  (--(X), (X) |= (X) >> 1, (X) |= (X) >> 2, (X) |= (X) >> 4, (X) |= (X) >> 8, \
-   (X) |= (X) >> 16, (X) |= (X) >> 32, ++(X))
+#define ROUNDUP_64(X)                                                                           \
+  (--(X), (X) |= (X) >> 1, (X) |= (X) >> 2, (X) |= (X) >> 4, (X) |= (X) >> 8, (X) |= (X) >> 16, \
+   (X) |= (X) >> 32, ++(X))
 
 /** @} */  // END NUMBER
 
@@ -849,10 +822,9 @@ anu_time_seconds_to_microseconds (double seconds) {
 #define TEBIBYTE(X) (GIBIBYTE(X) * 1024ULL)  ///< TiB to Bytes (IEC)
 /** @} */
 
-static_assert(
-    sizeof(unsigned long long) >= 8,
-    "Unsigned long longs must be at least 64 bits for our hamming distance "
-    "implementation to work.");
+static_assert(sizeof(unsigned long long) >= 8,
+              "Unsigned long longs must be at least 64 bits for our hamming distance "
+              "implementation to work.");
 
 /**
  * @brief Calculate hamming distance between two **unsigned** 64-bit integers.
@@ -862,8 +834,7 @@ static_assert(
  * @retval 64 `X` and `Y` are compliments of one another.
  * @retval k `X` and `Y` differ by `k` number of bits.
  */
-static ALWAYS_INLINE _const_ unsigned int hamming_distance (const uint64_t a,
-                                                            const uint64_t b) {
+static ALWAYS_INLINE _const_ unsigned int hamming_distance (const uint64_t a, const uint64_t b) {
   uint64_t x = a ^ b;
 
   /* Use popcountll if builtin */
@@ -872,8 +843,7 @@ static ALWAYS_INLINE _const_ unsigned int hamming_distance (const uint64_t a,
 
 #else
 /* SWAR method is quickest to compute hamming distance if no hardware builtins available */
-#  pragma message \
-      "Using SWAR to compute hamming distance as __builtin_popcountll not available."
+#  pragma message "Using SWAR to compute hamming distance as __builtin_popcountll not available."
   x = x - ((x >> 1) & 0x5555555555555555ULL);
   x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
   x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
@@ -897,11 +867,10 @@ static ALWAYS_INLINE _const_ int anu_util_tolower (int c) {
  * @brief Print panic message and abort the program as our code is broken.
  * @note To be used only when there is some logical issue in our code.
  */
-#define ANU_PANIC(message)                                             \
-  do {                                                                 \
-    (void) fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, \
-                   (message));                                         \
-    abort();                                                           \
+#define ANU_PANIC(message)                                                         \
+  do {                                                                             \
+    (void) fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
+    abort();                                                                       \
   } while (0)
 
 /**
@@ -909,44 +878,41 @@ static ALWAYS_INLINE _const_ int anu_util_tolower (int c) {
  * @brief Print message and exit as we have encountered external error.
  * @note Used when we encounter issues such as memory allocation failure.
  */
-#define ANU_DIE(message)                                               \
-  do {                                                                 \
-    (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, \
-                   (message));                                         \
-    (void) fflush(stderr);                                             \
-    abort();                                                           \
+#define ANU_DIE(message)                                                           \
+  do {                                                                             \
+    (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
+    (void) fflush(stderr);                                                         \
+    abort();                                                                       \
   } while (0)
 
 /**
  * @def ANU_TODO
  * @brief Print message and exit, as this section of code is not implemented yet.
  */
-#define ANU_TODO(message)                                           \
-  do {                                                              \
-    (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, \
-                   (message));                                      \
-    (void) fflush(stderr);                                          \
-    abort();                                                        \
+#define ANU_TODO(message)                                                       \
+  do {                                                                          \
+    (void) fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, (message)); \
+    (void) fflush(stderr);                                                      \
+    abort();                                                                    \
   } while (0)
 
 #ifdef ANU_DEBUG  // If its in DEBUG MODE
 /* Debug builds should crash when reaching unreachable code. */
-#  define ANU_UNREACHABLE(message)                                          \
-    do {                                                                    \
-      (void) fprintf(stderr,                                                \
-                     "[PANIC] ANU_UNREACHABLE CODE REACHED AT %s:%d: %s\n", \
-                     __FILE__, __LINE__, (message));                        \
-      abort();                                                              \
+#  define ANU_UNREACHABLE(message)                                                                      \
+    do {                                                                                                \
+      (void) fprintf(stderr, "[PANIC] ANU_UNREACHABLE CODE REACHED AT %s:%d: %s\n", __FILE__, __LINE__, \
+                     (message));                                                                        \
+      abort();                                                                                          \
     } while (0)
 
 /* Assumption crashes when false. */
-#  define ANU_ASSUME(cond)                                               \
-    do {                                                                 \
-      if (!(cond)) {                                                     \
-        (void) fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", \
-                       STRINGIFY(cond), __FILE__, __LINE__);             \
-        abort();                                                         \
-      }                                                                  \
+#  define ANU_ASSUME(cond)                                                                          \
+    do {                                                                                            \
+      if (!(cond)) {                                                                                \
+        (void) fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", STRINGIFY(cond), __FILE__, \
+                       __LINE__);                                                                   \
+        abort();                                                                                    \
+      }                                                                                             \
     } while (0)
 
 /* ------------------------------------------------------------------------ */

@@ -85,11 +85,9 @@ static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
 /* Define auto cleanup function */
 DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
 
-void anu_explore_scan_directories(anu_config *config,
-                                  anu_file_vec *files_out) _nonnull_all_;
+void anu_explore_scan_directories(anu_config *config, anu_file_vec *files_out) _nonnull_all_;
 
-int anu_explore_recursive_filewalk(char *path,
-                                   anu_file_vec *files_out) _nonnull_all_;
+int anu_explore_recursive_filewalk(char *path, anu_file_vec *files_out) _nonnull_all_;
 
 int anu_path_extension_supported(char *path) _nonnull_all_ _pure_;
 
@@ -102,7 +100,6 @@ char *anu_path_resolve(char *path) _nonnull_all_ _malloc_ _warn_unused_;
 
 char *anu_path_basename(char *path) _nonnull_all_ _warn_unused_ _pure_;
 
-char *anu_path_basename_stem(char *restrict path,
-                             char *restrict out,
-                             size_t out_size) _nonnull_(1, 2) _pure_;
+char *anu_path_basename_stem(char *restrict path, char *restrict out, size_t out_size)
+    _nonnull_(1, 2) _pure_;
 #endif  // ANU_EXPLORE_H

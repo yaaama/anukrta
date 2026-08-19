@@ -98,10 +98,8 @@ void anu_cli_print_configuration (anu_config *config) {
   const int OPT_W = 28;
 
 #define PRINT_HEADING(text) fprintf(stdout, "\n [%s] \n", text)
-#define PRINT_CONFIG_STR(cfg, val) \
-  fprintf(stdout, "   %-*s : %s\n", OPT_W, cfg, val)
-#define PRINT_CONFIG_ZU(cfg, val) \
-  fprintf(stdout, "   %-*s : %zu\n", OPT_W, cfg, val)
+#define PRINT_CONFIG_STR(cfg, val) fprintf(stdout, "   %-*s : %s\n", OPT_W, cfg, val)
+#define PRINT_CONFIG_ZU(cfg, val) fprintf(stdout, "   %-*s : %zu\n", OPT_W, cfg, val)
 #define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "TRUE" : "FALSE")
 
   flags32 rtflags = config->runtime_flags;
@@ -147,8 +145,7 @@ void anu_cli_print_configuration (anu_config *config) {
 }
 
 /* Helper to reverse-lookup long option names */
-static _pure_ const char *get_long_opt_name (int val,
-                                             const struct option *opts) {
+static _pure_ const char *get_long_opt_name (int val, const struct option *opts) {
   for (int i = 0; opts[i].name != NULL; i++) {
     if (opts[i].val == val) {
       return opts[i].name;
@@ -174,15 +171,12 @@ _unused_ static int parse_arg_integer (const char *restrict arg_name,
   long val = strtol(arg_str, &endptr, 10);
 
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr, "[%s] Error: %s requires a valid integer, got '%s'.\n",
-            CLI_NAME, arg_name, arg_str);
+    fprintf(stderr, "[%s] Error: %s requires a valid integer, got '%s'.\n", CLI_NAME, arg_name, arg_str);
     return -1;
   }
 
-  if (errno == ERANGE || val < min || val > max || val > INT_MAX ||
-      val < INT_MIN) {
-    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME,
-            arg_name, arg_str);
+  if (errno == ERANGE || val < min || val > max || val > INT_MAX || val < INT_MIN) {
+    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME, arg_name, arg_str);
 
     if (max == INT_MAX && min == INT_MIN) {
       // Both are unbounded (fits in any int)
@@ -229,15 +223,13 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
   unsigned long val = strtoul(arg_str, &endptr, 10);
 
   if (endptr == arg_str || *endptr != '\0') {
-    fprintf(stderr,
-            "[%s] Error: %s requires a valid positive integer, got '%s'.\n",
-            CLI_NAME, arg_name, arg_str);
+    fprintf(stderr, "[%s] Error: %s requires a valid positive integer, got '%s'.\n", CLI_NAME, arg_name,
+            arg_str);
     return -1;
   }
 
   if (errno == ERANGE || val < min || val > max || val > ULONG_MAX) {
-    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME,
-            arg_name, arg_str);
+    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME, arg_name, arg_str);
     if (max == LONG_MAX) {
       fprintf(stderr, "  Value must be %zu or greater.\n", min);
     } else {
@@ -256,25 +248,21 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
  * @retval 0 if false.
  * @retval 1 if true.
  */
-static int parse_bool_arg (const char *restrict arg_name,
-                           const char *restrict arg_str) {
+static int parse_bool_arg (const char *restrict arg_name, const char *restrict arg_str) {
   if (!arg_str) {
     return -1;
   }
 
   assert(arg_name);
 
-  if (strcmp(arg_str, "1") == 0 || strcasecmp(arg_str, "yes") == 0 ||
-      strcasecmp(arg_str, "true") == 0) {
+  if (strcmp(arg_str, "1") == 0 || strcasecmp(arg_str, "yes") == 0 || strcasecmp(arg_str, "true") == 0) {
     return 1;
   }
-  if (strcmp(arg_str, "0") == 0 || strcasecmp(arg_str, "no") == 0 ||
-      strcasecmp(arg_str, "false") == 0) {
+  if (strcmp(arg_str, "0") == 0 || strcasecmp(arg_str, "no") == 0 || strcasecmp(arg_str, "false") == 0) {
     return 0;
   }
 
-  fprintf(stderr, "[%s] Error: Invalid argument for boolean option '%s'\n",
-          CLI_NAME, arg_name);
+  fprintf(stderr, "[%s] Error: Invalid argument for boolean option '%s'\n", CLI_NAME, arg_name);
   return -1;
 }
 
@@ -394,8 +382,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
 
     char arg_invoked[64];
     if (option_index != -1) {
-      snprintf(arg_invoked, sizeof(arg_invoked), "--%s",
-               anukrta_opts[option_index].name);
+      snprintf(arg_invoked, sizeof(arg_invoked), "--%s", anukrta_opts[option_index].name);
     } else {
       snprintf(arg_invoked, sizeof(arg_invoked), "-%c", opt);
     }
@@ -406,10 +393,9 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
         {
           const char *long_name = get_long_opt_name(optopt, anukrta_opts);
 
-          fprintf(stderr, "%s: Option '%s' requires an argument.\n",
-                  program_name, (long_name ? long_name : arg_invoked));
-          fprintf(stderr, "Try '%s --help' for more information.\n",
-                  program_name);
+          fprintf(stderr, "%s: Option '%s' requires an argument.\n", program_name,
+                  (long_name ? long_name : arg_invoked));
+          fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
           goto exit_error;
         }
       case '?':
@@ -422,8 +408,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
             /* optopt is sometimes 0 for unrecognized long options in certain libc implementations */
             fprintf(stderr, "%s: Unrecognized option.\n", program_name);
           }
-          fprintf(stderr, "Try '%s --help' for more information.\n",
-                  program_name);
+          fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
           goto exit_error;
         }
 
@@ -460,8 +445,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
       case FLAG_CACHE:
         {
           /* --cache defaults to true if no '=val' is provided */
-          if (handle_bool_flag(&config->runtime_flags, RT_CACHE, true,
-                               arg_invoked, optarg) != 0) {
+          if (handle_bool_flag(&config->runtime_flags, RT_CACHE, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
           break;
@@ -477,8 +461,8 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
         {
 
           /* --print-unique defaults to true if no '=val' is provided */
-          if (handle_bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES,
-                               true, arg_invoked, optarg) != 0) {
+          if (handle_bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES, true, arg_invoked,
+                               optarg) != 0) {
             goto exit_error;
           }
           break;
@@ -487,8 +471,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
         /* -s | --segments */
       case ARG_SEGMENTS:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, 50,
-                                      &config->segments) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, 50, &config->segments) != 0) {
             goto exit_error;
           }
           break;
@@ -496,8 +479,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
       /* -t | --threshold */
       case ARG_THRESHOLD:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, 64,
-                                      &config->threshold) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, 64, &config->threshold) != 0) {
             goto exit_error;
           }
           break;
@@ -506,8 +488,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
         /* --threads */
       case ARG_THREADS:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, LONG_MAX,
-                                      &config->thread_count) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, LONG_MAX, &config->thread_count) != 0) {
             goto exit_error;
           }
           explicit_thread_count = true;
@@ -523,8 +504,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
         }
       case ARG_SKIP_DURATION: /* --skip-duration */
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, INT_MAX,
-                                      &config->skip_duration) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, INT_MAX, &config->skip_duration) != 0) {
             goto exit_error;
           }
           break;
@@ -532,8 +512,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
       case FLAG_DETECT_BARS: /* --detect-bars */
         {
           /* --detect-bars defaults to true if no '=val' is provided */
-          if (handle_bool_flag(&config->detect_flags, DETECT_BARS, true,
-                               arg_invoked, optarg) != 0) {
+          if (handle_bool_flag(&config->detect_flags, DETECT_BARS, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
           break;
@@ -542,8 +521,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
         {
 
           /* --detect-black defaults to true if no '=val' is provided */
-          if (handle_bool_flag(&config->detect_flags, DETECT_BLACK_FRAME, true,
-                               arg_invoked, optarg) != 0) {
+          if (handle_bool_flag(&config->detect_flags, DETECT_BLACK_FRAME, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
           break;
@@ -552,8 +530,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
       case FLAG_DETECT_ROTATION: /* --detect-rotation */
         {
           /* --detect-rotation defaults to true if no '=val' is provided */
-          if (handle_bool_flag(&config->detect_flags, DETECT_ROTATION, true,
-                               arg_invoked, optarg) != 0) {
+          if (handle_bool_flag(&config->detect_flags, DETECT_ROTATION, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
           break;

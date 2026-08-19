@@ -52,12 +52,10 @@ static void log_lock_callback (bool lock, void *udata) {
  * @param anu_log_lvl Integer logging level.
  * @param logging_mutex Mutex to pass to logger.
  */
-static void anukrta_setup_logging (int anu_log_lvl,
-                                   pthread_mutex_t *logging_mutex) {
+static void anukrta_setup_logging (int anu_log_lvl, pthread_mutex_t *logging_mutex) {
 
   static const int anu_map[] = {LOG_ERROR, LOG_INFO, LOG_DEBUG, LOG_TRACE};
-  static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_INFO,
-                                  AV_LOG_VERBOSE};
+  static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_INFO, AV_LOG_VERBOSE};
 
   int safe_lvl = (anu_log_lvl >= 0 && anu_log_lvl <= 3) ? anu_log_lvl : 0;
 
@@ -121,34 +119,28 @@ static void *hash_worker_thread (void *arg) {
     size_t hash_off = file_idx * segments;
 
     /* Do the hashing and store return code */
-    results[file_idx] = anu_video_hash(
-        &files[file_idx], config, hashes + hash_off, timestamps + hash_off);
+    results[file_idx] = anu_video_hash(&files[file_idx], config, hashes + hash_off, timestamps + hash_off);
   }
 
   return NULL;
 }
 
-static void execute_hash_worker_threads (anu_config *config,
-                                         hash_tworker_ctx *args,
-                                         size_t file_count) {
+static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *args, size_t file_count) {
   /* NOTE: Thread count should not exceed file count */
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
-  log_info("Available threads: %zu, running with: %zu", config->thread_count,
-           final_thread_count);
+  log_info("Available threads: %zu, running with: %zu", config->thread_count, final_thread_count);
   config->thread_count = final_thread_count;
 
   assert(config->thread_count > 0);
 
-  pthread_t *threads __free(ptr) =
-      xcalloc(final_thread_count, sizeof(*threads));
+  pthread_t *threads __free(ptr) = xcalloc(final_thread_count, sizeof(*threads));
 
   log_info("Starting %zu hashing threads...", final_thread_count);
 
   /* Create the threads */
   int threads_made = 0;
   for (size_t i = 0; i < final_thread_count; i++) {
-    int success =
-        (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
+    int success = (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
     threads_made += success;
     if (!success) {
       log_warn("Failed to create thread #%zu", i);
@@ -188,8 +180,7 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
   size_t out_count = 0;
   size_t offset = file_idx * segments_needed;
 
-  int ret = cache_get_hashes(db, row_id, segments_needed, hashes + offset,
-                             timestamps + offset, &out_count);
+  int ret = cache_get_hashes(db, row_id, segments_needed, hashes + offset, timestamps + offset, &out_count);
 
   if (ret != 0 || out_count != segments_needed) {
     return false;
@@ -280,8 +271,7 @@ static int anukrta_driver (anu_config *config) {
     for (size_t i = 0; i < file_count; i++) {
 
       anu_file *file = &kv_A(files, i);
-      if (anu_try_load_from_cache(cache_ctx, config->segments, file, i, hashes,
-                                  timestamps)) {
+      if (anu_try_load_from_cache(cache_ctx, config->segments, file, i, hashes, timestamps)) {
         /* If file is successfully loaded from cache mark it as so */
         thread_results[i] = ANU_STATUS_FILE_CACHED;
       } else {
@@ -293,8 +283,7 @@ static int anukrta_driver (anu_config *config) {
   } else {
     /* If caching is enabled but cache db was not opened, then we print an error */
     if (cache_enabled) {
-      log_error(
-          "Failed to open cache database! Proceeding with caching disabled.");
+      log_error("Failed to open cache database! Proceeding with caching disabled.");
     }
 
     ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
@@ -326,13 +315,11 @@ static int anukrta_driver (anu_config *config) {
   if (pending_count > 0) {
     execute_hash_worker_threads(config, &thread_ctx, pending_count);
   } else {
-    log_info("All %zu files already exist in cache, Skipping hashing phase.",
-             file_count);
+    log_info("All %zu files already exist in cache, Skipping hashing phase.", file_count);
   }
 
   /* Cache the results (if caching enabled) */
-  cache_sync_results_maybe(cache_ctx, config, &files, thread_results, hashes,
-                           timestamps);
+  cache_sync_results_maybe(cache_ctx, config, &files, thread_results, hashes, timestamps);
 
   bk_node *filetree = NULL;
 
@@ -356,8 +343,7 @@ static int anukrta_driver (anu_config *config) {
 
     /* Some other error occured */
     if ((result != ANU_OK) && (result != ANU_STATUS_FILE_CACHED)) {
-      log_error("Some other error occured for '%s'",
-                anu_file_get_filename(file));
+      log_error("Some other error occured for '%s'", anu_file_get_filename(file));
       continue;
     }
 
@@ -367,8 +353,7 @@ static int anukrta_driver (anu_config *config) {
     }
 
     /* Add items to bk hash */
-    for (size_t segment_off = 0; segment_off < config->segments;
-         segment_off++) {
+    for (size_t segment_off = 0; segment_off < config->segments; segment_off++) {
       size_t curr_seg_idx = file_idx + segment_off;
       u64 curr_hash = hashes[curr_seg_idx];
       bk_tree_insert(&filetree, curr_hash, i);
@@ -376,8 +361,7 @@ static int anukrta_driver (anu_config *config) {
   }
 
   /* Generate report */
-  anu_report report = anu_generate_report(&files, thread_results, hashes,
-                                          timestamps, config, filetree);
+  anu_report report = anu_generate_report(&files, thread_results, hashes, timestamps, config, filetree);
   /* Print report */
   anu_print_report(config, &report, &files, thread_results, hashes, timestamps);
 
@@ -403,8 +387,7 @@ int main (int argc, char *argv[]) {
 
   /* Exit if non zero return value OR
    * if config has exit_early flag set */
-  if (parsing_return ||
-      (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_EXIT_EARLY))) {
+  if (parsing_return || (ANU_HAS_ANY_FLAG(config.runtime_flags, RT_EXIT_EARLY))) {
     return parsing_return;
   }
 
