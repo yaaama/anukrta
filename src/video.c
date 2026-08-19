@@ -839,7 +839,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     return ANU_VIDEO_LEN_SHORT;
   }
 
-  const size_t frame_step_us = file->duration_us / config->segments;
+  const size_t frame_step_us = (file->duration_us / config->segments);
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
 
