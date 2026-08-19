@@ -44,6 +44,13 @@ typedef struct cropping {
 
 static int video_reader_get_frame(anu_vreader *vreader);
 
+/**
+ * Normalise an angle in degrees to one between 0 and 360.
+ *
+ * @param angle
+ *
+ * @return Normalised angle in degrees.
+ */
 static inline int normalise_angle_360 (int angle) {
   return (((angle % 360) + 360) % 360);
 }
