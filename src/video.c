@@ -797,7 +797,11 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   }
   char *fname = anu_file_get_filename(file);
 
-  assert(file->duration_us > config->segments);
+  if (file->duration_us < config->segments) {
+    log_warn("[%s] Video too short for the requested number of segments.",
+             fname);
+    return ANU_VIDEO_LEN_SHORT;
+  };
 
   /* As long as this is true we won't break anything when we cast for libav */
   assert(file->duration_us < INT64_MAX);
