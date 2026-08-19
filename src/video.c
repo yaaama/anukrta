@@ -795,6 +795,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   if (file->duration_us == 0) {
     return ANU_VIDEO_LEN_SHORT;
   }
+
   char *fname = anu_file_get_filename(file);
 
   if (file->duration_us < config->segments) {
@@ -827,6 +828,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   const size_t seek_target_us_jump = (frame_step_us / 2);
 
   uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
+
   /* Video stream */
   AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
 
@@ -848,8 +850,10 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     filtered_frame = av_frame_alloc();
   }
 
+  /*
+   * Main Loop
+   */
   for (size_t i = 0; i < config->segments; i++) {
-
     /* Target to seek to in microseconds */
     seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
 
@@ -860,7 +864,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     int errcode = 0;
 
     log_trace("[%s] Segment [%zu/%zu] -> Attempting seek to PTS '%ld' (%.1f s)",
-              fname, i + 1, config->segments, seek_target_sb,
+              fname, (i + 1), config->segments, seek_target_sb,
               anu_time_microseconds_to_seconds((size_t) seek_target_us));
 
     /* Seek to timestamp */
@@ -872,21 +876,21 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
       goto failure;
     }
 
-    int64_t frame_pts_sb = (vreader.frame->pts != AV_NOPTS_VALUE)
-                               ? vreader.frame->pts
-                               : vreader.frame->best_effort_timestamp;
-    int64_t frame_pts_us =
-        pts_to_useconds(frame_pts_sb, vid_stream_ptr->time_base);
+    int64_t pts_streambase = (vreader.frame->pts != AV_NOPTS_VALUE)
+                                 ? vreader.frame->pts
+                                 : vreader.frame->best_effort_timestamp;
+    int64_t pts_microseconds = pts_to_useconds(pts_streambase, stream_timebase);
 
-    if (frame_pts_us < 0) {
+    if (pts_microseconds < 0) {
       log_warn(
-          "[%s] ??? Frame timestamp is negative (%ld usecs), defaulting to 0.",
-          fname, frame_pts_us);
-      frame_pts_us = 0;
+          "[%s] ??? Frame timestamp is negative (%ld microsecs), defaulting to "
+          "0.",
+          fname, pts_microseconds);
+      pts_microseconds = 0;
     }
 
-    double frame_pts_s =
-        anu_time_microseconds_to_seconds((size_t) frame_pts_us);
+    double pts_seconds =
+        anu_time_microseconds_to_seconds((size_t) pts_microseconds);
 
     /* After seeking to the necessary timestamp, we want to retrieve the frame */
     errcode = video_reader_get_frame(&vreader);
@@ -899,11 +903,11 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     log_info(
         "[%s] Segment [%zu/%zu] -> Decoded Frame (PTS='%ld' us='%ld' "
         "s='%.1f') ",
-        fname, (i + 1), config->segments, frame_pts_sb, frame_pts_us,
-        frame_pts_s);
+        fname, (i + 1), config->segments, pts_streambase, pts_microseconds,
+        pts_seconds);
 
     /* Keep track of frame PTS so we can seek to a higher one next iteration */
-    last_pts = frame_pts_sb;
+    last_pts = pts_streambase;
 
     /* If there is a rotation required, then do it now: */
     if (rotation_normalised) {
@@ -953,8 +957,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
      * If everything was SUCCESSFUL
      */
     hashes_out[i] = hash_decoded_frame(matrix, config->hash_algorithm);
-    frame_timestamps_out[i] = (u64) frame_pts_sb;
-    log_info("[%s] Frame '%ld' => %lX", fname, frame_pts_sb, hashes_out[i]);
+    frame_timestamps_out[i] = (u64) pts_streambase;
+    log_info("[%s] Frame '%ld' => %lX", fname, pts_streambase, hashes_out[i]);
     ++frames_decoded;
 
     /* NOTE: Continue before we fall into the failure label */
