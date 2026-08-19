@@ -245,16 +245,18 @@ static int anukrta_driver (anu_config *config) {
    * FileNSegN would be the hash created for that segment
    */
   uint64_t *hashes __free(ptr) = NULL;
+  hashes = xmalloc(hash_collection_len * sizeof(*hashes));
+
   /* Timestamps associated with hashes */
   uint64_t *timestamps __free(ptr) = NULL;
+  timestamps = xmalloc(hash_collection_len * sizeof(*timestamps));
+
   /* Return value of hash worker threads */
   enum ANU_STATUS *thread_results __free(ptr) = NULL;
+  thread_results = xmalloc(file_count * sizeof(*thread_results));
+
   /* File queue */
   size_t *pending_indices __free(ptr) = NULL;
-
-  hashes = xmalloc(hash_collection_len * sizeof(*hashes));
-  timestamps = xmalloc(hash_collection_len * sizeof(*timestamps));
-  thread_results = xmalloc(file_count * sizeof(*thread_results));
   pending_indices = xcalloc(file_count, sizeof(*pending_indices));
   size_t pending_count = 0;
 
@@ -343,7 +345,7 @@ static int anukrta_driver (anu_config *config) {
 
     /* Failed to hash a file */
     if (result == ANU_IO_FAIL) {
-      log_info("Failed to hash file '%s'", anu_file_get_filename(file));
+      log_warn("Failed to hash %s", file->path);
       continue;
     }
 
@@ -353,13 +355,12 @@ static int anukrta_driver (anu_config *config) {
       continue;
     }
 
-    /* File was loaded from cache */
-    if (result == ANU_STATUS_FILE_CACHED) {
-      log_debug("File `%s` previously hashed (loaded from cache).",
-                anu_file_get_filename(file));
-    }
-
     if (result == ANU_OK || result == ANU_STATUS_FILE_CACHED) {
+
+      /* File was loaded from cache */
+      if (result == ANU_STATUS_FILE_CACHED) {
+        log_debug("`%s` was loaded from cache.", anu_file_get_filename(file));
+      }
 
       /* Add items to bk hash */
       for (size_t segment_off = 0; segment_off < config->segments;
