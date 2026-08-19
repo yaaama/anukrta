@@ -321,8 +321,6 @@ static int vreader_seek_and_read_to_target (anu_vreader *vreader,
     if ((current_pts >= target_pts) && (current_pts > min_pts)) {
       return ANU_OK;
     }
-
-    av_frame_unref(vreader->frame);
   }
 }
 
