@@ -18,14 +18,20 @@ typedef kvec_t(u64_vec) anu_report_groups;
 typedef struct {
   anu_report_groups groups;
   u64_vec unique;
+  u64_vec skipped;
 } anu_report;
 
 void anu_print_report(anu_config *config,
                       anu_report *report,
                       anu_file_vec *files,
-                      u64 *hashes);
+                      i32 *results,
+                      u64 *hashes,
+                      u64 *timestamps);
+
 anu_report anu_generate_report(anu_file_vec *files,
+                               i32 *results,
                                u64 *hashes,
+                               u64 *timestamps,
                                anu_config *config,
                                bk_node *tree);
 

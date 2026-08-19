@@ -209,7 +209,9 @@ static void elect_best_file (u64_vec *group,
 
 static void print_file_item (const anu_config *config,
                              const anu_file_vec *files,
+                             const i32 result,
                              const u64 *hashes,
+                             const u64 *timestamps,
                              usize file_id,
                              const char *tag) {
 
@@ -237,10 +239,24 @@ static void print_file_item (const anu_config *config,
   }
 }
 
+static const char *get_skip_reason_string (i32 status) {
+  switch (status) {
+    case ANU_SKIPPED_SHORT_DURATION:
+      return "VIDEO TOO SHORT";
+    case ANU_IO_FAIL:
+      return "I/O FAILURE";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 void anu_print_report (anu_config *config,
                        anu_report *report,
                        anu_file_vec *files,
-                       u64 *hashes) {
+                       i32 *results,
+                       u64 *hashes,
+                       u64 *timestamps) {
+
   usize group_count = kv_size(report->groups);
 
   if (group_count == 0) {
@@ -251,6 +267,8 @@ void anu_print_report (anu_config *config,
   printf("\n=== Duplicate Report: ===\n");
 
   usize file_count = kv_size(*files);
+  size_t unique_count = kv_size(report->unique);
+  size_t skipped_count = kv_size(report->skipped);
   const char *strat_str = BEST_FILE_STRAT_STRINGS[config->best_file_strategy];
 
   printf("Found %zu duplicate groups from %zu files\n", group_count,
@@ -260,6 +278,8 @@ void anu_print_report (anu_config *config,
   printf("+----------------------------------------------+\n");
 
   bool use_tags = (config->best_file_strategy != BEST_FILE_NONE);
+  bool print_unique =
+      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
 
   for (usize i = 0; i < group_count; i++) {
     u64_vec *group = &kv_A(report->groups, i);
@@ -267,24 +287,34 @@ void anu_print_report (anu_config *config,
 
     for (usize j = 0; j < kv_size(*group); j++) {
       const char *tag = (j == 0 && use_tags) ? "  [BEST]" : "        ";
-
-      print_file_item(config, files, hashes, kv_A(*group, j), tag);
+      print_file_item(config, files, results[j], hashes, timestamps,
+                      kv_A(*group, j), tag);
     }
   }
 
-  bool print_unique =
-      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
-  size_t unique_count = kv_size(report->unique);
   if (print_unique) {
     printf("\nFound %zu unique files:\n", unique_count);
     for (usize i = 0; i < unique_count; i++) {
-      print_file_item(config, files, hashes, kv_A(report->unique, i), NULL);
+      usize file_id = kv_A(report->unique, i);
+      print_file_item(config, files, results[file_id], hashes, timestamps,
+                      file_id, NULL);
     }
+  }
+
+  printf("\nSkipped %zu files:\n", skipped_count);
+  for (usize i = 0; i < skipped_count; i++) {
+    usize file_id = kv_A(report->skipped, i);
+    /* const anu_file *file = &files->items[file_id]; */
+    i32 status = results[file_id];
+    print_file_item(config, files, status, NULL, NULL, file_id, "  ");
+    printf("        -> Reason: %s\n", get_skip_reason_string(status));
   }
 }
 
 anu_report anu_generate_report (anu_file_vec *files,
+                                i32 *results,
                                 u64 *hashes,
+                                u64 *timestamps,
                                 anu_config *config,
                                 bk_node *tree) {
 
@@ -295,6 +325,7 @@ anu_report anu_generate_report (anu_file_vec *files,
     return report;
   }
   kv_init(report.unique);
+  kv_init(report.skipped);
 
   /* Union-Find to identify the groups */
   usize *parent __free(ptr) = NULL;
@@ -315,6 +346,11 @@ anu_report anu_generate_report (anu_file_vec *files,
   const usize segment_count = config->segments;
 
   for (usize i = 0; i < file_count; i++) {
+    /* File was SKIPPED */
+    if ((results[i] != ANU_OK) && (results[i] != ANU_STATUS_FILE_CACHED)) {
+      kv_push(report.skipped, (u64) i);
+      continue;
+    }
     for (usize seg = 0; seg < segment_count; seg++) {
       /* Reset segments_result vector to 0 */
       segment_results.size = 0;
@@ -342,6 +378,11 @@ anu_report anu_generate_report (anu_file_vec *files,
 
   /* Every bucket is their own parent in the beginning */
   for (u64 i = 0; i < file_count; i++) {
+
+    if (results[i] != ANU_OK && results[i] != ANU_STATUS_FILE_CACHED) {
+      continue;
+    }
+
     usize root = find_set(i, parent);
     /* Should never happen if logic is correct */
     ANU_ASSUME(root < file_count);
@@ -354,25 +395,20 @@ anu_report anu_generate_report (anu_file_vec *files,
 
     usize bucket_size = kv_size(buckets[i]);
 
+    /* Unique file */
     if (bucket_size == 1) {
-      /* Unique file */
       kv_push(report.unique, kv_A(buckets[i], 0));
-    }
-
-    /* Destroy buckets with less than 1 file */
-    if (bucket_size <= 1) {
       kv_destroy(buckets[i]);
-    } else {
+    }
+    /* Valid group with multiple files */
+    else if (bucket_size > 1) {
+      /* Sort file group by strategy */
+      elect_best_file(&buckets[i], files, config);
       kv_push(report.groups, buckets[i]);
     }
   }
 
   free(buckets);
-
-  /* Sort file by strategy */
-  for (size_t i = 0; i < report.groups.size; i++) {
-    elect_best_file(&kv_A(report.groups, i), files, config);
-  }
 
   return report;
 }
@@ -386,4 +422,5 @@ void anu_report_destroy (anu_report *report) {
   }
   kv_destroy(report->groups);
   kv_destroy(report->unique);
+  kv_destroy(report->skipped);
 }

@@ -808,20 +808,20 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   if (code != ANU_OK) {
     return code;
   }
+  char *fname = anu_file_get_filename(file);
 
   file->duration_us = vreader_get_duration(&vreader);
 
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    return ANU_VIDEO_LEN_SHORT;
+    log_info("[%s] SKIPPING (video duration = 0)", fname);
+    return ANU_SKIPPED_SHORT_DURATION;
   }
 
-  char *fname = anu_file_get_filename(file);
-
   if (file->duration_us < config->segments) {
-    log_warn("[%s] Video too short for the requested number of segments.",
+    log_info("[%s] SKIPPING (video duration too short for # of segments)",
              fname);
-    return ANU_VIDEO_LEN_SHORT;
+    return ANU_SKIPPED_SHORT_DURATION;
   };
 
   /* As long as this is true we won't break anything when we cast for libav */
@@ -830,13 +830,12 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
   /* Check if file duration is longer than the skip threshold */
   if (file->duration_us <=
       (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
-    log_debug(
-        "[%s] Skipping - Duration (%.2f seconds) less than threshold (%zu "
-        "seconds)",
+    log_info(
+        "[%s] SKIPPING (duration (%.2f s) less than minimum threshold (%zu s)",
         fname, anu_time_microseconds_to_seconds(file->duration_us),
         config->skip_duration);
 
-    return ANU_VIDEO_LEN_SHORT;
+    return ANU_SKIPPED_SHORT_DURATION;
   }
 
   const size_t frame_step_us = (file->duration_us / config->segments);

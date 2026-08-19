@@ -345,37 +345,41 @@ static int anukrta_driver (anu_config *config) {
 
     /* Failed to hash a file */
     if (result == ANU_IO_FAIL) {
-      log_warn("Failed to hash %s", file->path);
+      log_error("Failed to hash %s", file->path);
       continue;
     }
 
-    /* We skipped this file */
-    if (result == ANU_STATUS_FILE_SKIPPED) {
-      log_info("Skipped file '%s'", anu_file_get_filename(file));
+    /* We skipped this file for being too short */
+    if (result == ANU_SKIPPED_SHORT_DURATION) {
       continue;
     }
 
-    if (result == ANU_OK || result == ANU_STATUS_FILE_CACHED) {
+    /* Some other error occured */
+    if ((result != ANU_OK) && (result != ANU_STATUS_FILE_CACHED)) {
+      log_error("Some other error occured for '%s'",
+                anu_file_get_filename(file));
+      continue;
+    }
 
-      /* File was loaded from cache */
-      if (result == ANU_STATUS_FILE_CACHED) {
-        log_debug("`%s` was loaded from cache.", anu_file_get_filename(file));
-      }
+    /* File was loaded from cache */
+    if (result == ANU_STATUS_FILE_CACHED) {
+      log_debug("`%s` was loaded from cache.", anu_file_get_filename(file));
+    }
 
-      /* Add items to bk hash */
-      for (size_t segment_off = 0; segment_off < config->segments;
-           segment_off++) {
-        size_t curr_seg_idx = file_idx + segment_off;
-        u64 curr_hash = hashes[curr_seg_idx];
-        bk_tree_insert(&filetree, curr_hash, i);
-      }
+    /* Add items to bk hash */
+    for (size_t segment_off = 0; segment_off < config->segments;
+         segment_off++) {
+      size_t curr_seg_idx = file_idx + segment_off;
+      u64 curr_hash = hashes[curr_seg_idx];
+      bk_tree_insert(&filetree, curr_hash, i);
     }
   }
 
   /* Generate report */
-  anu_report report = anu_generate_report(&files, hashes, config, filetree);
+  anu_report report = anu_generate_report(&files, thread_results, hashes,
+                                          timestamps, config, filetree);
   /* Print report */
-  anu_print_report(config, &report, &files, hashes);
+  anu_print_report(config, &report, &files, thread_results, hashes, timestamps);
 
   /* CLEANUP */
   anu_report_destroy(&report);
