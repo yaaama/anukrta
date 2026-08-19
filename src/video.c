@@ -237,23 +237,25 @@ static size_t vreader_get_duration (anu_vreader *vreader) {
   AVStream *vid_stream = vreader_video_stream(vreader);
 
   /* duration in stream-base */
-  int64_t duration_in_sb = vid_stream->duration;
+  int64_t duration = vid_stream->duration;
   AVRational stream_timebase = vid_stream->time_base;
 
-  if (duration_in_sb == AV_NOPTS_VALUE) {
-    duration_in_sb =
+  /* If duration is without a value then we get the container provided duration */
+  if (duration == AV_NOPTS_VALUE) {
+
+    /* Duration is now in microseconds (container timebase is microseconds)*/
+    duration =
         (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
     log_debug(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
         vreader->fmt_ctx->url,
-        anu_time_microseconds_to_seconds((size_t) duration_in_sb));
-    return (size_t) duration_in_sb;
+        anu_time_microseconds_to_seconds((size_t) duration));
+    return (size_t) duration;
   }
 
-  return duration_in_sb > 0
-             ? (size_t) pts_to_useconds(duration_in_sb, stream_timebase)
-             : 0;
+  /* If duration is larger than 0 then convert stream timebase duration to microseconds */
+  return duration > 0 ? (size_t) pts_to_useconds(duration, stream_timebase) : 0;
 }
 
 /**
