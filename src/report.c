@@ -103,11 +103,11 @@ static char *get_date_from_epoch (time_t *epoch_time,
   return buf;
 }
 
-static void print_file_hashes (u64 *hashes, usize hash_count) {
-  if (hash_count == 0) {
+static void print_file_hashes (const u64 *hashes, const usize hash_count) {
+  if (hash_count == 0 || hashes == NULL) {
     return;
   }
-  printf("\t-> Hashes: [ ");
+  printf("    -> Hashes: [ ");
 
   for (usize i = 0; i < hash_count; i++) {
     printf("%016" PRIX64 " ", hashes[i]);
@@ -207,7 +207,7 @@ static void elect_best_file (u64_vec *group,
   }
 }
 
-static void print_file_item (const anu_config *cfg,
+static void print_file_item (const anu_config *config,
                              const anu_file_vec *files,
                              const u64 *hashes,
                              usize file_id,
@@ -231,8 +231,8 @@ static void print_file_item (const anu_config *cfg,
   printf("%20s | %-.2fs | %-15s\n", sz,
          anu_time_microseconds_to_seconds(file->duration_us), dt);
 
-  if (hashes && ANU_HAS_ANY_FLAG(cfg->report_flags, REPORT_PRINT_HASHES)) {
-    print_file_hashes(hashes + (file_id * cfg->segments), cfg->segments);
+  if (hashes && ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES)) {
+    print_file_hashes(hashes + (file_id * config->segments), config->segments);
     printf("\n");
   }
 }
@@ -259,12 +259,6 @@ void anu_print_report (anu_config *config,
   printf("\n \"Best\" file strategy: '%s'\n", strat_str);
   printf("+----------------------------------------------+\n");
 
-  bool print_dupe_labels = config->best_file_strategy != BEST_FILE_NONE;
-  bool print_hashes =
-      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES);
-  bool print_unique =
-      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
-
   bool use_tags = (config->best_file_strategy != BEST_FILE_NONE);
 
   for (usize i = 0; i < group_count; i++) {
@@ -278,9 +272,12 @@ void anu_print_report (anu_config *config,
     }
   }
 
+  bool print_unique =
+      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
+  size_t unique_count = kv_size(report->unique);
   if (print_unique) {
-    printf("\nFound %zu unique files.\n", kv_size(report->unique));
-    for (usize i = 0; i < kv_size(report->unique); i++) {
+    printf("\nFound %zu unique files:\n", unique_count);
+    for (usize i = 0; i < unique_count; i++) {
       print_file_item(config, files, hashes, kv_A(report->unique, i), NULL);
     }
   }
