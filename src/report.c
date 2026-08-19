@@ -207,17 +207,48 @@ static void elect_best_file (u64_vec *group,
   }
 }
 
+static void print_file_item (const anu_config *cfg,
+                             const anu_file_vec *files,
+                             const u64 *hashes,
+                             usize file_id,
+                             const char *tag) {
+
+  const anu_file *file = &files->items[file_id];
+  char sz[32];
+  char dt[64];
+  time_t t = (time_t) file->mtime;
+
+  get_human_sizing_iec(file->size, sz);
+  get_date_from_epoch(&t, sizeof(dt), dt);
+
+  // Format: "[TAG] path" or "  path"
+  if (tag) {
+    printf("%s %s\n", tag, file->path);
+  } else {
+    printf("  %s\n", file->path);
+  }
+
+  printf("%20s | %-.2fs | %-15s\n", sz,
+         anu_time_microseconds_to_seconds(file->duration_us), dt);
+
+  if (hashes && ANU_HAS_ANY_FLAG(cfg->report_flags, REPORT_PRINT_HASHES)) {
+    print_file_hashes(hashes + (file_id * cfg->segments), cfg->segments);
+    printf("\n");
+  }
+}
+
 void anu_print_report (anu_config *config,
                        anu_report *report,
                        anu_file_vec *files,
                        u64 *hashes) {
   usize group_count = kv_size(report->groups);
 
-  printf("\n=== Duplicate Report: ===\n");
   if (group_count == 0) {
     printf("No duplicate groups found.\n");
     return;
   }
+
+  printf("\n=== Duplicate Report: ===\n");
 
   usize file_count = kv_size(*files);
   const char *strat_str = BEST_FILE_STRAT_STRINGS[config->best_file_strategy];
@@ -229,68 +260,29 @@ void anu_print_report (anu_config *config,
   printf("+----------------------------------------------+\n");
 
   bool print_dupe_labels = config->best_file_strategy != BEST_FILE_NONE;
-  bool report_verbose =
+  bool print_hashes =
       ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES);
+  bool print_unique =
+      ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
+
+  bool use_tags = (config->best_file_strategy != BEST_FILE_NONE);
 
   for (usize i = 0; i < group_count; i++) {
-    u64_vec *group = &(kv_A(report->groups, i));
-    usize items_in_group = kv_size(*group);
+    u64_vec *group = &kv_A(report->groups, i);
+    printf("\n[+] Group #%zu (%zu items):\n", i + 1, kv_size(*group));
 
-    elect_best_file(group, files, config);
+    for (usize j = 0; j < kv_size(*group); j++) {
+      const char *tag = (j == 0 && use_tags) ? "  [BEST]" : "        ";
 
-    printf("\n[+] Group #%zu (%zu items):\n", i + 1, items_in_group);
-
-    for (usize j = 0; j < items_in_group; j++) {
-
-      /* NOTE: We rely on the fact that groups/file_ids are generated on runtime
-       * We assume that they will be sequential (`file_id` indexes to get the actual file) */
-      usize file_id = kv_A(*group, j);
-      anu_file *file = &files->items[file_id];
-
-      char human_sizing[32];
-      get_human_sizing_iec(file->size, human_sizing);
-
-      time_t modification_t = (time_t) file->mtime;
-      char time_str[64];
-      get_date_from_epoch(&modification_t, sizeof(time_str), time_str);
-
-      /* Label Best and dupes if strategy is not none */
-      if (print_dupe_labels) {
-        printf("%s %s\n", (j == 0 ? "  [BEST]" : "        "), file->path);
-      } else {
-        printf("  %s\n", file->path);
-      }
-
-      printf("%20s | %-.2fs | %-15s\n", human_sizing,
-             anu_time_microseconds_to_seconds(file->duration_us), time_str);
-
-      if (report_verbose) {
-        print_file_hashes((hashes + (file_id * config->segments)),
-                          config->segments);
-        printf("\n");
-      }
+      print_file_item(config, files, hashes, kv_A(*group, j), tag);
     }
   }
 
-  if (!ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES)) {
-    return;
-  }
-
-  usize unique_count = kv_size(report->unique);
-  printf("\nFound %zu unique files.\n", unique_count);
-
-  for (usize i = 0; i < unique_count; i++) {
-    usize file_id = kv_A(report->unique, i);
-    anu_file *file = &files->items[file_id];
-
-    // Print unique file information...
-    printf("  %s\n", file->path);
-    if (report_verbose) {
-      print_file_hashes((hashes + (file_id * config->segments)),
-                        config->segments);
+  if (print_unique) {
+    printf("\nFound %zu unique files.\n", kv_size(report->unique));
+    for (usize i = 0; i < kv_size(report->unique); i++) {
+      print_file_item(config, files, hashes, kv_A(report->unique, i), NULL);
     }
-
-    printf("\n");
   }
 }
 
@@ -379,6 +371,12 @@ anu_report anu_generate_report (anu_file_vec *files,
   }
 
   free(buckets);
+
+  /* Sort file by strategy */
+  for (size_t i = 0; i < report.groups.size; i++) {
+    elect_best_file(&kv_A(report.groups, i), files, config);
+  }
+
   return report;
 }
 
