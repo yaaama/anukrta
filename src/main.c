@@ -55,38 +55,14 @@ static void log_lock_callback (bool lock, void *udata) {
 static void anukrta_setup_logging (int anu_log_lvl,
                                    pthread_mutex_t *logging_mutex) {
 
-  int log_lvl = 0;
-  int libav_log_lvl = 0;
+  static const int anu_map[] = {LOG_ERROR, LOG_INFO, LOG_DEBUG, LOG_TRACE};
+  static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_INFO,
+                                  AV_LOG_VERBOSE};
 
-  switch (anu_log_lvl) {
-    case 3:
-      {
-        log_lvl = LOG_TRACE;
-        libav_log_lvl = AV_LOG_VERBOSE;
-        break;
-      }
-    case 2:
-      {
-        log_lvl = LOG_DEBUG;
-        libav_log_lvl = AV_LOG_INFO;
-        break;
-      }
-    case 1:
-      {
-        log_lvl = LOG_INFO;
-        libav_log_lvl = AV_LOG_INFO;
-        break;
-      }
-    default:
-      {
-        libav_log_lvl = AV_LOG_ERROR;
-        log_lvl = LOG_ERROR;
-        break;
-      }
-  }
+  int safe_lvl = (anu_log_lvl >= 0 && anu_log_lvl <= 3) ? anu_log_lvl : 0;
 
-  av_log_set_level(libav_log_lvl);
-  log_set_level(log_lvl);
+  av_log_set_level(libav_map[safe_lvl]);
+  log_set_level(anu_map[safe_lvl]);
   log_set_lock(log_lock_callback, logging_mutex);
 }
 
