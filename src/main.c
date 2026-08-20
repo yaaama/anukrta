@@ -1,11 +1,5 @@
 /* Video similarity tool */
 
-#ifdef ANU_DEBUG
-#  ifdef NDEBUG
-#    undef NDEBUG
-#  endif
-#endif
-
 #include <assert.h>
 #include <inttypes.h>
 #include <libavutil/log.h>
@@ -70,25 +64,18 @@ static void anukrta_setup_logging (int anu_log_lvl, pthread_mutex_t *logging_mut
 typedef struct hash_tworker_ctx {
   /** Pointer to file queue that needs to be hashed. */
   anu_file_vec *files;
-
   /** Pointer to program configuration. */
   anu_config *config;
-
   /** Array of hashes that are produced during thread execution. */
   uint64_t *hashes;
-
   /** Array of timestamps for each hash. */
   uint64_t *frame_timestamps;
-
   /** Indices of files to be processed. */
   size_t *pending_indices;
-
   /** Number of files needing to be processed. */
   size_t pending_count;
-
   /** Index of file to process by thread worker. */
   atomic_size_t *current_idx; /* Shared index */
-
   /** Array of result codes from threads. */
   enum ANU_STATUS *results;
 } hash_tworker_ctx;
@@ -97,7 +84,6 @@ static void *hash_worker_thread (void *arg) {
   hash_tworker_ctx *targs = (hash_tworker_ctx *) arg;
 
   const size_t segments = targs->config->segments;
-  anu_config *config = targs->config;
   enum ANU_STATUS *results = targs->results;
   anu_file *files = targs->files->items;
   u64 *hashes = targs->hashes;
@@ -116,10 +102,11 @@ static void *hash_worker_thread (void *arg) {
     /* Get actual file index from the queue index */
     size_t file_idx = targs->pending_indices[q_idx];
 
-    size_t hash_off = file_idx * segments;
+    size_t hash_off = (file_idx * segments);
 
     /* Do the hashing and store return code */
-    results[file_idx] = anu_video_hash(&files[file_idx], config, hashes + hash_off, timestamps + hash_off);
+    results[file_idx] =
+        anu_video_hash(&files[file_idx], targs->config, (hashes + hash_off), (timestamps + hash_off));
   }
 
   return NULL;
@@ -128,14 +115,14 @@ static void *hash_worker_thread (void *arg) {
 static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *args, size_t file_count) {
   /* NOTE: Thread count should not exceed file count */
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
-  log_info("Available threads: %zu, running with: %zu", config->thread_count, final_thread_count);
+  log_info("Available threads: %zu, utilising %zu of them", config->thread_count, final_thread_count);
   config->thread_count = final_thread_count;
 
   assert(config->thread_count > 0);
 
   pthread_t *threads __free(ptr) = xcalloc(final_thread_count, sizeof(*threads));
 
-  log_info("Starting %zu hashing threads...", final_thread_count);
+  log_debug("Starting %zu hashing threads...", final_thread_count);
 
   /* Create the threads */
   int threads_made = 0;
@@ -178,11 +165,12 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
   }
 
   size_t out_count = 0;
-  size_t offset = file_idx * segments_needed;
+  size_t offset = (file_idx * segments_needed);
 
-  int ret = cache_get_hashes(db, row_id, segments_needed, hashes + offset, timestamps + offset, &out_count);
+  int ret =
+      cache_get_hashes(db, row_id, segments_needed, (hashes + offset), (timestamps + offset), &out_count);
 
-  if (ret != 0 || out_count != segments_needed) {
+  if ((ret != 0) || (out_count != segments_needed)) {
     return false;
   }
 
@@ -208,47 +196,40 @@ static int anukrta_driver (anu_config *config) {
 
   assert(config->segments > 0);
 
-  /* Initialise file queue */
+  /* Initialise file list */
   anu_file_vec files __free(anu_file_vec) = {0};
-  kv_ensure_space(files, 64);
+  kv_ensure_space(files, 64); /* start off with 64 elements */
 
   /* Scan path(s) and store in files queue */
   anu_explore_scan_directories(config, &files);
 
   /* Exit early if we do not find any files */
-  if (kv_size(files) < 1) {
+  const usize file_count = kv_size(files);
+  if (file_count == 0) {
     log_warn("No video files found!");
     return -1;
   }
-
-  /* Number of files to hash */
-  const usize file_count = kv_size(files);
   log_info("Found `%zu` files", file_count);
 
-  /*
-   * The total number of hashes produced = number of files * number of segments
-   */
-  const usize hash_collection_len = (file_count * config->segments);
+  /* The total number of segments to hash = number of files * number of segments */
+  const usize segments_count = (file_count * config->segments);
+  log_debug("Total segments to process: (%zu * %zu) = `%zu`", file_count, config->segments, segments_count);
 
   /* Array of hashes
    * E.g. (N files with 2 segments) would look like this:
    * [ File1Seg1, File1Seg2, File2Seg1, File2Seg2, ... File N Seg 2 ]
    * FileNSegN would be the hash created for that segment
    */
-  uint64_t *hashes __free(ptr) = NULL;
-  hashes = xmalloc(hash_collection_len * sizeof(*hashes));
+  uint64_t *hashes __free(ptr) = xmalloc(segments_count * sizeof(*hashes));
 
   /* Timestamps associated with hashes */
-  uint64_t *timestamps __free(ptr) = NULL;
-  timestamps = xmalloc(hash_collection_len * sizeof(*timestamps));
+  uint64_t *timestamps __free(ptr) = xmalloc(segments_count * sizeof(*timestamps));
 
-  /* Return value of hash worker threads */
-  enum ANU_STATUS *thread_results __free(ptr) = NULL;
-  thread_results = xmalloc(file_count * sizeof(*thread_results));
+  /* Status of each file */
+  enum ANU_STATUS *file_statuses __free(ptr) = xmalloc(file_count * sizeof(*file_statuses));
 
   /* File queue */
-  size_t *pending_indices __free(ptr) = NULL;
-  pending_indices = xcalloc(file_count, sizeof(*pending_indices));
+  size_t *pending_indices __free(ptr) = xcalloc(file_count, sizeof(*pending_indices));
   size_t pending_count = 0;
 
   /* Database context, will remain NULL if caching is disabled */
@@ -273,9 +254,10 @@ static int anukrta_driver (anu_config *config) {
       anu_file *file = &kv_A(files, i);
       if (anu_try_load_from_cache(cache_ctx, config->segments, file, i, hashes, timestamps)) {
         /* If file is successfully loaded from cache mark it as so */
-        thread_results[i] = ANU_STATUS_FILE_CACHED;
+        file_statuses[i] = ANU_STATUS_FILE_CACHED;
       } else {
         /* Else add it to our work queue */
+        file_statuses[i] = ANU_STATUS_FILE_PENDING;
         pending_indices[pending_count] = i;
         ++pending_count;
       }
@@ -290,9 +272,9 @@ static int anukrta_driver (anu_config *config) {
 
     /* Add all files found to our work queue */
     for (size_t i = 0; i < file_count; i++) {
-      pending_indices[pending_count] = i;
-      ++pending_count;
+      pending_indices[i] = i;
     }
+    pending_count = file_count;
   }
 
   time_t curr_time = time(NULL);
@@ -306,7 +288,7 @@ static int anukrta_driver (anu_config *config) {
     .config = config,
     .hashes = hashes,
     .frame_timestamps = timestamps,
-    .results = thread_results,
+    .results = file_statuses,
     .pending_count = pending_count,
     .pending_indices = pending_indices,
     .current_idx = &current_file_idx,
@@ -319,15 +301,15 @@ static int anukrta_driver (anu_config *config) {
   }
 
   /* Cache the results (if caching enabled) */
-  cache_sync_results_maybe(cache_ctx, config, &files, thread_results, hashes, timestamps);
+  cache_sync_results_maybe(cache_ctx, config, &files, file_statuses, hashes, timestamps);
 
-  bk_node *filetree = NULL;
+  bk_node *hash_tree = NULL;
 
   for (size_t i = 0; i < file_count; i++) {
     /* Current file */
     anu_file *file = &kv_A(files, i);
-    enum ANU_STATUS result = thread_results[i];
-    size_t file_idx = (i * config->segments);
+    enum ANU_STATUS result = file_statuses[i];
+    size_t segment_start_idx = (i * config->segments);
     /* Check the result saved by the thread */
 
     /* Failed to hash a file */
@@ -354,23 +336,23 @@ static int anukrta_driver (anu_config *config) {
 
     /* Add items to bk hash */
     for (size_t segment_off = 0; segment_off < config->segments; segment_off++) {
-      size_t curr_seg_idx = file_idx + segment_off;
+      size_t curr_seg_idx = segment_start_idx + segment_off;
       u64 curr_hash = hashes[curr_seg_idx];
-      bk_tree_insert(&filetree, curr_hash, i);
+      bk_tree_insert(&hash_tree, curr_hash, i);
     }
   }
 
   /* Generate report */
-  anu_report report = anu_generate_report(&files, thread_results, hashes, timestamps, config, filetree);
+  anu_report report = anu_generate_report(&files, file_statuses, hashes, timestamps, config, hash_tree);
   /* Print report */
-  anu_print_report(config, &report, &files, thread_results, hashes, timestamps);
+  anu_print_report(config, &report, &files, file_statuses, hashes, timestamps);
 
   /* CLEANUP */
   anu_report_destroy(&report);
-  bk_tree_node_free(filetree);
+  bk_tree_node_free(hash_tree);
 
   /* Close the database */
-  if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE)) {
+  if (cache_enabled) {
     sqlite3_shutdown();
   }
 
