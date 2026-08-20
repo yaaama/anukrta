@@ -2,13 +2,13 @@ fail_fast: false
 exclude: ^vendor/.*
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 44d7f9b7e32225d2bd590282037e4650064f3950
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/pocc/pre-commit-hooks
-    rev: v1.3.5
+    rev: 0c2dfae267d798c9adff7b86976fa602aa0999b7
     hooks:
       - id: clang-format
         args: [-i]
