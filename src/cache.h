@@ -55,20 +55,18 @@ int cache_is_file_valid(anu_cache_ctx *ctx, anu_file *file, size_t *out_file_id,
 
 int cache_upsert_file(anu_cache_ctx *ctx, anu_file *file, uint64_t time_of_hash, uint64_t *row_id_out);
 
-int cache_insert_hash(anu_cache_ctx *ctx, uint64_t file_id, uint64_t hash, uint64_t frame_timestamp_us);
+int cache_insert_hash(anu_cache_ctx *ctx, uint64_t file_id, hash_entry entry);
 
 int cache_get_hashes(anu_cache_ctx *ctx,
                      uint64_t file_id,
                      size_t max_hashes,
-                     uint64_t *out_hashes,
-                     uint64_t *out_timestamps,
+                     hash_entry *entries_out,
                      size_t *out_count);
 
 void cache_sync_results_maybe(anu_cache_ctx *ctx,
                               anu_config *config,
                               anu_file_vec *files,
                               enum ANU_STATUS *result_codes,
-                              u64 *hashes,
-                              u64 *frame_ts);
+                              hash_entry *entries);
 
 #endif  // ANU_CACHE_H_

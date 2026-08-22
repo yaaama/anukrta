@@ -27,6 +27,11 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 
 /** @} */  // END Type Definitions
 
+typedef struct hash_entry {
+  u64 hash;
+  u64 timestamp;
+} hash_entry;
+
 typedef enum ANU_STATUS : int32_t {
   ANU_OK = 0,                 /**< Function executed successfully. */
   ANU_IO_FAIL,                /**< IO failure. */

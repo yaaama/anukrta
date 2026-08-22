@@ -35,9 +35,6 @@ typedef struct anu_vreader {
   byte padding[4];
 } anu_vreader;
 
-enum ANU_STATUS anu_video_hash(anu_file *file,
-                               anu_config *config,
-                               uint64_t *hashes_out,
-                               uint64_t *frame_timestamps_out);
+enum ANU_STATUS anu_video_hash(anu_file *file, anu_config *config, hash_entry *entries_out);
 
 #endif  // ANU_VIDEO_H

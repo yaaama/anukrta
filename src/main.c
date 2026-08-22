@@ -66,10 +66,8 @@ typedef struct hash_tworker_ctx {
   anu_file_vec *files;
   /** Pointer to program configuration. */
   anu_config *config;
-  /** Array of hashes that are produced during thread execution. */
-  uint64_t *hashes;
-  /** Array of timestamps for each hash. */
-  uint64_t *frame_timestamps;
+  /** Array of hash_entries (stores hash + timestamp for hash) */
+  hash_entry *hash_entries;
   /** Indices of files to be processed. */
   size_t *pending_indices;
   /** Number of files needing to be processed. */
@@ -86,8 +84,7 @@ static void *hash_worker_thread (void *arg) {
   const size_t segments = targs->config->segments;
   enum ANU_STATUS *results = targs->results;
   anu_file *files = targs->files->items;
-  u64 *hashes = targs->hashes;
-  u64 *timestamps = targs->frame_timestamps;
+  hash_entry *hash_entries = targs->hash_entries;
   _Atomic size_t *current_idx = targs->current_idx;
 
   for (;;) {
@@ -102,11 +99,10 @@ static void *hash_worker_thread (void *arg) {
     /* Get actual file index from the queue index */
     size_t file_idx = targs->pending_indices[q_idx];
 
-    size_t hash_off = (file_idx * segments);
+    size_t entry_offset = (file_idx * segments);
 
     /* Do the hashing and store return code */
-    results[file_idx] =
-        anu_video_hash(&files[file_idx], targs->config, (hashes + hash_off), (timestamps + hash_off));
+    results[file_idx] = anu_video_hash(&files[file_idx], targs->config, (hash_entries + entry_offset));
   }
 
   return NULL;
@@ -155,8 +151,7 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
                                                    size_t segments_needed,
                                                    anu_file *file,
                                                    size_t file_idx,
-                                                   uint64_t *hashes,
-                                                   uint64_t *timestamps) {
+                                                   hash_entry *hash_entries) {
   uint64_t row_id = 0;
   uint64_t duration = 0;
 
@@ -165,10 +160,9 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
   }
 
   size_t out_count = 0;
-  size_t offset = (file_idx * segments_needed);
+  size_t entry_offset = (file_idx * segments_needed);
 
-  int ret =
-      cache_get_hashes(db, row_id, segments_needed, (hashes + offset), (timestamps + offset), &out_count);
+  int ret = cache_get_hashes(db, row_id, segments_needed, (hash_entries + entry_offset), &out_count);
 
   if ((ret != 0) || (out_count != segments_needed)) {
     return false;
@@ -215,15 +209,8 @@ static int anukrta_driver (anu_config *config) {
   const usize segments_count = (file_count * config->segments);
   log_debug("Total segments to process: (%zu * %zu) = `%zu`", file_count, config->segments, segments_count);
 
-  /* Array of hashes
-   * E.g. (N files with 2 segments) would look like this:
-   * [ File1Seg1, File1Seg2, File2Seg1, File2Seg2, ... File N Seg 2 ]
-   * FileNSegN would be the hash created for that segment
-   */
-  uint64_t *hashes __free(ptr) = xmalloc(segments_count * sizeof(*hashes));
-
-  /* Timestamps associated with hashes */
-  uint64_t *timestamps __free(ptr) = xmalloc(segments_count * sizeof(*timestamps));
+  /* List of hash entries (each segment has a hash entry) */
+  hash_entry *hash_entries __free(ptr) = xmalloc(segments_count * sizeof(*hash_entries));
 
   /* Status of each file */
   enum ANU_STATUS *file_statuses __free(ptr) = xmalloc(file_count * sizeof(*file_statuses));
@@ -252,7 +239,7 @@ static int anukrta_driver (anu_config *config) {
     for (size_t i = 0; i < file_count; i++) {
 
       anu_file *file = &kv_A(files, i);
-      if (anu_try_load_from_cache(cache_ctx, config->segments, file, i, hashes, timestamps)) {
+      if (anu_try_load_from_cache(cache_ctx, config->segments, file, i, hash_entries)) {
         /* If file is successfully loaded from cache mark it as so */
         file_statuses[i] = ANU_STATUS_FILE_CACHED;
       } else {
@@ -286,8 +273,7 @@ static int anukrta_driver (anu_config *config) {
   hash_tworker_ctx thread_ctx = {
     .files = &files,
     .config = config,
-    .hashes = hashes,
-    .frame_timestamps = timestamps,
+    .hash_entries = hash_entries,
     .results = file_statuses,
     .pending_count = pending_count,
     .pending_indices = pending_indices,
@@ -301,7 +287,7 @@ static int anukrta_driver (anu_config *config) {
   }
 
   /* Cache the results (if caching enabled) */
-  cache_sync_results_maybe(cache_ctx, config, &files, file_statuses, hashes, timestamps);
+  cache_sync_results_maybe(cache_ctx, config, &files, file_statuses, hash_entries);
 
   bk_node *hash_tree = NULL;
 
@@ -337,15 +323,15 @@ static int anukrta_driver (anu_config *config) {
     /* Add items to bk hash */
     for (size_t segment_off = 0; segment_off < config->segments; segment_off++) {
       size_t curr_seg_idx = segment_start_idx + segment_off;
-      u64 curr_hash = hashes[curr_seg_idx];
+      u64 curr_hash = hash_entries[curr_seg_idx].hash;
       bk_tree_insert(&hash_tree, curr_hash, i);
     }
   }
 
   /* Generate report */
-  anu_report report = anu_generate_report(&files, file_statuses, hashes, timestamps, config, hash_tree);
+  anu_report report = anu_generate_report(&files, file_statuses, hash_entries, config, hash_tree);
   /* Print report */
-  anu_print_report(config, &report, &files, file_statuses, hashes, timestamps);
+  anu_print_report(config, &report, &files, file_statuses, hash_entries);
 
   /* CLEANUP */
   anu_report_destroy(&report);

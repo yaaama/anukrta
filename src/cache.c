@@ -89,8 +89,7 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
                                anu_config *config,
                                anu_file_vec *files,
                                enum ANU_STATUS *result_codes,
-                               u64 *hashes,
-                               u64 *frame_ts) {
+                               hash_entry *entries) {
 
   if (!ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE) || !ctx) {
     return;
@@ -119,7 +118,7 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
 
     for (usize k = 0; k < config->segments; k++) {
       usize curr_seg_idx = (i * config->segments) + k;
-      cache_insert_hash(ctx, row_out, hashes[curr_seg_idx], frame_ts[curr_seg_idx]);
+      cache_insert_hash(ctx, row_out, entries[curr_seg_idx]);
     }
 
     ++sync_count;
@@ -370,12 +369,12 @@ int cache_upsert_file (anu_cache_ctx *ctx, anu_file *file, uint64_t time_of_hash
  * @return 0 on success, 1 on fail.
  * @note Place this in a transaction when bulk inserting.
  */
-int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, uint64_t hash, uint64_t frame_timestamp_us) {
+int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, hash_entry entry) {
   sqlite3_stmt *stmt_insert_hash = ctx->stmt_insert_hash;
   /* Storing 64-bit uint as sqlite 64-bit signed int. The bit pattern stays the same. */
   safe_bind_i64(stmt_insert_hash, ":file_id", (sqlite3_int64) file_id);
-  safe_bind_i64(stmt_insert_hash, ":hash", (sqlite3_int64) hash);
-  safe_bind_i64(stmt_insert_hash, ":frame_ts", (sqlite3_int64) frame_timestamp_us);
+  safe_bind_i64(stmt_insert_hash, ":hash", (sqlite3_int64) entry.hash);
+  safe_bind_i64(stmt_insert_hash, ":frame_ts", (sqlite3_int64) entry.timestamp);
 
   int ret = sqlite3_step(stmt_insert_hash);
   if (ret != SQLITE_DONE) {
@@ -389,10 +388,9 @@ int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, uint64_t hash, uint
 int cache_get_hashes (anu_cache_ctx *ctx,
                       uint64_t file_id,
                       size_t max_hashes,
-                      uint64_t *out_hashes,
-                      uint64_t *out_timestamps,
+                      hash_entry *entries_out,
                       size_t *out_count) {
-  if (!ctx->stmt_get_hashes || !out_hashes || !out_count || !out_timestamps) {
+  if (!ctx->stmt_get_hashes || !entries_out || !out_count) {
     return -1;
   }
 
@@ -405,8 +403,8 @@ int cache_get_hashes (anu_cache_ctx *ctx,
   /* Increment strictly to accurately check if the DB has the EXACT segment amount we're asking for */
   while ((ret = sqlite3_step(stmt_get_hashes)) == SQLITE_ROW) {
     if (count < max_hashes) {
-      out_hashes[count] = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 0);
-      out_timestamps[count] = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 1);
+      entries_out[count].hash = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 0);
+      entries_out[count].timestamp = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 1);
     }
     ++count;
   }

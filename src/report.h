@@ -25,13 +25,11 @@ void anu_print_report(anu_config *config,
                       anu_report *report,
                       anu_file_vec *files,
                       i32 *results,
-                      u64 *hashes,
-                      u64 *timestamps);
+                      hash_entry *entries);
 
 anu_report anu_generate_report(anu_file_vec *files,
                                i32 *results,
-                               u64 *hashes,
-                               u64 *timestamps,
+                               hash_entry *entries,
                                anu_config *config,
                                bk_node *tree);
 

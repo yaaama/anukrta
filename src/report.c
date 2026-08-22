@@ -97,14 +97,14 @@ static char *get_date_from_epoch (time_t *epoch_time, usize buf_size, char *buf)
   return buf;
 }
 
-static void print_file_hashes (const u64 *hashes, const usize hash_count) {
-  if (hash_count == 0 || hashes == NULL) {
+static void print_file_hashes (const hash_entry *entries, const usize entries_count) {
+  if (entries_count == 0 || entries == NULL) {
     return;
   }
   printf("    -> Hashes: [ ");
 
-  for (usize i = 0; i < hash_count; i++) {
-    printf("%016" PRIX64 " ", hashes[i]);
+  for (usize i = 0; i < entries_count; i++) {
+    printf("%016" PRIX64 " ", entries[i].hash);
   }
 
   printf("]");
@@ -202,8 +202,7 @@ static void elect_best_file (u64_vec *group, anu_file_vec *files, anu_config *co
 static void print_file_item (const anu_config *config,
                              const anu_file_vec *files,
                              const i32 result,
-                             const u64 *hashes,
-                             const u64 *timestamps,
+                             const hash_entry *entries,
                              usize file_id,
                              const char *tag) {
 
@@ -223,9 +222,10 @@ static void print_file_item (const anu_config *config,
   }
 
   printf("%20s | %-.2fs | %-15s\n", sz, anu_time_microseconds_to_seconds(file->duration_us), dt);
-
-  if (hashes && ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES)) {
-    print_file_hashes(hashes + (file_id * config->segments), config->segments);
+  /* entry may be NULL if we have not hashed the file (because it was skipped for example) */
+  int print_hashes = (entries && ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES));
+  if (print_hashes) {
+    print_file_hashes(entries + (file_id * config->segments), config->segments);
     printf("\n");
   }
 }
@@ -245,8 +245,7 @@ void anu_print_report (anu_config *config,
                        anu_report *report,
                        anu_file_vec *files,
                        i32 *results,
-                       u64 *hashes,
-                       u64 *timestamps) {
+                       hash_entry *entries) {
 
   usize group_count = kv_size(report->groups);
 
@@ -276,7 +275,8 @@ void anu_print_report (anu_config *config,
 
     for (usize j = 0; j < kv_size(*group); j++) {
       const char *tag = (j == 0 && use_tags) ? "  [BEST]" : "        ";
-      print_file_item(config, files, results[j], hashes, timestamps, kv_A(*group, j), tag);
+      usize file_id = kv_A(*group, j);
+      print_file_item(config, files, results[file_id], entries, file_id, tag);
     }
   }
 
@@ -284,7 +284,7 @@ void anu_print_report (anu_config *config,
     printf("\nFound %zu unique files:\n", unique_count);
     for (usize i = 0; i < unique_count; i++) {
       usize file_id = kv_A(report->unique, i);
-      print_file_item(config, files, results[file_id], hashes, timestamps, file_id, NULL);
+      print_file_item(config, files, results[file_id], entries, file_id, NULL);
     }
   }
 
@@ -293,15 +293,14 @@ void anu_print_report (anu_config *config,
     usize file_id = kv_A(report->skipped, i);
     /* const anu_file *file = &files->items[file_id]; */
     i32 status = results[file_id];
-    print_file_item(config, files, status, NULL, NULL, file_id, "  ");
+    print_file_item(config, files, status, NULL, file_id, "  ");
     printf("        -> Reason: %s\n", get_skip_reason_string(status));
   }
 }
 
 anu_report anu_generate_report (anu_file_vec *files,
                                 i32 *results,
-                                u64 *hashes,
-                                u64 *timestamps,
+                                hash_entry *entries,
                                 anu_config *config,
                                 bk_node *tree) {
 
@@ -342,7 +341,7 @@ anu_report anu_generate_report (anu_file_vec *files,
       /* Reset segments_result vector to 0 */
       segment_results.size = 0;
 
-      u64 current_hash = hashes[((i * segment_count) + seg)];
+      u64 current_hash = entries[((i * segment_count) + seg)].hash;
       /* Search for matches for this hash */
       bk_tree_search(tree, current_hash, config->threshold, &segment_results);
 

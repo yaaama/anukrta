@@ -757,14 +757,11 @@ end:
   return ret;
 }
 
-enum ANU_STATUS anu_video_hash (anu_file *file,
-                                anu_config *config,
-                                uint64_t *hashes_out,
-                                uint64_t *frame_timestamps_out) {
+enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *entries_out) {
 
   assert(config->segments > 0);
   assert(file);
-  assert(hashes_out);
+  assert(entries_out);
 
   anu_vreader vreader __free(vreader_close) = {0};
 
@@ -871,15 +868,15 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     /* After seeking to the necessary timestamp, we want to retrieve the frame */
     errcode = video_reader_get_frame(&vreader);
     if (errcode != ANU_OK) {
-      log_error("[%s] Could not decode frame for pts target `%ld`: `%s`", fname, seek_target_sb,
+      log_error("[%s] Could not decode frame for pts target `%ld`: `%s`", fname, seek_target_us,
                 av_err2str(errcode));
       goto failure;
     }
 
     log_info(
-        "[%s] Segment [%zu/%zu] -> Decoded Frame (PTS='%ld' us='%ld' "
+        "[%s] Segment [%zu/%zu] -> Decoded Frame (PTS='%ld' microseconds"
         "s='%.1f') ",
-        fname, (i + 1), config->segments, pts_streambase, pts_microseconds, pts_seconds);
+        fname, (i + 1), config->segments, pts_microseconds, pts_seconds);
 
     /* Keep track of frame PTS so we can seek to a higher one next iteration */
     last_pts = pts_streambase;
@@ -927,9 +924,9 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
     /*
      * If everything was SUCCESSFUL
      */
-    hashes_out[i] = hash_decoded_frame(matrix, config->hash_algorithm);
-    frame_timestamps_out[i] = (u64) pts_streambase;
-    log_info("[%s] Frame '%ld' => %lX", fname, pts_streambase, hashes_out[i]);
+    entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
+    entries_out[i].timestamp = (u64) pts_microseconds;
+    log_info("[%s] Frame '%ld' => %lX", fname, pts_microseconds, entries_out[i].hash);
     ++frames_decoded;
 
     /* NOTE: Continue before we fall into the failure label */
@@ -941,8 +938,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file,
      */
   failure:
     {
-      hashes_out[i] = 0;
-      frame_timestamps_out[i] = 0;
+      entries_out[i].hash = 0;
+      entries_out[i].timestamp = 0;
       log_warn("%s (%zu/%zu) could not be hashed.", fname, (i + 1), config->segments);
     }
   }
