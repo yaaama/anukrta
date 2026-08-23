@@ -728,6 +728,13 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 #define STRV_FOREACH(s, l) _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
 /* NOLINTEND */
 
+#define SWAP_TWO(x, y)  \
+  do {                  \
+    typeof(x) _t = (x); \
+    (x) = (y);          \
+    (y) = (_t);         \
+  } while (false)
+
 /**
  * @name Time conversion utilities
  * Useful constants and inline functions to convert between different time bases.

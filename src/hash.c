@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+
+#include "util.h"
 
 /** Size of row/col len of DCT hash */
 #define ANU_PHASH_DCT_SIZE 8
@@ -33,7 +36,7 @@
 
 /**
  * Number of coefficients storing image detail
- * (1 of the values is the brightness aka the DC coefficient)
+ * (Index [0] is the brightness of the value so we exclude it from our coefficient count)
  */
 #define DCT_AC_COEFFICIENT_COUNT (DCT_DIGEST_LEN - 1)
 
@@ -80,10 +83,42 @@ static const int32_t DCT_WEIGHTS_INT[256] = {
   /* clang-format on */
 };
 
-uint64_t dct_hash (const uint8_t *restrict input_pixels) {
+static ALWAYS_INLINE int64_t quickselect_median (int64_t *arr, int n) {
+  int l = 0;
+  int m = n - 1;
+  int k = n / 2;
+  while (l < m) {
+    int64_t x = arr[k];
+    int i = l;
+    int j = m;
+    do {
+      while (arr[i] < x) {
+        i++;
+      }
+      while (x < arr[j]) {
+        j--;
+      }
+      if (i <= j) {
+        SWAP_TWO(arr[i], arr[j]);
+        i++;
+        j--;
+      }
+    } while (i <= j);
+    if (j < k) {
+      l = i;
+    }
+    if (k < i) {
+      m = j;
+    }
+  }
+  return arr[k];
+}
+
+uint64_t _pure_ HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
 
   int32_t row_result[DCT_INTERMEDIATE_BUF_LEN];
   int64_t dct_result[DCT_DIGEST_LEN];
+  int64_t ac_coeffs[DCT_DIGEST_LEN - 1];
 
   /* Pass 1: 1D DCT on Rows */
 
@@ -124,22 +159,19 @@ uint64_t dct_hash (const uint8_t *restrict input_pixels) {
     }
   }
 
-  /* Sum up the pixels to calculate the average (excluding DC coefficient at index 0) */
-  int64_t sum_pixels = 0;
-  for (int i = 1; i < DCT_DIGEST_LEN; i++) {
-    sum_pixels += dct_result[i];
-  }
+  static_assert((DCT_DIGEST_LEN - 1) % 2 == 1, "Count of coefficients should be odd");
 
-  int64_t round_adj = (sum_pixels >= 0) ? DCT_AC_COEFFICIENT_HALF_DENOM : -DCT_AC_COEFFICIENT_HALF_DENOM;
-  int64_t mean = (sum_pixels + round_adj) / DCT_AC_COEFFICIENT_COUNT;
+  memcpy(ac_coeffs, &dct_result[1], ANU_ARRAY_SIZE(ac_coeffs));
 
+  int64_t median = quickselect_median(ac_coeffs, DCT_DIGEST_LEN - 1);
   /* Calculate threshold.
    * With 15-bit weights, total scale is 2^30.
    * Float epsilon 0.001 * 2^30 = 1073741. */
-  int64_t threshold = mean + DCT_INT_EPISILON;
+  const int64_t threshold = median + DCT_INT_EPISILON;
 
   /* Build the 64-bit hash */
   uint64_t final_hash = 0;
+
   for (int i = 1; i < DCT_DIGEST_LEN; i++) {
     final_hash = (final_hash << 1) | (dct_result[i] > threshold);
   }
