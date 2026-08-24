@@ -591,67 +591,56 @@ static int scale_frame (anu_vreader *vr,
  * @retval Anything else is an unknown error.
  */
 static int video_reader_get_frame (anu_vreader *vreader) {
-  int ret = 0;
+  int ret;
   AVCodecContext *codec_ctx = vreader->codec_ctx;
 
-  /*
-   * Loop to get frame
-   */
   for (;;) {
-
-    /* Try to receive a frame first */
+    /* Try to grab a decoded frame first */
     ret = avcodec_receive_frame(codec_ctx, vreader->frame);
 
-    /* Successfully received a frame */
-    if (ret == ANU_OK) {
+    if (ret >= 0) {
+      /* Success: We have a frame */
       return ANU_OK;
-
-      /* We reached end of file */
     }
-    if (ret == AVERROR(EOF)) {
+    if (ret == AVERROR_EOF) {
+      /* EOF reached */
       return ret;
-      /* Some decoding error */
     }
     if (ret != AVERROR(EAGAIN)) {
+      /* Fatal decoding error */
       log_error("%s Error receiving frame: %s", vreader->fmt_ctx->url, av_err2str(ret));
       return ret;
     }
 
-    /* Error must be EAGAIN so we need to feed the decoder more packets: */
-    for (;;) {
-      ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
-
-      if (ret == AVERROR_EOF) {
-        /* EOF reached. Send a NULL packet to tell the decoder to flush remaining frames */
-        avcodec_send_packet(codec_ctx, NULL);
-        /* Break inner loop to try receive flushed frames */
-        break;
-      }
-      if (ret < 0) {
-        log_error("%s Error reading packet: %s", vreader->fmt_ctx->url, av_err2str(ret));
-        return ret;
-      }
-
-      /* If it's not a video packet, ignore it and keep reading */
-      if (vreader->packet->stream_index != vreader->video_stream_idx) {
-        av_packet_unref(vreader->packet);
-        continue;
-      }
-
-      /* Send the video packet to the decoder */
-      /* Because we waited for EAGAIN on receive, send_packet will NOT return EAGAIN again */
-      ret = avcodec_send_packet(codec_ctx, vreader->packet);
-
-      av_packet_unref(vreader->packet);
-
-      if (ret < 0) {
-        log_error("%s Decoding error: %s", vreader->fmt_ctx->url, av_err2str(ret));
-        return ret;
-      }
-
-      /* We've fed the decoder. Break inner loop to try receiving a frame again from the start. */
-      break;
+    /* EAGAIN means the decoder needs more data. Read a packet. */
+    ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
+    if (ret == AVERROR_EOF) {
+      /* Flush the decoder and loop back to receive the remaining frames */
+      avcodec_send_packet(codec_ctx, NULL);
+      continue;
     }
+
+    if (ret < 0) {
+      log_error("%s Error reading packet: %s", vreader->fmt_ctx->url, av_err2str(ret));
+      return ret;
+    }
+
+    /* If it's not our video stream, discard and read the next one */
+    if (vreader->packet->stream_index != vreader->video_stream_idx) {
+      av_packet_unref(vreader->packet);
+      continue;
+    }
+
+    /* Send the correct video packet to the decoder */
+    ret = avcodec_send_packet(codec_ctx, vreader->packet);
+    av_packet_unref(vreader->packet);
+
+    if (ret < 0) {
+      log_error("%s Decoding error: %s", vreader->fmt_ctx->url, av_err2str(ret));
+      return ret;
+    }
+
+    /* Loop back to step 1 to receive the frame we just pushed data for */
   }
 }
 
