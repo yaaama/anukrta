@@ -79,6 +79,10 @@ _unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (int64_t pts, A
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / ANU_TIME_ONE_SEC_IN_US);
 }
 
+static inline int64_t get_frame_pts (const AVFrame *frame) {
+  return (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;
+}
+
 /**
  * @brief Open video and initialise video struct.
  *
@@ -295,10 +299,7 @@ static int vreader_seek_and_read_to_target (anu_vreader *vreader, int64_t target
       return ret; /* EOF or decoding error */
     }
 
-    int64_t current_pts = vreader->frame->pts;
-    if (current_pts == AV_NOPTS_VALUE) {
-      current_pts = vreader->frame->best_effort_timestamp;
-    }
+    int64_t current_pts = get_frame_pts(vreader->frame);
 
     /* Check if we reach desired target pts OR
        we reach a frame higher than minimum pts */
@@ -757,6 +758,11 @@ end:
   return ret;
 }
 
+static inline void mark_segment_failed (hash_entry *entries, size_t index) {
+  entries[index].hash = 0;
+  entries[index].timestamp = 0;
+}
+
 enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *entries_out) {
 
   assert(config->segments > 0);
@@ -777,7 +783,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    log_info("[%s] SKIPPING (video duration = 0)", fname);
+    log_info("!!!SKIPPING!!! [%s] (video duration = 0)", fname);
     return ANU_SKIPPED_SHORT_DURATION;
   }
 
@@ -827,6 +833,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
              rotation, rotation_normalised);
     filtered_frame = av_frame_alloc();
   }
+  bool detect_bars = ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS);
 
   /*
    * Main Loop
@@ -848,11 +855,11 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     if (errcode != ANU_OK) {
       log_error("[%s] Could not seek to segment `%zu` (PTS `%ld`): %s", fname, i, seek_target_sb,
                 av_err2str(errcode));
-      goto failure;
+      mark_segment_failed(entries_out, i);
+      continue;
     }
 
-    int64_t pts_streambase =
-        (vreader.frame->pts != AV_NOPTS_VALUE) ? vreader.frame->pts : vreader.frame->best_effort_timestamp;
+    int64_t pts_streambase = get_frame_pts(vreader.frame);
     int64_t pts_microseconds = pts_to_useconds(pts_streambase, stream_timebase);
 
     if (pts_microseconds < 0) {
@@ -865,19 +872,6 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
     double pts_seconds = anu_time_microseconds_to_seconds((size_t) pts_microseconds);
 
-    /* After seeking to the necessary timestamp, we want to retrieve the frame */
-    errcode = video_reader_get_frame(&vreader);
-    if (errcode != ANU_OK) {
-      log_error("[%s] Could not decode frame for pts target `%ld`: `%s`", fname, seek_target_us,
-                av_err2str(errcode));
-      goto failure;
-    }
-
-    log_info(
-        "[%s] Segment [%zu/%zu] -> Decoded Frame (PTS='%ld' microseconds"
-        "s='%.1f') ",
-        fname, (i + 1), config->segments, pts_microseconds, pts_seconds);
-
     /* Keep track of frame PTS so we can seek to a higher one next iteration */
     last_pts = pts_streambase;
 
@@ -889,7 +883,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
         int ret = init_rotation_filter_graph(&fctx, vreader.frame, stream_timebase, rotation_normalised);
         if (ret < 0) {
           log_error("[%s] Failed to init filter graph: %s", fname, av_err2str(ret));
-          goto failure;
+          mark_segment_failed(entries_out, i);
+          continue;
         }
         fctx.init = 1;
       }
@@ -897,13 +892,15 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
       /* Add frame to filter */
       errcode = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame, AV_BUFFERSRC_FLAG_KEEP_REF);
       if (errcode < 0) {
-        goto failure;
+        mark_segment_failed(entries_out, i);
+        continue;
       }
 
       /* Retrieve filtered frame */
       errcode = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame);
       if (errcode < 0) {
-        goto failure;
+        mark_segment_failed(entries_out, i);
+        continue;
       }
 
       /* Swap original frame out with the new filtered one. */
@@ -912,13 +909,12 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     }
 
     /* Scale down frame to 32x32 and check for black bars */
-    errcode = scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE,
-                          ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS));
+    errcode = scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE, detect_bars);
     if (errcode != ANU_OK) {
-      log_error("[%s] Failed to scale frame: `%s`", fname,
+      log_error("[%s] Failed to scale frame (%.2f s): `%s`", fname, pts_seconds,
                 (errcode == ANU_FRAME_BLACK) ? "Frame was found to be too dark." : av_err2str(errcode));
-
-      goto failure;
+      mark_segment_failed(entries_out, i);
+      continue;
     }
 
     /*
@@ -928,20 +924,6 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     entries_out[i].timestamp = (u64) pts_microseconds;
     log_info("[%s] Frame '%ld' => %lX", fname, pts_microseconds, entries_out[i].hash);
     ++frames_decoded;
-
-    /* NOTE: Continue before we fall into the failure label */
-    continue;
-
-    /*
-     * Jump here when an error occurs and we want to skip over this particular hash.
-     * We assign 0's in order to indicate an error has occured and that a hash was not produced.
-     */
-  failure:
-    {
-      entries_out[i].hash = 0;
-      entries_out[i].timestamp = 0;
-      log_warn("%s (%zu/%zu) could not be hashed.", fname, (i + 1), config->segments);
-    }
   }
 
   if (filtered_frame) {
