@@ -71,12 +71,8 @@ typedef enum report_flags : uint32_t {
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anu_config {
-  /** Array of file/directory paths to process. */
-  char **paths;
   /** Video length shorter than this will be skipped (seconds) */
   usize skip_duration;
-  /** Number of paths we parsed from cli args. */
-  usize paths_count;
   /** Similarity threshold (0 to 64) with 64 being completely different. */
   usize threshold;
   /** Number of segments to hash from a video. */
@@ -98,6 +94,7 @@ typedef struct anu_config {
   /** Strategy for determining the 'best' file out of a group of duplicates.
    * @see `best_file_strat`. */
   best_file_strat best_file_strategy;
+  byte padding[4];
 } anu_config;
 
 static ALWAYS_INLINE _const_ anu_config anukrta_default_config (void) {

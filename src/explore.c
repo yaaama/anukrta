@@ -412,7 +412,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
  *
  * @todo Add a check for hard linked files (files with same inode number)
  */
-void anu_explore_scan_directories (anu_config *config, anu_file_vec *files) {
+void anu_explore_scan_directories (anu_config *config, anu_paths *paths, anu_file_vec *files) {
 
   /* Check if we need to scan current directory */
   if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR)) {
@@ -431,19 +431,19 @@ void anu_explore_scan_directories (anu_config *config, anu_file_vec *files) {
   }
 
   /* If we're not scanning current dir, then paths_count should be non zero */
-  assert(config->paths_count > 0);
+  assert(kv_size(*paths));
 
   /* Array to hold resolved absolute paths */
   path_vec real_paths __free(path_vec) = {0};
   kv_init(real_paths);
 
   /* Resolve all paths before the path cleanup */
-  for (size_t i = 0; i < config->paths_count; i++) {
-    char *resolved = realpath(config->paths[i], NULL);
+  for (size_t i = 0; i < paths->size; i++) {
+    char *resolved = realpath(kv_A(*paths, i), NULL);
     if (resolved != NULL) {
       kv_push(real_paths, resolved);
     } else {
-      log_warn("Could not resolve path '%s'", config->paths[i]);
+      log_warn("Could not resolve path '%s'", kv_A(*paths, i));
     }
   }
 

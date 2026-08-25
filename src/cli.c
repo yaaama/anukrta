@@ -14,6 +14,8 @@
 
 #include "config.h"
 #include "defs.h"
+#include "explore.h"
+#include "kvec.h"
 #include "util.h"
 
 #define CLI_NAME "anukrta"
@@ -297,7 +299,7 @@ static inline int handle_bool_flag (flags32 *flag_var,
   return 0;
 }
 
-int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
+int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths *paths_out) {
 
   const char *program_name = CLI_NAME;
 
@@ -548,23 +550,22 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv) {
     ANU_SET_VERBOSITY(config->runtime_flags, verbosity_level);
   }
 
-  /* Process remaining positional arguments */
+  /* Process remaining positional arguments
+   * We assume positional arguments are paths
+   */
 
   int positional_arg_count = argc - optind;
   if (positional_arg_count > 0) {
     printf("\n--- Input Directories (%d) ---\n", positional_arg_count);
-
-    config->paths_count = (size_t) positional_arg_count;
-    config->paths = argv + optind;
+    kv_init(*paths_out);
 
     for (int i = optind; i < argc; i++) {
+      kv_push(*paths_out, argv[i]);
       printf("%s\n", argv[i]);
     }
 
   } else {
     ANU_SET_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR);
-    config->paths_count = 1;
-    config->paths = NULL;
   }
 
   /* If thread is not explicitly stated, then assign default value (use all available threads) */

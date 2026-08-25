@@ -186,7 +186,7 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
  *
  * @return
  */
-static int anukrta_driver (anu_config *config) {
+static int anukrta_driver (anu_config *config, anu_paths *paths) {
 
   assert(config->segments > 0);
 
@@ -195,7 +195,7 @@ static int anukrta_driver (anu_config *config) {
   kv_ensure_space(files, 64); /* start off with 64 elements */
 
   /* Scan path(s) and store in files queue */
-  anu_explore_scan_directories(config, &files);
+  anu_explore_scan_directories(config, paths, &files);
 
   /* Exit early if we do not find any files */
   const usize file_count = kv_size(files);
@@ -350,8 +350,9 @@ int main (int argc, char *argv[]) {
   /* Retrieve default configuration */
   anu_config config = anukrta_default_config();
 
+  anu_paths paths __free(anu_paths) = KV_INITIAL_VALUE;
   /* Return code after parsing CLI options */
-  int parsing_return = anu_cli_parse_options(&config, argc, argv);
+  int parsing_return = anu_cli_parse_options(&config, argc, argv, &paths);
 
   /* Exit if non zero return value OR
    * if config has exit_early flag set */
@@ -370,10 +371,9 @@ int main (int argc, char *argv[]) {
   anukrta_setup_logging(logging_level, &log_mutex);
 
   /* Start of program */
-
   log_info("%s now running...", argv[0]);
 
-  int driver_ret = anukrta_driver(&config);
+  int driver_ret = anukrta_driver(&config, &paths);
   pthread_mutex_destroy(&log_mutex);
   return driver_ret;
 }

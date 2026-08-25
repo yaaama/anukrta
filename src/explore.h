@@ -85,7 +85,17 @@ static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
 /* Define auto cleanup function */
 DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
 
-void anu_explore_scan_directories(anu_config *config, anu_file_vec *files_out) _nonnull_all_;
+/**
+ * @brief Vector type of paths.
+ */
+typedef kvec_t(char *) anu_paths;
+
+/** Autocleanup for anu_paths */
+DEFINE_FREE(anu_paths, anu_paths, kv_destroy(_T))
+
+void anu_explore_scan_directories(anu_config *config,
+                                  anu_paths *paths,
+                                  anu_file_vec *files_out) _nonnull_all_;
 
 int anu_explore_recursive_filewalk(char *path, anu_file_vec *files_out) _nonnull_all_;
 
