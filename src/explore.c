@@ -22,16 +22,14 @@
 #include "log.h"
 #include "util.h"
 
-typedef kvec_t(char *) path_vec;
-
 /* Wrapper to clean up a kvec containing allocated paths */
-static inline void cleanup_path_vec (path_vec *v) {
+static inline void cleanup_alloced_paths (anu_paths *v) {
   for (size_t i = 0; i < kv_size(*v); i++) {
     free(kv_A(*v, i));
   }
   kv_destroy(*v);
 }
-DEFINE_FREE(path_vec, path_vec, cleanup_path_vec(&_T))
+DEFINE_FREE(anu_paths_alloc, anu_paths, cleanup_alloced_paths(&_T))
 
 /**
  * @brief Compare strings lexicographically.
@@ -280,7 +278,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
   }
 
   /* Stack to hold directories */
-  path_vec dirstack __free(path_vec) = {0};
+  anu_paths dirstack;
   kv_init(dirstack);
   /* Initialise with the path received */
   kv_push(dirstack, strdup(path));
@@ -415,36 +413,39 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
 void anu_explore_scan_directories (anu_config *config, anu_paths *paths, anu_file_vec *files) {
 
   /* Check if we need to scan current directory */
-  if (ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR)) {
-
+  bool scan_curr_dir_only = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR);
+  if (scan_curr_dir_only) {
     char *resolved __free(ptr) = NULL;
     resolved = realpath(".", NULL);
-    if (!resolved) {
-      ANU_DIE("Could not resolve current path.");
+    if (UNLIKELY(!resolved)) {
+      ANU_DIE("Could not resolve current path???");
     }
-
-    log_info("Scanning current directory (%s)", resolved);
+    log_info("Scanning current directory: '%s'", resolved);
     if (anu_explore_recursive_filewalk(resolved, files)) {
       log_warn("Error searching for files in current directory.");
     }
     return;
   }
 
-  /* If we're not scanning current dir, then paths_count should be non zero */
+  /* If we're not scanning current dir, then paths_count should be NON-ZERO */
   assert(kv_size(*paths));
 
-  /* Array to hold resolved absolute paths */
-  path_vec real_paths __free(path_vec) = {0};
+  /* Array to hold resolved paths */
+  anu_paths real_paths __free(anu_paths_alloc);
   kv_init(real_paths);
 
   /* Resolve all paths before the path cleanup */
   for (size_t i = 0; i < paths->size; i++) {
+    char *path = kv_A(*paths, i);
     char *resolved = realpath(kv_A(*paths, i), NULL);
-    if (resolved != NULL) {
-      kv_push(real_paths, resolved);
-    } else {
-      log_warn("Could not resolve path '%s'", kv_A(*paths, i));
+
+    if (!resolved) {
+      log_warn("Could not resolve path '%s'", path);
+      continue;
     }
+
+    /* Path successfully resolved */
+    kv_push(real_paths, resolved);
   }
 
   size_t valid_paths = kv_size(real_paths);
@@ -454,7 +455,16 @@ void anu_explore_scan_directories (anu_config *config, anu_paths *paths, anu_fil
     return;
   }
 
-  /* Deduplicate Paths */
+  /* Deduplicate Paths:
+   * 1) First sort paths lexicographically
+   * So "/a/b" will index before "/a/b/c"
+   * NOTE: The first path in the vector will always be unique.
+   *
+   * 2) Then we check if path A is a substring of path B
+   * If A is indeed a substring of B, then B is a subdirectory of A.
+   * NOTE: All directories are subdirectories of `/` (root), so we handle that
+   * case specially.
+   */
 
   /* Sort paths lexicographically:
    * So "/a/b" will be sorted before "/a/b/c" */
