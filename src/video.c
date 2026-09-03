@@ -594,7 +594,7 @@ static int scale_frame (anu_vreader *vr,
 
   /* Initialize the Scaler, converting pixel fmt from `src_format` to AV_PIX_FMT_GRAY8 (grayscale) */
   vr->sws_ctx = sws_getCachedContext(vr->sws_ctx, src->width, src->height, src_format, matrix_size,
-                                     matrix_size, AV_PIX_FMT_GRAY8, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+                                     matrix_size, AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("%s: Failed to create scaling context.", fname);
