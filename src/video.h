@@ -30,9 +30,9 @@ typedef struct anu_vreader {
   AVPacket *packet;
   /* Decoded packet */
   AVFrame *frame;
+  char *fname;
   /* Index of video stream inside container */
   int video_stream_idx;
-  byte padding[4];
 } anu_vreader;
 
 enum ANU_STATUS anu_video_hash(anu_file *file, anu_config *config, hash_entry *entries_out);
