@@ -45,6 +45,10 @@ typedef struct cropping {
 
 static int video_reader_get_frame(anu_vreader *vreader);
 
+static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *vreader) {
+  return vreader->fmt_ctx->streams[vreader->video_stream_idx];
+}
+
 /**
  * Normalise an angle in degrees to one between 0 and 360.
  *
@@ -56,7 +60,7 @@ static inline int normalise_angle_360 (int angle) { return (((angle % 360) + 360
 
 static inline int get_video_stream_rotation (anu_vreader *vr) {
   /* Search the side data array inside the codec parameters */
-  AVStream *stream = vr->fmt_ctx->streams[vr->video_stream_idx];
+  AVStream *stream = vreader_video_stream(vr);
   const AVPacketSideData *sd = av_packet_side_data_get(
       stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
 
@@ -157,7 +161,7 @@ static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
 
   AVCodecParameters *codec_params = NULL;
   /* Get codec parameters */
-  codec_params = vreader->fmt_ctx->streams[vreader->video_stream_idx]->codecpar;
+  codec_params = vreader_video_stream(vreader)->codecpar;
 
   /* Init Codec Context */
   vreader->codec_ctx = avcodec_alloc_context3(codec);
@@ -208,10 +212,6 @@ static void vreader_close (anu_vreader *vreader) {
 }
 
 DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
-
-static ALWAYS_INLINE _nonnull_all_ AVStream *vreader_video_stream (anu_vreader *vreader) {
-  return vreader->fmt_ctx->streams[vreader->video_stream_idx];
-}
 
 /**
  * @brief Get duration of video.
