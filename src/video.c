@@ -15,10 +15,8 @@
 #include <libavutil/display.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
-#include <libavutil/imgutils.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/mem.h>
-#include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 #include <libswscale/swscale.h>
@@ -526,22 +524,41 @@ static int scale_frame (anu_vreader *vr,
   AVFrame *src = vr->frame;
   char *fname = vr->fname;
 
-  cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
-
   if (crop_black) {
+    cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
+
     /* 24 is a safe threshold for limited-range YUV "black" */
-    bool workable_frame = detect_black_borders(src, 24, &crop);
-    /* If returning false, then we have a fully black frame */
-    if (!workable_frame) {
+    if (!detect_black_borders(src, 24, &crop)) {
+      /* If returning false, then we have a fully black frame */
       log_warn("%s: Frame is completely black.", fname);
       return ANU_FRAME_BLACK;
     }
 
-    /* Quantise the cropping to EVEN numbers only */
-    crop.x &= ~1;
-    crop.y &= ~1;
-    crop.w &= ~1;
-    crop.h &= ~1;
+    /* Calculate frame bounds */
+    const int c_left = crop.x;
+    const int c_top = crop.y;
+    const int c_right = (src->width - crop.w - crop.x);
+    const int c_bottom = (src->height - crop.h - crop.y);
+
+    /* Did the cropping actually change the frame size? */
+    if (c_left || c_top || c_right || c_bottom) {
+      log_info("[%s] Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", fname,
+               pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
+               src->height, crop.x, crop.w, crop.y, crop.h);
+    }
+
+    /* Convert x, y, w, h to FFmpeg's left, top, right, bottom expectations */
+    src->crop_left = (size_t) c_left;
+    src->crop_top = (size_t) c_top;
+    src->crop_right = (size_t) c_right;
+    src->crop_bottom = (size_t) c_bottom;
+
+    int ret = av_frame_apply_cropping(src, 0);
+
+    if (ret < 0) {
+      log_error("%s: Failed to apply cropping: %s", fname, av_err2str(ret));
+      return ANU_LIBAV_FAIL;
+    }
   }
 
   enum AVPixelFormat src_format = src->format;
@@ -554,19 +571,19 @@ static int scale_frame (anu_vreader *vr,
   switch (src->format) {
     case AV_PIX_FMT_YUVJ420P:
       src_format = AV_PIX_FMT_YUV420P;
-      src_range = AVCOL_RANGE_JPEG;
+      src_range = 1;
       break;
     case AV_PIX_FMT_YUVJ422P:
       src_format = AV_PIX_FMT_YUV422P;
-      src_range = AVCOL_RANGE_JPEG;
+      src_range = 1;
       break;
     case AV_PIX_FMT_YUVJ444P:
       src_format = AV_PIX_FMT_YUV444P;
-      src_range = AVCOL_RANGE_JPEG;
+      src_range = 1;
       break;
     case AV_PIX_FMT_YUVJ440P:
       src_format = AV_PIX_FMT_YUV440P;
-      src_range = AVCOL_RANGE_JPEG;
+      src_range = 1;
       break;
     default:
       break;
@@ -576,8 +593,8 @@ static int scale_frame (anu_vreader *vr,
   struct SwsContext *prev_ctx = vr->sws_ctx;
 
   /* Initialize the Scaler, converting pixel fmt from `src_format` to AV_PIX_FMT_GRAY8 (grayscale) */
-  vr->sws_ctx = sws_getCachedContext(vr->sws_ctx, crop.w, crop.h, src_format, matrix_size, matrix_size,
-                                     AV_PIX_FMT_GRAY8, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+  vr->sws_ctx = sws_getCachedContext(vr->sws_ctx, src->width, src->height, src_format, matrix_size,
+                                     matrix_size, AV_PIX_FMT_GRAY8, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("%s: Failed to create scaling context.", fname);
@@ -585,48 +602,17 @@ static int scale_frame (anu_vreader *vr,
   }
 
   /* Normalise colourspaces IF sws_ctx is not the same as the previous context */
-  if (prev_ctx != vr->sws_ctx) {
-    if (normalise_sws_colourspace(vr->sws_ctx, src_range)) {
-      log_error("%s: Colourspace normalisation failed.", fname);
-      return ANU_LIBAV_FAIL;
-    }
-  }
-
-  const AVPixFmtDescriptor *pixelfmt_desc = av_pix_fmt_desc_get(src_format);
-
-  if (!pixelfmt_desc) {
-    log_error("%s: No pixel format description found.", fname);
+  if (prev_ctx != vr->sws_ctx && normalise_sws_colourspace(vr->sws_ctx, src_range)) {
+    log_error("%s: Colourspace normalisation failed.", fname);
     return ANU_LIBAV_FAIL;
-  }
-
-  /* Fetch vertical shift from pixel format */
-  int v_shift = pixelfmt_desc->log2_chroma_h;
-
-  const uint8_t *src_slices[4] = {0};
-  int src_linesizes[4] = {0};
-
-  int x_byte_offsets[4] = {0};
-  int ret = av_image_fill_linesizes(x_byte_offsets, src_format, crop.x);
-  if (ret < 0) {
-    log_error("%s: Failed to calculate cropping offsets: %s", fname, av_err2str(ret));
-    return ANU_LIBAV_FAIL;
-  }
-
-  /* Advance pointers for all available planes based on cropping */
-  for (int i = 0; (i < 4 && src->data[i]); i++) {
-    /* Chroma planes (usually 1 and 2) need to be shifted depending on subsampling */
-    int y_shift = (i == 1 || i == 2) ? v_shift : 0;
-
-    src_slices[i] = src->data[i] + ((ptrdiff_t) (crop.y >> y_shift) * src->linesize[i]) + x_byte_offsets[i];
-
-    src_linesizes[i] = src->linesize[i];
   }
 
   /* Setup destination pointers to write DIRECTLY into flat matrix */
   uint8_t *dst_slices[4] = {matrix, NULL, NULL, NULL};
   int dst_linesizes[4] = {matrix_size, 0, 0, 0};
 
-  int scaling_ret = sws_scale(vr->sws_ctx, src_slices, src_linesizes, 0, crop.h, dst_slices, dst_linesizes);
+  int scaling_ret = sws_scale(vr->sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0,
+                              src->height, dst_slices, dst_linesizes);
 
   if (scaling_ret <= 0) {
     log_error("%s: Scaling FAILED: `%s`", fname, av_err2str(scaling_ret));
