@@ -22,12 +22,11 @@
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 #include <libswscale/swscale.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "config.h"
 #include "defs.h"
@@ -86,10 +85,10 @@ static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
  * @param pts PTS value.
  * @param timebase Timebase that PTS is currently using.
  *
- * @return PTS value in microseconds (useconds).
+ * @return PTS value in microseconds (useconds) or AV_NOPTS_VALUE if pts is invalid.
  */
 static ALWAYS_INLINE _const_ int64_t pts_to_useconds (int64_t pts, AVRational timebase) {
-  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+  return (pts == AV_NOPTS_VALUE) ? AV_NOPTS_VALUE : av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
 /**
@@ -98,11 +97,10 @@ static ALWAYS_INLINE _const_ int64_t pts_to_useconds (int64_t pts, AVRational ti
  * @param pts PTS value.
  * @param timebase Timebase that PTS is currently using.
  *
- * @return PTS value in seconds.
+ * @return PTS value in seconds or AV_NOPTS_VALUE if pts is invalid.
  */
-_unused_ static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRational timebase) {
-  assert(pts >= 0);
-  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / ANU_TIME_ONE_SEC_IN_US);
+static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRational timebase) {
+  return (pts == AV_NOPTS_VALUE) ? AV_NOPTS_VALUE : (double) pts * av_q2d(timebase);
 }
 
 /**
@@ -113,7 +111,7 @@ _unused_ static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRati
  * @return The PTS in the streams timebase OR if pts is not available,
  * then the frames best effort timestamp (also in stream timebase).
  */
-static ALWAYS_INLINE int64_t get_frame_pts (const AVFrame *frame) {
+static ALWAYS_INLINE _pure_ int64_t get_frame_pts (const AVFrame *frame) {
   return (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;
 }
 
@@ -273,7 +271,7 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
  * @return Duration of video in microseconds.
  *
  */
-static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
+static ALWAYS_INLINE i64 vreader_get_duration (anu_vreader *vreader) {
 
   AVStream *vid_stream = vreader_video_stream(vreader);
 
@@ -289,12 +287,12 @@ static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
     log_debug(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
-        vreader->fname, anu_time_microseconds_to_seconds((size_t) duration));
-    return (size_t) duration;
+        vreader->fname, anu_time_microseconds_to_seconds(duration));
+    return duration;
   }
 
   /* If duration is larger than 0 then convert stream timebase duration to microseconds (AV_TIME_BASE) */
-  return duration > 0 ? (size_t) pts_to_useconds(duration, stream_timebase) : 0;
+  return duration > 0 ? pts_to_useconds(duration, stream_timebase) : 0;
 }
 
 /**
@@ -704,12 +702,22 @@ typedef struct filter_ctx {
   int init;
 } filter_ctx;
 
+/**
+ * Initialise a filter graph for rotational transformations.
+ *
+ * @param fctx Filter context to initialise.
+ * @param frame Frame to filter.
+ * @param time_base Stream timebase.
+ * @param rotation_normalised Normalised rotation, valid values: [90,180,270].
+ *
+ * @return ANU_OK on success, AV_ERROR on failure.
+ */
 static int init_rotation_filter_graph (filter_ctx *fctx,
                                        AVFrame *frame,
                                        AVRational time_base,
                                        int rotation_normalised) {
   char args[512];
-  int ret = 0;
+  int ret = ANU_OK;
 
   enum FILTER_FOR_ANGLE { _90_DEGREES = 0, _180_DEGREES = 1, _270_DEGREES = 2 };
 
@@ -800,16 +808,28 @@ end:
   return ret;
 }
 
-static inline void mark_segment_failed (hash_entry *entries, size_t index) {
+static ALWAYS_INLINE _nonnull_ (1) void mark_segment_failed(hash_entry *entries, ptrdiff_t index) {
   entries[index].hash = 0;
   entries[index].timestamp = 0;
 }
 
+/**
+ * Open file with libav and hash frames.
+ *
+ * @param file File to hash.
+ * @param config Runtime configuration.
+ * @param [out] entries_out Results from hashing are written here.
+ *
+ * @return ANU_STATUS
+ */
 enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *entries_out) {
 
-  assert(config->segments > 0);
   assert(file);
   assert(entries_out);
+
+  assert(config->segments > 0);
+  ANU_ASSUME(config->segments < INT_MAX);
+  int target_segments = (int) config->segments;
 
   anu_vreader vreader __free(vreader_close) = {0};
 
@@ -826,13 +846,13 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    log_info("[%s] !SKIPPING!: Video duration is zero (%zu)", vr_fname, file->duration_us);
+    log_info("[%s] SKIPPING: Video duration is zero (%zu)", vr_fname, file->duration_us);
     return ANU_SKIPPED_SHORT_DURATION;
   }
 
-  if (file->duration_us < config->segments) {
-    log_info("[%s] !SKIPPING!: Video duration (%zu us) too short for # of segments (%zu)", vr_fname,
-             file->duration_us, config->segments);
+  if (file->duration_us < target_segments) {
+    log_info("[%s] SKIPPING: Video duration (%zu s) too short for # of segments (%d)", vr_fname,
+             file->duration_us, target_segments);
     return ANU_SKIPPED_SHORT_DURATION;
   };
 
@@ -842,19 +862,19 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
   /* Check if file duration is longer than the skip threshold */
   if (file->duration_us <= (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
-    log_info("[%s] !SKIPPING!: Duration (%zu us) less than minimum threshold (%zu s)", vr_fname,
-             file->duration_us, config->skip_duration);
+    log_info("[%s] SKIPPING: Duration (%.1f s) less than minimum threshold (%zu s)", vr_fname,
+             anu_time_microseconds_to_seconds(file->duration_us), config->skip_duration);
 
     return ANU_SKIPPED_SHORT_DURATION;
   }
 
-  const size_t frame_step_us = (file->duration_us / config->segments);
+  const i64 frame_step_us = (file->duration_us / target_segments);
   /* Counter for # of frames successfully decoded */
   int frames_decoded = 0;
 
   /* Target timestamp in microseconds */
   int64_t seek_target_us = 0;
-  const size_t seek_target_us_jump = (frame_step_us / 2);
+  const i64 seek_target_us_jump = (frame_step_us / 2);
 
   uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
 
@@ -883,22 +903,22 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
   /*
    * Main Loop
    */
-  for (size_t i = 0; i < config->segments; i++) {
+  for (int i = 0; i < target_segments; i++) {
     /* Target to seek to in microseconds */
-    seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
+    seek_target_us = (int64_t) (((i64) i * frame_step_us) + seek_target_us_jump);
 
     /* Target timestamp in streams time base (tick) */
     int64_t seek_target_sb = av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
 
     int errcode = 0;
 
-    log_trace("[%s] Segment [%zu/%zu] -> Attempting seek to PTS '%ld' (%.1f s)", vr_fname, (i + 1),
-              config->segments, seek_target_sb, anu_time_microseconds_to_seconds((size_t) seek_target_us));
+    log_trace("[%s] Segment [%d/%d] -> Attempting seek to PTS '%ld' (%.1f s)", vr_fname, (i + 1),
+              target_segments, seek_target_sb, anu_time_microseconds_to_seconds(seek_target_us));
 
     /* Seek to timestamp */
     errcode = vreader_seek_and_read_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != ANU_OK) {
-      log_error("[%s] Could not seek to segment `%zu` (PTS `%ld`): %s", vr_fname, i, seek_target_sb,
+      log_error("[%s] Could not seek to segment `%d` (PTS `%ld`): %s", vr_fname, i, seek_target_sb,
                 av_err2str(errcode));
       mark_segment_failed(entries_out, i);
       continue;
@@ -915,7 +935,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
       pts_microseconds = 0;
     }
 
-    double pts_seconds = anu_time_microseconds_to_seconds((size_t) pts_microseconds);
+    double pts_seconds = anu_time_microseconds_to_seconds(pts_microseconds);
 
     /* Keep track of frame PTS so we can seek to a higher one next iteration */
     last_pts_streambase = pts_streambase;
@@ -967,7 +987,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
      */
     entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
     ANU_ASSUME(pts_microseconds >= 0);
-    entries_out[i].timestamp = (u64) pts_microseconds;
+    entries_out[i].timestamp = pts_microseconds;
     log_debug("[%s] Frame at '%.2f' s  produced hash '%lX'", vr_fname, pts_seconds, entries_out[i].hash);
     ++frames_decoded;
   }

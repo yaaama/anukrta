@@ -243,7 +243,7 @@ static int init_db__schema (anu_cache_ctx *ctx) {
  * @return 1 if valid cache exists, 0 if it needs to be hashed.
  *  Populates out_file_id if valid.
  */
-int cache_is_file_valid (anu_cache_ctx *ctx, anu_file *file, size_t *out_file_id, size_t *out_duration_us) {
+int cache_is_file_valid (anu_cache_ctx *ctx, anu_file *file, u64 *out_file_id, i64 *out_duration_us) {
 
   sqlite3_stmt *stmt_check_cache = ctx->stmt_check_cache;
   safe_bind_txt_static(stmt_check_cache, ":path", file->path);
@@ -255,7 +255,7 @@ int cache_is_file_valid (anu_cache_ctx *ctx, anu_file *file, size_t *out_file_id
 
   if (ret == SQLITE_ROW) {
     *out_file_id = (uint64_t) sqlite3_column_int64(stmt_check_cache, 0);
-    *out_duration_us = (uint64_t) sqlite3_column_int64(stmt_check_cache, 1);
+    *out_duration_us = sqlite3_column_int64(stmt_check_cache, 1);
     sqlite3_reset(stmt_check_cache);
     log_trace("Cache HIT: File '%s' is valid (ID: %zu, Duration: %zu us)", file->path, *out_file_id,
               *out_duration_us);
@@ -389,7 +389,7 @@ int cache_get_hashes (anu_cache_ctx *ctx,
                       uint64_t file_id,
                       size_t max_hashes,
                       hash_entry *entries_out,
-                      size_t *out_count) {
+                      u64 *out_count) {
   if (!ctx->stmt_get_hashes || !entries_out || !out_count) {
     return -1;
   }
@@ -397,14 +397,14 @@ int cache_get_hashes (anu_cache_ctx *ctx,
   sqlite3_stmt *stmt_get_hashes = ctx->stmt_get_hashes;
   safe_bind_i64(stmt_get_hashes, ":file_id", (sqlite3_int64) file_id);
 
-  size_t count = 0;
+  u64 count = 0;
   int ret;
 
   /* Increment strictly to accurately check if the DB has the EXACT segment amount we're asking for */
   while ((ret = sqlite3_step(stmt_get_hashes)) == SQLITE_ROW) {
     if (count < max_hashes) {
       entries_out[count].hash = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 0);
-      entries_out[count].timestamp = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 1);
+      entries_out[count].timestamp = sqlite3_column_int64(stmt_get_hashes, 1);
     }
     ++count;
   }

@@ -29,7 +29,7 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 
 typedef struct hash_entry {
   u64 hash;
-  u64 timestamp;
+  i64 timestamp;
 } hash_entry;
 
 typedef enum ANU_STATUS : int32_t {

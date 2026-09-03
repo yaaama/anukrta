@@ -152,8 +152,8 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
                                                    anu_file *file,
                                                    size_t file_idx,
                                                    hash_entry *hash_entries) {
-  uint64_t row_id = 0;
-  uint64_t duration = 0;
+  u64 row_id = 0;
+  i64 duration = 0;
 
   if (!cache_is_file_valid(db, file, &row_id, &duration)) {
     return false;
@@ -168,7 +168,7 @@ static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
     return false;
   }
 
-  file->duration_us = (size_t) duration;
+  file->duration_us = duration;
   return true;
 }
 

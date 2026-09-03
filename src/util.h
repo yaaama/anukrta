@@ -7,12 +7,12 @@
 #define ANU_UTIL_H
 
 #include <dirent.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #define TOSTRING(s) #s
@@ -741,12 +741,18 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 #define ANU_TIME_ONE_SEC_IN_US 1000000ULL
 
 /**
+ * @brief One second (s) in microseconds (us).
+ * This is useful as FFmpeg uses microseconds for their internal timebase.
+ */
+#define ANU_TIME_ONE_SEC_IN_US_FLOAT 1000000.0
+
+/**
  * @brief Converts microseconds to seconds.
  * @param microseconds The value in us.
  * @return The equivalent value in seconds.
  */
-static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (size_t microseconds) {
-  return (microseconds > 0) ? ((double) microseconds / ANU_TIME_ONE_SEC_IN_US) : 0;
+static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (int64_t microseconds) {
+  return (double) microseconds / ANU_TIME_ONE_SEC_IN_US_FLOAT;
 }
 
 /**
@@ -754,8 +760,8 @@ static ALWAYS_INLINE _const_ double anu_time_microseconds_to_seconds (size_t mic
  * @param seconds The value in decimal seconds.
  * @return The equivalent value in microseconds.
  */
-static ALWAYS_INLINE _const_ size_t anu_time_seconds_to_microseconds (double seconds) {
-  return (seconds > 0) ? (size_t) (seconds * (double) ANU_TIME_ONE_SEC_IN_US) : 0;
+static ALWAYS_INLINE _const_ int64_t anu_time_seconds_to_microseconds (double seconds) {
+  return (seconds <= 0.0) ? 0 : llrint(seconds * ANU_TIME_ONE_SEC_IN_US_FLOAT);
 }
 
 /** @} */  // END TIME

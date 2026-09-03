@@ -51,7 +51,7 @@ static ALWAYS_INLINE int cache_commit_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
 }
 
-int cache_is_file_valid(anu_cache_ctx *ctx, anu_file *file, size_t *out_file_id, size_t *out_duration_us);
+int cache_is_file_valid(anu_cache_ctx *ctx, anu_file *file, u64 *out_file_id, i64 *out_duration_us);
 
 int cache_upsert_file(anu_cache_ctx *ctx, anu_file *file, uint64_t time_of_hash, uint64_t *row_id_out);
 
@@ -61,7 +61,7 @@ int cache_get_hashes(anu_cache_ctx *ctx,
                      uint64_t file_id,
                      size_t max_hashes,
                      hash_entry *entries_out,
-                     size_t *out_count);
+                     u64 *out_count);
 
 void cache_sync_results_maybe(anu_cache_ctx *ctx,
                               anu_config *config,

@@ -28,10 +28,10 @@ typedef struct anu_file {
    * Size in bytes.
    * NOTE: Files can have a 0 size.
    */
-  size_t size;
+  u64 size;
 
   /** Duration of video file in microseconds. */
-  size_t duration_us;
+  i64 duration_us;
 
   /** File mode change time. */
   u64 ctime;
