@@ -45,8 +45,38 @@ typedef struct cropping {
 
 static int video_reader_get_frame(anu_vreader *vreader);
 
+static void vreader_close (anu_vreader *vreader) {
+  if (!vreader) {
+    return;
+  }
+  av_packet_free(&vreader->packet);
+  sws_freeContext(vreader->sws_ctx);
+  av_frame_free(&vreader->frame);
+  avcodec_free_context(&vreader->codec_ctx);
+  avformat_close_input(&vreader->fmt_ctx);
+}
+
+DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
+
 static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *vreader) {
   return vreader->fmt_ctx->streams[vreader->video_stream_idx];
+}
+
+static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
+  return vreader->fmt_ctx->url;
+}
+
+static ALWAYS_INLINE _pure_ int64_t pts_to_useconds (int64_t pts, AVRational timebase) {
+  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
+}
+
+_unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
+  assert(pts >= 0);
+  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / ANU_TIME_ONE_SEC_IN_US);
+}
+
+static inline int64_t get_frame_pts (const AVFrame *frame) {
+  return (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;
 }
 
 /**
@@ -72,19 +102,6 @@ static inline int get_video_stream_rotation (anu_vreader *vr) {
   int rotation = (int) av_display_rotation_get(display_matrix);
 
   return rotation;
-}
-
-static ALWAYS_INLINE _pure_ int64_t pts_to_useconds (int64_t pts, AVRational timebase) {
-  return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
-}
-
-_unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
-  assert(pts >= 0);
-  return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / ANU_TIME_ONE_SEC_IN_US);
-}
-
-static inline int64_t get_frame_pts (const AVFrame *frame) {
-  return (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;
 }
 
 /**
@@ -199,19 +216,6 @@ static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
 
   return ANU_OK;
 }
-
-static void vreader_close (anu_vreader *vreader) {
-  if (!vreader) {
-    return;
-  }
-  av_packet_free(&vreader->packet);
-  sws_freeContext(vreader->sws_ctx);
-  av_frame_free(&vreader->frame);
-  avcodec_free_context(&vreader->codec_ctx);
-  avformat_close_input(&vreader->fmt_ctx);
-}
-
-DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
 
 /**
  * @brief Get duration of video.
