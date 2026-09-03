@@ -58,37 +58,85 @@ static void vreader_close (anu_vreader *vreader) {
 
 DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
 
+/**
+ * Helper function to retreive video stream from an initialised vreader.
+ *
+ * @param vreader
+ *
+ * @return Pointer to video stream (AVStream).
+ */
 static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *vreader) {
   return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }
 
+/**
+ * Helper function to return the file URL from an initialised vreader.
+ *
+ * @param vreader
+ *
+ * @return The URL of the file as a char pointer.
+ */
 static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
   return vreader->fmt_ctx->url;
 }
 
-static ALWAYS_INLINE _pure_ int64_t pts_to_useconds (int64_t pts, AVRational timebase) {
+/**
+ * Convert a PTS from a specified timebase to microseconds.
+ *
+ * @param pts PTS value.
+ * @param timebase Timebase that PTS is currently using.
+ *
+ * @return PTS value in microseconds (useconds).
+ */
+static ALWAYS_INLINE _const_ int64_t pts_to_useconds (int64_t pts, AVRational timebase) {
   return av_rescale_q(pts, timebase, AV_TIME_BASE_Q);
 }
 
-_unused_ static ALWAYS_INLINE _pure_ double frame_pts_to_seconds (int64_t pts, AVRational timebase) {
+/**
+ * Convert a PTS from a specified timebase to seconds.
+ *
+ * @param pts PTS value.
+ * @param timebase Timebase that PTS is currently using.
+ *
+ * @return PTS value in seconds.
+ */
+_unused_ static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRational timebase) {
   assert(pts >= 0);
   return ((double) av_rescale_q(pts, timebase, AV_TIME_BASE_Q) / ANU_TIME_ONE_SEC_IN_US);
 }
 
-static inline int64_t get_frame_pts (const AVFrame *frame) {
+/**
+ * Helper to retrieve a sane PTS value from some frame.
+ *
+ * @param [in]frame Frame to retrieve PTS for.
+ *
+ * @return The PTS in the streams timebase OR if pts is not available,
+ * then the frames best effort timestamp (also in stream timebase).
+ */
+static ALWAYS_INLINE int64_t get_frame_pts (const AVFrame *frame) {
   return (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;
 }
 
 /**
- * Normalise an angle in degrees to one between 0 and 360.
+ * Normalise an angle to between 0 and 360 degrees.
  *
- * @param angle
+ * @param angle Input angle (in degrees).
  *
- * @return Normalised angle in degrees.
+ * @return Normalised angle (degrees).
  */
-static inline int normalise_angle_360 (int angle) { return (((angle % 360) + 360) % 360); }
+static ALWAYS_INLINE _const_ int normalise_angle_360 (const int angle) {
+  return (((angle % 360) + 360) % 360);
+}
 
-static inline int get_video_stream_rotation (anu_vreader *vr) {
+/**
+ * Check metadata of video for display transformations (rotations).
+ *
+ * @param vreader
+ *
+ * @return Rotation angle between -180 and 180 degrees (if found).
+ * @retval 0 if no rotation data.
+ */
+static ALWAYS_INLINE int get_video_stream_rotation (anu_vreader *vr) {
   /* Search the side data array inside the codec parameters */
   AVStream *stream = vreader_video_stream(vr);
   const AVPacketSideData *sd = av_packet_side_data_get(
@@ -112,13 +160,12 @@ static inline int get_video_stream_rotation (anu_vreader *vr) {
  * You need to call the complimentary function to close and destroy the struct
  * once you are done with it.
  *
- * @param[in] f_path File path.
- * @param[in][out] vreader Structure to initialise.
+ * @param f_path File path.
+ * @param vreader Video reader to initialise. `vreader` must already be allocated.
  * @return ANU_OK if success, anything else is an error.
  *
  */
-static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
-  assert(f_path && vreader);
+static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vreader *vreader) {
 
   /* Assign video stream index to invalid index by default */
   vreader->video_stream_idx = -1;
@@ -220,11 +267,9 @@ static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
 /**
  * @brief Get duration of video in milliseconds.
  *
- * Retrieves duration of video either using container duration (if found) or by
- * using the video stream specified.
+ * Retrieves duration of video either by using the video stream or falling back to container.
  *
- * @param fmt_ctx Format (container) context.
- * @param vid_stream Video stream.
+ * @param vreader
  * @return Duration of video in microseconds.
  *
  */
@@ -239,7 +284,7 @@ static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
   /* If duration is without a value then we get the container provided duration */
   if (duration == AV_NOPTS_VALUE) {
 
-    /* Duration is now in microseconds (container timebase is microseconds)*/
+    /* NOTE: Container durations are in microseconds (AV_TIME_BASE) */
     duration = (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
     log_debug(
         "[%s] Video stream omitting duration, using container values as "
@@ -248,7 +293,7 @@ static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
     return (size_t) duration;
   }
 
-  /* If duration is larger than 0 then convert stream timebase duration to microseconds */
+  /* If duration is larger than 0 then convert stream timebase duration to microseconds (AV_TIME_BASE) */
   return duration > 0 ? (size_t) pts_to_useconds(duration, stream_timebase) : 0;
 }
 
@@ -258,20 +303,20 @@ static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
  * Seeks to nearest preceding keyframe from target timestamp.
  *
  * @param vreader VideoReader instance.
- * @param target_ts Target time stamp (in streams own time base).
+ * @param target_pts_streambase Target time stamp (in streams own time base).
  * @return 0 on success, anything else on failure.
  *
- * @note When `av_seek_frame` fails, this function returns its error code.
+ * @note When `av_seek_frame` fails, this function returns libav's err code.
  */
-static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
+static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_streambase) {
 
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
    jump to the nearest keyframe BEFORE this timestamp.
    *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
    * frame number (rarely works well), so we stick to TimeStamp seeking. */
-  int seek_ret =
-      av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts, AVSEEK_FLAG_BACKWARD);
+  int seek_ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts_streambase,
+                               AVSEEK_FLAG_BACKWARD);
 
   if (seek_ret < 0) {
     return seek_ret;
@@ -285,14 +330,19 @@ static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts) {
 }
 
 /**
- * Seeks to target_pts and then decodes forward til target is reached.
+ * Seeks video to target pts, and then decodes forward til target is reached or PTS is > min pts.
+ *
  * @param vreader Video reader.
- * @param target_pts Target pts to reach.
- * @param min_pts pts of decoded frame must not be lower than this value.
+ * @param target_pts_streambase Target pts to reach.
+ * @param min_pts_streambase Minimum value of PTS to reach before returning.
+ * @return ANU_OK if success, AV_ERR on failure.
+ *
  */
-static int vreader_seek_and_read_to_target (anu_vreader *vreader, int64_t target_pts, int64_t min_pts) {
+static inline int vreader_seek_and_read_to_target (anu_vreader *vreader,
+                                                   int64_t target_pts_streambase,
+                                                   int64_t min_pts_streambase) {
 
-  int ret = vreader_seek_pts(vreader, target_pts);
+  int ret = vreader_seek_pts(vreader, target_pts_streambase);
   if (ret != 0) {
     return ret;
   }
@@ -303,11 +353,10 @@ static int vreader_seek_and_read_to_target (anu_vreader *vreader, int64_t target
       return ret; /* EOF or decoding error */
     }
 
-    int64_t current_pts = get_frame_pts(vreader->frame);
+    int64_t current_pts_sb = get_frame_pts(vreader->frame);
 
-    /* Check if we reach desired target pts OR
-       we reach a frame higher than minimum pts */
-    if ((current_pts >= target_pts) && (current_pts > min_pts)) {
+    /* Check if we reach desired target pts OR we reach a frame higher than minimum pts */
+    if ((current_pts_sb >= target_pts_streambase) && (current_pts_sb > min_pts_streambase)) {
       return ANU_OK;
     }
   }
@@ -321,9 +370,9 @@ static int vreader_seek_and_read_to_target (anu_vreader *vreader, int64_t target
  *
  * @return bool Whether there is a pixel in that row that has a pixel value above the threshold.
  */
-static inline _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *const row,
-                                                      const int width,
-                                                      const int threshold) {
+static ALWAYS_INLINE _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *const row,
+                                                             const int width,
+                                                             const int threshold) {
   ANU_ASSUME(width >= 0 && threshold > 0);
 
   for (int i = 0; i < width; i++) {
@@ -335,7 +384,7 @@ static inline _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *const row,
 }
 
 /* Detects the bounding box of non-black pixels */
-static inline bool anu_detect_black_borders (AVFrame *frame, const int threshold, cropping *crop_out) {
+static ALWAYS_INLINE bool detect_black_borders (AVFrame *frame, const int threshold, cropping *crop_out) {
 
   const int w = frame->width;
   const int h = frame->height;
@@ -409,12 +458,12 @@ static inline bool anu_detect_black_borders (AVFrame *frame, const int threshold
 
 /**
  * @brief Produce hash from a video frame.
- * @param matrix [in] The matrix of values to hash, as a 1D array.
+ * @param matrix 1D array of pixel values.
  * @param hash_algo TODO The type of hashing algorithm to use. Currently does not do anything.
- * @return Unsigned 64 bit int (hash output).
+ * @return Unsigned 64 bit integer (hash).
  */
-static ALWAYS_INLINE uint64_t hash_decoded_frame (uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-                                                  anu_hash_type hash_algo) {
+static ALWAYS_INLINE _pure_ uint64_t hash_decoded_frame (const uint8_t *restrict matrix,
+                                                         anu_hash_type hash_algo) {
 
   if (hash_algo != ANU_HASH_ALGO_DCT) {
     ANU_TODO("We've only implemented DCT hashing thus far.");
@@ -429,8 +478,8 @@ static ALWAYS_INLINE uint64_t hash_decoded_frame (uint8_t matrix[static ANU_PHAS
 /**
  * @brief Prepare software scaler by normalising colourspace details.
  *
- * @param frame [in] Frame being scaled by the software scaler.
- * @param context [in] Software scaler instance.
+ * @param context Software scaler instance.
+ * @param src_range The input's colourspace range.
  *
  * @return int
  * @retval 0 Success.
@@ -479,7 +528,7 @@ static int scale_frame (anu_vreader *vr,
 
   if (crop_black) {
     /* 24 is a safe threshold for limited-range YUV "black" */
-    bool workable_frame = anu_detect_black_borders(src, 24, &crop);
+    bool workable_frame = detect_black_borders(src, 24, &crop);
     /* If returning false, then we have a fully black frame */
     if (!workable_frame) {
       log_warn("%s: Frame is completely black.", fname);
@@ -814,7 +863,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
   const AVRational stream_timebase = video_stream->time_base;
   /* Previously decoded frames PTS */
-  int64_t last_pts = -1;
+  int64_t last_pts_streambase = -1;
 
   /* Filter context in case we need to run any filters on frames */
   filter_ctx fctx = {0};
@@ -847,7 +896,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
               config->segments, seek_target_sb, anu_time_microseconds_to_seconds((size_t) seek_target_us));
 
     /* Seek to timestamp */
-    errcode = vreader_seek_and_read_to_target(&vreader, seek_target_sb, last_pts);
+    errcode = vreader_seek_and_read_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != ANU_OK) {
       log_error("[%s] Could not seek to segment `%zu` (PTS `%ld`): %s", vr_fname, i, seek_target_sb,
                 av_err2str(errcode));
@@ -869,7 +918,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     double pts_seconds = anu_time_microseconds_to_seconds((size_t) pts_microseconds);
 
     /* Keep track of frame PTS so we can seek to a higher one next iteration */
-    last_pts = pts_streambase;
+    last_pts_streambase = pts_streambase;
 
     /* If there is a rotation required, then do it now: */
     if (rotation_normalised) {
