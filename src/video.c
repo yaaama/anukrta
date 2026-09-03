@@ -917,6 +917,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
      * If everything was SUCCESSFUL
      */
     entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
+    ANU_ASSUME(pts_microseconds >= 0);
     entries_out[i].timestamp = (u64) pts_microseconds;
     log_debug("[%s] Frame at '%.2f' s  produced hash '%lX'", vr_fname, pts_seconds, entries_out[i].hash);
     ++frames_decoded;
