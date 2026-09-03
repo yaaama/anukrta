@@ -6,6 +6,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/codec_par.h>
+#include <libavcodec/defs.h>
 #include <libavcodec/packet.h>
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
@@ -214,6 +215,13 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
 
   log_trace("[%s] Found video stream at index `%d`", f_path, vreader->video_stream_idx);
 
+  /* Discard ALL non-video streams */
+  for (unsigned int i = 0; i < vreader->fmt_ctx->nb_streams; i++) {
+    if (i != (unsigned int) vreader->video_stream_idx) {
+      vreader->fmt_ctx->streams[i]->discard = AVDISCARD_ALL;
+    }
+  }
+
   if (!codec) {
     log_error("[%s] No codec found for stream.", f_path);
     return ANU_LIBAV_FAIL;
@@ -238,6 +246,9 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
 
   /* NOTE: Set thread count to prevent CACHE THRASHING */
   vreader->codec_ctx->thread_count = 1;
+  /* Disable applying filter to save processing power */
+  vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
+
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
     log_error("[%s] Failed to initialise codec context %s", f_path, codec->long_name);
     return ANU_LIBAV_FAIL;
@@ -664,12 +675,6 @@ static int video_reader_get_frame (anu_vreader *vreader) {
     if (ret < 0) {
       log_error("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
       return ret;
-    }
-
-    /* If it's not our video stream, discard and read the next one */
-    if (vreader->packet->stream_index != vreader->video_stream_idx) {
-      av_packet_unref(vreader->packet);
-      continue;
     }
 
     /* Send the correct video packet to the decoder */
