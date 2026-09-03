@@ -891,6 +891,13 @@ static ALWAYS_INLINE _const_ int anu_util_tolower (int c) {
     abort();                                                                       \
   } while (0)
 
+#define ANU_HANDLE_OOM(x) \
+  do {                    \
+    void *oom_p_ = (x);   \
+    if (!oom_p_)          \
+      abort();            \
+  } while (0)
+
 /**
  * @def ANU_TODO
  * @brief Print message and exit, as this section of code is not implemented yet.
