@@ -491,23 +491,27 @@ static int normalise_sws_colourspace (SwsContext *context, int src_range) {
   /* Dummy variables to retrieve default coefficients */
   int *inv_table;
   int *table;
-  int dummy_src;
-  int dummy_dst;
-  int dummy_bright;
-  int dummy_cont;
-  int dummy_sat;
+  int curr_src;
+  int curr_dst;
+  int brightness;
+  int contrast;
+  int saturation;
 
   /* Get default values */
-  if (sws_getColorspaceDetails(context, (&inv_table), &dummy_src, (&table), &dummy_dst, &dummy_bright,
-                               &dummy_cont, &dummy_sat) < 0) {
+  if (sws_getColorspaceDetails(context, &inv_table, &curr_src, &table, &curr_dst, &brightness, &contrast,
+                               &saturation) < 0) {
     log_error("Failed to get colorspace details.");
     return -1;
   }
 
-  /* Apply explicit ranges.
-   * 1 << 16 is the fixed-point representation for "1.0" (default
-   * contrast/saturation) */
-  if (sws_setColorspaceDetails(context, inv_table, src_range, table, dst_range, 0, 1 << 16, 1 << 16) < 0) {
+  /* Return early if source and dest ranges are the same */
+  if (curr_src == src_range && curr_dst == dst_range) {
+    return 0;
+  }
+
+  /* Apply explicit ranges. */
+  if (sws_setColorspaceDetails(context, inv_table, src_range, table, dst_range, brightness, contrast,
+                               saturation) < 0) {
     log_error("Failed to set colourspace.");
     return -1;
   }
