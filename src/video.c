@@ -244,7 +244,7 @@ static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
     log_debug(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
-        vreader->fmt_ctx->url, anu_time_microseconds_to_seconds((size_t) duration));
+        vreader->fname, anu_time_microseconds_to_seconds((size_t) duration));
     return (size_t) duration;
   }
 
@@ -473,7 +473,7 @@ static int scale_frame (anu_vreader *vr,
                         bool crop_black) {
 
   AVFrame *src = vr->frame;
-  char *fname = vr->fmt_ctx->url;
+  char *fname = vr->fname;
 
   cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
 
@@ -612,7 +612,7 @@ static int video_reader_get_frame (anu_vreader *vreader) {
     }
     if (ret != AVERROR(EAGAIN)) {
       /* Fatal decoding error */
-      log_error("%s Error receiving frame: %s", vreader->fmt_ctx->url, av_err2str(ret));
+      log_error("[%s] Error receiving frame: %s", vreader->fname, av_err2str(ret));
       return ret;
     }
 
@@ -625,7 +625,7 @@ static int video_reader_get_frame (anu_vreader *vreader) {
     }
 
     if (ret < 0) {
-      log_error("%s Error reading packet: %s", vreader->fmt_ctx->url, av_err2str(ret));
+      log_error("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
       return ret;
     }
 
@@ -640,7 +640,7 @@ static int video_reader_get_frame (anu_vreader *vreader) {
     av_packet_unref(vreader->packet);
 
     if (ret < 0) {
-      log_error("%s Decoding error: %s", vreader->fmt_ctx->url, av_err2str(ret));
+      log_error("%s Decoding error: %s", vreader->fname, av_err2str(ret));
       return ret;
     }
 
@@ -825,8 +825,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
   int rotation = get_video_stream_rotation(&vreader);
   int rotation_normalised = normalise_angle_360(rotation);
   if (rotation_normalised) {
-    log_info("[%s]: Detected rotation: %d degrees (%d degrees normalised)\n", vreader.fmt_ctx->url,
-             rotation, rotation_normalised);
+    log_info("[%s]: Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
+             rotation_normalised);
     filtered_frame = av_frame_alloc();
   }
   bool detect_bars = ANU_HAS_ANY_FLAG(config->detect_flags, DETECT_BARS);
