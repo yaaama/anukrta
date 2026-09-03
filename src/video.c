@@ -218,7 +218,7 @@ static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
 }
 
 /**
- * @brief Get duration of video.
+ * @brief Get duration of video in milliseconds.
  *
  * Retrieves duration of video either using container duration (if found) or by
  * using the video stream specified.
@@ -228,7 +228,7 @@ static enum ANU_STATUS vreader_init (char *f_path, anu_vreader *vreader) {
  * @return Duration of video in microseconds.
  *
  */
-static size_t vreader_get_duration (anu_vreader *vreader) {
+static ALWAYS_INLINE size_t vreader_get_duration (anu_vreader *vreader) {
 
   AVStream *vid_stream = vreader_video_stream(vreader);
 
@@ -789,6 +789,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
   /* As long as this is true we won't break anything when we cast for libav */
   assert(file->duration_us < INT64_MAX);
+  ANU_ASSUME(file->duration_us < INT64_MAX);
 
   /* Check if file duration is longer than the skip threshold */
   if (file->duration_us <= (anu_time_seconds_to_microseconds((double) config->skip_duration))) {
@@ -809,9 +810,9 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
   uint8_t matrix[ANU_PHASH_TOTAL_PIXELS] = {0};
 
   /* Video stream */
-  AVStream *vid_stream_ptr = vreader_video_stream(&vreader);
+  AVStream *video_stream = vreader_video_stream(&vreader);
 
-  const AVRational stream_timebase = vid_stream_ptr->time_base;
+  const AVRational stream_timebase = video_stream->time_base;
   /* Previously decoded frames PTS */
   int64_t last_pts = -1;
 
