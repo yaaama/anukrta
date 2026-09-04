@@ -60,7 +60,6 @@ DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
  * Helper function to retreive video stream from an initialised vreader.
  *
  * @param vreader
- *
  * @return Pointer to video stream (AVStream).
  */
 static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *vreader) {
@@ -71,7 +70,6 @@ static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *v
  * Helper function to return the file URL from an initialised vreader.
  *
  * @param vreader
- *
  * @return The URL of the file as a char pointer.
  */
 static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
@@ -83,7 +81,6 @@ static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
  *
  * @param pts PTS value.
  * @param timebase Timebase that PTS is currently using.
- *
  * @return PTS value in microseconds (useconds) or AV_NOPTS_VALUE if pts is invalid.
  */
 static ALWAYS_INLINE _const_ int64_t pts_to_useconds (int64_t pts, AVRational timebase) {
@@ -95,7 +92,6 @@ static ALWAYS_INLINE _const_ int64_t pts_to_useconds (int64_t pts, AVRational ti
  *
  * @param pts PTS value.
  * @param timebase Timebase that PTS is currently using.
- *
  * @return PTS value in seconds or AV_NOPTS_VALUE if pts is invalid.
  */
 static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRational timebase) {
@@ -106,7 +102,6 @@ static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRational time
  * Helper to retrieve a sane PTS value from some frame.
  *
  * @param [in]frame Frame to retrieve PTS for.
- *
  * @return The PTS in the streams timebase OR if pts is not available,
  * then the frames best effort timestamp (also in stream timebase).
  */
@@ -118,7 +113,6 @@ static ALWAYS_INLINE _pure_ int64_t get_frame_pts (const AVFrame *frame) {
  * Normalise an angle to between 0 and 360 degrees.
  *
  * @param angle Input angle (in degrees).
- *
  * @return Normalised angle (degrees).
  */
 static ALWAYS_INLINE _const_ int normalise_angle_360 (const int angle) {
@@ -129,7 +123,6 @@ static ALWAYS_INLINE _const_ int normalise_angle_360 (const int angle) {
  * Check metadata of video for display transformations (rotations).
  *
  * @param vreader
- *
  * @return Rotation angle between -180 and 180 degrees (if found).
  * @retval 0 if no rotation data.
  */
