@@ -77,8 +77,9 @@ static char *get_date_from_epoch (time_t *epoch_time, char *buf, usize buf_size)
 
   if (ret == 0) {
     log_warn("Date string exceeds buffer size.");
-    return NULL;
+    snprintf(buf, buf_size, "UNKNOWN");
   }
+
   return buf;
 }
 
