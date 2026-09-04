@@ -69,7 +69,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
   return buf;
 }
 
-static char *get_date_from_epoch (time_t *epoch_time, usize buf_size, char *buf) {
+static char *get_date_from_epoch (time_t *epoch_time, char *buf, usize buf_size) {
   struct tm timeinfo = {0};
   localtime_r(epoch_time, &timeinfo);
 
@@ -197,7 +197,7 @@ static void print_file_item (const anu_config *config,
   time_t t = (time_t) file->mtime;
 
   get_human_sizing_iec(file->size, sz, ANU_ARRAY_SIZE(sz));
-  get_date_from_epoch(&t, sizeof(dt), dt);
+  get_date_from_epoch(&t, dt, ANU_ARRAY_SIZE(dt));
 
   // Format: "[TAG] path" or "  path"
   if (tag) {
