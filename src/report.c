@@ -47,30 +47,25 @@ static void unite_sets (usize i, usize j, usize *restrict parent, usize *restric
 static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
 static const int UNITS_IEC_COUNT = ANU_ARRAY_SIZE(units_iec);
 
-char *get_human_sizing_iec (u64 n_bytes, char *buf) {
+char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
 
+  double bytes = (double) n_bytes;
   int unit_index = 0;
-  /* We will use this to keep track of the fractional part */
-  usize remainder = 0;
 
   /* >> 10 is equivalent to dividing by 1024 */
-  while ((n_bytes >= 1024) && (unit_index < (UNITS_IEC_COUNT - 1))) {
-    remainder = n_bytes & 1023; /* Equivalent to: n_bytes % 1024 */
-    n_bytes >>= 10;             /* Equivalent to: n_bytes / 1024 */
+  while ((bytes >= 1024.0) && (unit_index < (UNITS_IEC_COUNT - 1))) {
+    bytes /= 1024.0; /* Equivalent to: bytes / 1024 */
     ++unit_index;
   }
   _unused_ int c;
 
-  if (unit_index > 0) {
-    /* Calculate the 2-digit decimal part using pure integer math.
-     We multiply the remainder by 100, then divide by 1024 (by shifting).
-     This gives us a perfectly safe 0-99 value. */
-    usize decimals = (remainder * 100) >> 10;
-    c = sprintf(buf, "%" PRIu64 ".%02zu %s", n_bytes, decimals, units_iec[unit_index]);
+  if (unit_index == 0) {
+    c = snprintf(buf, buf_size, "%.0f %s", bytes, units_iec[unit_index]);
   } else {
-    c = sprintf(buf, "%" PRIu64 " %s", n_bytes, units_iec[unit_index]);
+    c = snprintf(buf, buf_size, "%.2f %s", bytes, units_iec[unit_index]);
   }
-  assert(c > 0);
+
+  assert(c > 0 && (size_t) c < buf_size);
   return buf;
 }
 
@@ -201,7 +196,7 @@ static void print_file_item (const anu_config *config,
   char dt[64];
   time_t t = (time_t) file->mtime;
 
-  get_human_sizing_iec(file->size, sz);
+  get_human_sizing_iec(file->size, sz, ANU_ARRAY_SIZE(sz));
   get_date_from_epoch(&t, sizeof(dt), dt);
 
   // Format: "[TAG] path" or "  path"

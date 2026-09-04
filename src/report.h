@@ -1,6 +1,8 @@
 #ifndef ANU_REPORT_H
 #define ANU_REPORT_H
 
+#include <stddef.h>
+
 #include "config.h"
 #include "defs.h"
 #include "explore.h"
@@ -35,5 +37,5 @@ anu_report anu_generate_report(anu_file_vec *files,
 
 void anu_report_destroy(anu_report *report);
 
-char *get_human_sizing_iec(u64 n_bytes, char *buf);
+char *get_human_sizing_iec(u64 n_bytes, char *buf, usize buf_size);
 #endif  // ANU_REPORT_H
