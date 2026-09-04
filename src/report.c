@@ -18,6 +18,11 @@
 #include "tree.h"
 #include "util.h"
 
+typedef struct {
+  u64 file_id;
+  u64 root_id;
+} uf_pair;
+
 static usize find_set (usize i, usize *parent) {
   usize root = i;
   while (parent[root] != root) {
@@ -284,6 +289,28 @@ void anu_print_report (anu_config *config,
   }
 }
 
+static int compare_uf_pairs (const void *a, const void *b) {
+  const uf_pair *pa = (const uf_pair *) a;
+  const uf_pair *pb = (const uf_pair *) b;
+
+  if (pa->root_id < pb->root_id) {
+    return -1;
+  }
+  if (pa->root_id > pb->root_id) {
+    return 1;
+  }
+
+  /* If it is a tie, then sort by file_id for deterministic output */
+  if (pa->file_id < pb->file_id) {
+    return -1;
+  }
+  if (pa->file_id > pb->file_id) {
+    return 1;
+  }
+
+  return 0;
+}
+
 anu_report anu_generate_report (anu_file_vec *files,
                                 i32 *results,
                                 hash_entry *entries,
@@ -302,7 +329,6 @@ anu_report anu_generate_report (anu_file_vec *files,
   /* Union-Find to identify the groups */
   usize *parent __free(ptr) = NULL;
   parent = xmalloc(file_count * sizeof(*parent) * 2);
-
   usize *rank = parent + file_count;
 
   for (usize i = 0; i < file_count; i++) {
@@ -311,7 +337,6 @@ anu_report anu_generate_report (anu_file_vec *files,
     /* Initialise ranks as 0 */
     rank[i] = 0;
   }
-
   u64_vec segment_results;
   kv_init(segment_results);
 
@@ -346,7 +371,9 @@ anu_report anu_generate_report (anu_file_vec *files,
 
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
-  u64_vec *buckets = xcalloc(file_count, sizeof(*buckets));
+
+  uf_pair *pairs __free(ptr) = xmalloc(file_count * sizeof(uf_pair));
+  usize valid_count = 0;
 
   /* Every bucket is their own parent in the beginning */
   for (u64 i = 0; i < file_count; i++) {
@@ -358,30 +385,51 @@ anu_report anu_generate_report (anu_file_vec *files,
     usize root = find_set(i, parent);
     /* Should never happen if logic is correct */
     ANU_ASSUME(root < file_count);
-    kv_push(buckets[root], (u64) i);
+
+    pairs[valid_count].file_id = i;
+    pairs[valid_count].root_id = (u64) root;
+    ++valid_count;
   }
 
-  /* NOTE: If a bucket has more than one file, it's a duplicate group */
-  /* Populate final report struct */
-  for (usize i = 0; i < file_count; i++) {
+  /* Sort the array by root_id, meaning all identical roots will be next to one another */
+  if (valid_count > 0) {
+    qsort(pairs, valid_count, sizeof(uf_pair), compare_uf_pairs);
+  }
 
-    usize bucket_size = kv_size(buckets[i]);
+  /* Go through the pairs array, grouping duplicate groups and unique files into their own vectors */
+  usize current_idx = 0;
+  while (current_idx < valid_count) {
+    u64 current_root = pairs[current_idx].root_id;
+    usize group_start = current_idx;
+
+    /* Advance current_idx until the root_id changes letting us calculate the bounds of the group */
+    while ((current_idx < valid_count) && (pairs[current_idx].root_id == current_root)) {
+      current_idx++;
+    }
+
+    usize group_size = current_idx - group_start;
 
     /* Unique file */
-    if (bucket_size == 1) {
-      kv_push(report.unique, kv_A(buckets[i], 0));
-      kv_destroy(buckets[i]);
+    if (group_size == 1) {
+      kv_push(report.unique, pairs[group_start].file_id);
     }
-    /* Valid group with multiple files */
-    else if (bucket_size > 1) {
-      /* Sort file group by strategy */
-      elect_best_file(&buckets[i], files, config);
-      kv_push(report.groups, buckets[i]);
+    /* Valid group with multiple duplicate files */
+    else if (group_size > 1) {
+      u64_vec group;
+      kv_init(group);
+      /* Preallocate vector since we know the group size already */
+      kv_ensure_space(group, group_size);
+
+      /* Populate the group vector with the file ids */
+      for (usize j = group_start; j < current_idx; j++) {
+        kv_push_c(group, pairs[j].file_id);
+      }
+
+      /* Sort file group by user's strategy */
+      elect_best_file(&group, files, config);
+      kv_push(report.groups, group);
     }
   }
-
-  free(buckets);
-
   return report;
 }
 
