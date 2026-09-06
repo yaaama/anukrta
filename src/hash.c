@@ -46,7 +46,7 @@
 
 /* Pre-calculated 1D integer DCT weights for 32x32 to 8x8 pHash
  *   Format: Q15 fixed-point (shifted left by 15 bits) */
-static const int32_t DCT_WEIGHTS_INT[256] = {
+static const int16_t DCT_WEIGHTS_INT[256] = {
   /* clang-format off */
   /* u = 0 */
   5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793, 5793,
@@ -123,7 +123,7 @@ uint64_t _pure_ HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
   /* Pass 1: 1D DCT on Rows */
 
   for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-    const int32_t *restrict weight_ptr = &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
+    const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
 
     for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
       const uint8_t *restrict row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
@@ -147,7 +147,7 @@ uint64_t _pure_ HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
 
     for (ptrdiff_t v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
       /* v is our output column index */
-      const int32_t *restrict weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
+      const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
 
       int64_t sum = 0;
 
