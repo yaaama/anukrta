@@ -239,6 +239,8 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
   vreader->codec_ctx->thread_count = 1;
   /* Disable applying filter to save processing power */
   vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
+  /* Decode videos in grayscale */
+  vreader->codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
   vreader->codec_ctx->skip_frame = AVDISCARD_NONREF;
 
   if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
