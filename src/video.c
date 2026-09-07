@@ -42,6 +42,13 @@ typedef struct cropping {
   int h;
 } cropping;
 
+typedef struct filter_ctx {
+  AVFilterContext *buffersink_ctx;
+  AVFilterContext *buffersrc_ctx;
+  AVFilterGraph *filter_graph;
+  int init;
+} filter_ctx;
+
 /**
  * Destructor for vreader.
  *
@@ -159,21 +166,23 @@ static _nonnull_(1) int get_video_stream_rotation(anu_vreader *vr) {
  * @return ANU_OK if success, anything else is an error.
  *
  */
-static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vreader *vreader) {
+static _nonnull_(1, 2) ANU_STATUS vreader_init(const char *f_path, anu_vreader *vreader) {
 
-  /* Assign video stream index to invalid index by default */
+  /* Assign video stream index to an invalid index by default */
   vreader->video_stream_idx = -1;
 
   int errcode = 0;
+
   /*
    * Initialise FORMAT CONTEXT.
    * This step will check if file is existent, can be opened, etc.
    */
+
   /* Opens input file and guesses format of file */
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
   if (errcode != 0) {
-    log_warn("Could not open file `%s` (%s)", f_path, av_err2str(errcode));
+    log_error("[%s] Could not open file. (%s)", f_path, av_err2str(errcode));
     return ANU_LIBAV_FAIL;
   }
 
@@ -184,7 +193,7 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
    */
   errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
   if (errcode < 0) {
-    log_error("[%s] Failed to read both file header and stream info: `%s`", f_path, av_err2str(errcode));
+    log_error("[%s] Failed to read both file header and stream info. (%s)", f_path, av_err2str(errcode));
     return ANU_LIBAV_FAIL;
   }
 
@@ -198,6 +207,7 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
 
   vreader->video_stream_idx = av_find_best_stream(vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
+  /* Check to see if we successfully got the video stream */
   if (vreader->video_stream_idx < 0) {
     if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
       log_error("[%s] No decoder found for stream.", f_path);
@@ -210,7 +220,14 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
     return ANU_LIBAV_FAIL;
   }
 
-  log_trace("[%s] Found video stream at index `%d`", f_path, vreader->video_stream_idx);
+  if (!codec) {
+    log_error("[%s] No codec found for stream.", f_path);
+    return ANU_LIBAV_FAIL;
+  }
+
+  AVStream *vid_stream = vreader_video_stream(vreader);
+
+  log_trace("[%s] Video stream idx: [%d]", f_path, vreader->video_stream_idx);
 
   /* Discard ALL non-video streams */
   for (unsigned int i = 0; i < vreader->fmt_ctx->nb_streams; i++) {
@@ -219,52 +236,50 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
     }
   }
 
-  if (!codec) {
-    log_error("[%s] No codec found for stream.", f_path);
-    return ANU_LIBAV_FAIL;
-  }
+  /* Allocate Codec Context */
+  AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
 
-  AVCodecParameters *codec_params = NULL;
-  /* Get codec parameters */
-  codec_params = vreader_video_stream(vreader)->codecpar;
-
-  /* Init Codec Context */
-  vreader->codec_ctx = avcodec_alloc_context3(codec);
-
-  if (!vreader->codec_ctx) {
+  if (codec_ctx == NULL) {
     log_error("[%s] Failed to allocate memory for codec context.", f_path);
     return ANU_OOM;
   }
 
-  if (avcodec_parameters_to_context(vreader->codec_ctx, codec_params) < 0) {
-    log_error("[%s] Could not retrieve codec context.", f_path);
+  /* Get codec parameters required for video stream */
+  AVCodecParameters *codec_params = vid_stream->codecpar;
+  errcode = avcodec_parameters_to_context(codec_ctx, codec_params);
+  if (errcode < 0) {
+    log_error("[%s] Could not initialise codec with supplied parameters (%s)", f_path, av_err2str(errcode));
     return ANU_LIBAV_FAIL;
   }
+
+  /*
+   * Settings for our decoder
+   */
 
   /* NOTE: Set thread count to prevent CACHE THRASHING */
-  vreader->codec_ctx->thread_count = 1;
+  codec_ctx->thread_count = 1;
   /* Disable applying filter to save processing power */
-  vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
+  codec_ctx->skip_loop_filter = AVDISCARD_ALL;
   /* Decode videos in grayscale */
-  vreader->codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
-  vreader->codec_ctx->skip_frame = AVDISCARD_NONREF;
+  codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
+  /* Skip frames that are not reference frames */
+  codec_ctx->skip_frame = AVDISCARD_NONREF;
 
-  if (avcodec_open2(vreader->codec_ctx, codec, NULL) < 0) {
-    log_error("[%s] Failed to initialise codec context %s", f_path, codec->long_name);
+  /* Initialise the codec context for use with our codec */
+  errcode = avcodec_open2(codec_ctx, codec, NULL);
+  if (errcode < 0) {
+    log_error("[%s] Failed to initialise codec context %s (%s)", f_path, codec->long_name,
+              av_err2str(errcode));
     return ANU_LIBAV_FAIL;
   }
+  vreader->codec_ctx = codec_ctx;
 
   /* Alloc Buffers */
   vreader->frame = av_frame_alloc();
-
-  if (vreader->frame == NULL) {
-    log_error("[%s] Failed to allocate memory for frame.", f_path);
-    return ANU_OOM;
-  }
-
   vreader->packet = av_packet_alloc();
-  if (vreader->packet == NULL) {
-    log_error("[%s] Failed to allocate memory for packet.", f_path);
+
+  if (!vreader->frame || !vreader->packet) {
+    log_error("[%s] Failed to allocate memory for frame/packet.", f_path);
     return ANU_OOM;
   }
 
@@ -433,7 +448,7 @@ static int vreader_seek_decode_to_target (anu_vreader *vreader,
  *
  * @return bool Whether there is a pixel in that row that has a pixel value above the threshold.
  */
-static ALWAYS_INLINE _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *const row,
+static ALWAYS_INLINE _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *const restrict row,
                                                              const int width,
                                                              const int threshold) {
   ANU_ASSUME(width >= 0 && threshold > 0);
@@ -727,13 +742,6 @@ static int extract_scaled_matrix (anu_vreader *vr,
   return 0;
 }
 
-typedef struct filter_ctx {
-  AVFilterContext *buffersink_ctx;
-  AVFilterContext *buffersrc_ctx;
-  AVFilterGraph *filter_graph;
-  int init;
-} filter_ctx;
-
 /**
  * Initialise a filter graph for rotational transformations.
  *
@@ -744,15 +752,20 @@ typedef struct filter_ctx {
  *
  * @return ANU_OK on success, AV_ERROR on failure.
  */
-static int init_rotation_filter_graph (filter_ctx *fctx,
-                                       AVFrame *frame,
-                                       AVRational time_base,
-                                       int rotation_normalised) {
+static _nonnull_(1, 2) int init_rotation_filter_graph(filter_ctx *fctx,
+                                                      AVFrame *frame,
+                                                      AVRational time_base,
+                                                      int rotation_normalised) {
+
+  assert(rotation_normalised == 90 || rotation_normalised == 180 || rotation_normalised == 270);
+
   char args[512];
   int ret = ANU_OK;
 
+  /* Index for filter strings */
   enum FILTER_FOR_ANGLE { _90_DEGREES = 0, _180_DEGREES = 1, _270_DEGREES = 2 };
 
+  /* Filter strings */
   const char *filter_strings[3] = {[_90_DEGREES] = "transpose=2",
                                    [_180_DEGREES] = "hflip,vflip",
                                    [_270_DEGREES] = "transpose=1"};
@@ -785,6 +798,7 @@ static int init_rotation_filter_graph (filter_ctx *fctx,
     goto end;
   }
 
+  /* Format filter string */
   snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
            frame->width, frame->height, frame->format, time_base.num, time_base.den,
            frame->sample_aspect_ratio.num, frame->sample_aspect_ratio.den);
@@ -926,7 +940,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
   int rotation = get_video_stream_rotation(&vreader);
   int rotation_normalised = normalise_angle_360(rotation);
   if (rotation_normalised) {
-    log_info("[%s]: Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
+    log_info("[%s] Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
              rotation_normalised);
     filtered_frame = av_frame_alloc();
   }
@@ -941,17 +955,18 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
 
     /* Target timestamp in streams time base (tick) */
     int64_t seek_target_sb = av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
+    double seek_target_seconds = anu_time_microseconds_to_seconds(seek_target_us);
 
     int errcode = 0;
 
-    log_trace("[%s] Segment [%d/%d] -> Attempting seek to PTS '%ld' (%.1f s)", vr_fname, (i + 1),
-              target_segments, seek_target_sb, anu_time_microseconds_to_seconds(seek_target_us));
+    log_trace("[%s] [%d/%d] -> Seeking to PTS `%" PRId64 "` (%.1f s)", vr_fname, (i + 1), target_segments,
+              seek_target_sb, seek_target_seconds);
 
     /* Seek to timestamp */
     errcode = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != ANU_OK) {
-      log_error("[%s] Could not seek to segment `%d` (PTS `%ld`): %s", vr_fname, i, seek_target_sb,
-                av_err2str(errcode));
+      log_error("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
+                target_segments, seek_target_sb, seek_target_seconds, av_err2str(errcode));
       mark_segment_failed(entries_out, i);
       continue;
     }
@@ -1010,9 +1025,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     if (detect_bars) {
       errcode = apply_crop(&vreader, 24, 0);
       if (errcode != 0) {
-        log_error("[%s] Cropping failed: %s (%.2f s)", vr_fname,
-                  ((errcode == ANU_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)),
-                  pts_seconds);
+        log_error("[%s] Cropping failed (%.1f s): %s ", vr_fname, pts_seconds,
+                  ((errcode == ANU_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)));
         mark_segment_failed(entries_out, i);
         continue;
       }
@@ -1021,7 +1035,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     /* Scale down frame to 32x32 (whilst converting to GRAY8 if necessary) */
     errcode = extract_scaled_matrix(&vreader, matrix, ANU_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
     if (errcode != ANU_OK) {
-      log_error("[%s] Failed to scale frame (%.2f s): `%s`", vr_fname, pts_seconds, av_err2str(errcode));
+      log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, av_err2str(errcode), pts_seconds);
       mark_segment_failed(entries_out, i);
       continue;
     }
@@ -1032,7 +1046,8 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
     ANU_ASSUME(pts_microseconds >= 0);
     entries_out[i].timestamp = pts_microseconds;
-    log_debug("[%s] Frame at '%.2f' s  produced hash '%lX'", vr_fname, pts_seconds, entries_out[i].hash);
+    log_debug("[%s] [%d/%d ] -> PTS %" PRId64 " (%.1f s)  produced hash `%" PRIX64 "`", vr_fname, (i + 1),
+              target_segments, pts_microseconds, pts_seconds, entries_out[i].hash);
     ++frames_decoded;
   }
 
