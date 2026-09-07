@@ -42,6 +42,11 @@ typedef struct cropping {
   int h;
 } cropping;
 
+/**
+ * Destructor for vreader.
+ *
+ * @param [in] vreader vreader to destroy.
+ */
 static void vreader_close (anu_vreader *vreader) {
   if (!vreader) {
     return;
@@ -53,12 +58,14 @@ static void vreader_close (anu_vreader *vreader) {
   avformat_close_input(&vreader->fmt_ctx);
 }
 
+/**
+ * Auto-cleanup helper for vreader.
+ */
 DEFINE_FREE(vreader_close, anu_vreader, vreader_close(&_T))
 
 /**
  * Helper function to retreive video stream from an initialised vreader.
  *
- * @param vreader
  * @return Pointer to video stream (AVStream).
  */
 static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *vreader) {
@@ -68,7 +75,6 @@ static ALWAYS_INLINE _nonnull_ (1) AVStream *vreader_video_stream(anu_vreader *v
 /**
  * Helper function to return the file URL from an initialised vreader.
  *
- * @param vreader
  * @return The URL of the file as a char pointer.
  */
 static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
@@ -76,7 +82,7 @@ static ALWAYS_INLINE _nonnull_ (1) char *vreader_fmt_url(anu_vreader *vreader) {
 }
 
 /**
- * Convert a PTS from a specified timebase to microseconds.
+ * Convert a PTS from a specified timebase to MICROSECONDS.
  *
  * @param pts PTS value.
  * @param timebase Timebase that PTS is currently using.
@@ -87,7 +93,7 @@ static ALWAYS_INLINE _const_ int64_t pts_to_useconds (int64_t pts, AVRational ti
 }
 
 /**
- * Convert a PTS from a specified timebase to seconds.
+ * Convert a PTS from a specified timebase to SECONDS.
  *
  * @param pts PTS value.
  * @param timebase Timebase that PTS is currently using.
@@ -98,7 +104,7 @@ static ALWAYS_INLINE _const_ double pts_to_seconds (int64_t pts, AVRational time
 }
 
 /**
- * Helper to retrieve a sane PTS value from some frame.
+ * Retrieve a sane PTS value from frame.
  *
  * @param [in]frame Frame to retrieve PTS for.
  * @return The PTS in the streams timebase OR if pts is not available,
@@ -119,9 +125,8 @@ static ALWAYS_INLINE _const_ int normalise_angle_360 (const int angle) {
 }
 
 /**
- * Check metadata of video for display transformations (rotations).
+ * Check metadata of stream for display transformations (rotations).
  *
- * @param vreader
  * @return Rotation angle between -180 and 180 degrees (if found).
  * @retval 0 if no rotation data.
  */
@@ -267,11 +272,10 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
 }
 
 /**
- * @brief Get duration of video in milliseconds.
+ * @brief Get duration of video in microseconds.
  *
  * Retrieves duration of video either by using the video stream or falling back to container.
  *
- * @param vreader
  * @return Duration of video in microseconds.
  *
  */
@@ -1014,7 +1018,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
       }
     }
 
-    /* Scale down frame to 32x32 (whilst converting to GRAY8) */
+    /* Scale down frame to 32x32 (whilst converting to GRAY8 if necessary) */
     errcode = extract_scaled_matrix(&vreader, matrix, ANU_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
     if (errcode != ANU_OK) {
       log_error("[%s] Failed to scale frame (%.2f s): `%s`", vr_fname, pts_seconds, av_err2str(errcode));
