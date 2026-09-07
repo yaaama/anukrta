@@ -161,7 +161,7 @@ uint64_t _pure_ HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
 
   static_assert((DCT_DIGEST_LEN - 1) % 2 == 1, "Count of coefficients should be odd");
 
-  memcpy(ac_coeffs, &dct_result[1], ANU_ARRAY_SIZE(ac_coeffs));
+  memcpy(ac_coeffs, &dct_result[1], (ANU_ARRAY_SIZE(ac_coeffs) * sizeof(int64_t)));
 
   int64_t median = quickselect_median(ac_coeffs, DCT_DIGEST_LEN - 1);
   /* Calculate threshold.
