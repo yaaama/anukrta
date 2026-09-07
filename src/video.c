@@ -890,7 +890,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
    */
   for (int i = 0; i < target_segments; i++) {
     /* Target to seek to in microseconds */
-    seek_target_us = (int64_t) (((i64) i * frame_step_us) + seek_target_us_jump);
+    seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
 
     /* Target timestamp in streams time base (tick) */
     int64_t seek_target_sb = av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
