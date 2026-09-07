@@ -912,7 +912,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
     int64_t pts_streambase = get_frame_pts(vreader.frame);
     int64_t pts_microseconds = pts_to_useconds(pts_streambase, stream_timebase);
 
-    if (pts_microseconds < 0) {
+    if (UNLIKELY(pts_microseconds < 0)) {
       log_warn(
           "[%s] ??? Frame timestamp is negative (%ld microsecs), defaulting to "
           "0.",
