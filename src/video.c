@@ -124,7 +124,7 @@ static ALWAYS_INLINE _const_ int normalise_angle_360 (const int angle) {
  * @return Rotation angle between -180 and 180 degrees (if found).
  * @retval 0 if no rotation data.
  */
-static ALWAYS_INLINE int get_video_stream_rotation (anu_vreader *vr) {
+static _nonnull_(1) int get_video_stream_rotation(anu_vreader *vr) {
   /* Search the side data array inside the codec parameters */
   AVStream *stream = vreader_video_stream(vr);
   const AVPacketSideData *sd = av_packet_side_data_get(
@@ -271,7 +271,7 @@ static _nonnull_(1, 2) enum ANU_STATUS vreader_init(const char *f_path, anu_vrea
  * @return Duration of video in microseconds.
  *
  */
-static ALWAYS_INLINE i64 vreader_get_duration (anu_vreader *vreader) {
+static i64 vreader_get_duration (anu_vreader *vreader) {
 
   AVStream *vid_stream = vreader_video_stream(vreader);
 
@@ -306,7 +306,7 @@ static ALWAYS_INLINE i64 vreader_get_duration (anu_vreader *vreader) {
  *
  * @note When `av_seek_frame` fails, this function returns libav's err code.
  */
-static ALWAYS_INLINE int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_streambase) {
+static int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_streambase) {
 
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
@@ -336,7 +336,7 @@ static ALWAYS_INLINE int vreader_seek_pts (anu_vreader *vreader, int64_t target_
  * @retval -11 Error, please try again.
  * @retval Anything else is an unknown error.
  */
-static ALWAYS_INLINE int vreader_decode_frame (anu_vreader *vreader) {
+static int vreader_decode_frame (anu_vreader *vreader) {
   int ret;
   AVCodecContext *codec_ctx = vreader->codec_ctx;
 
@@ -393,9 +393,9 @@ static ALWAYS_INLINE int vreader_decode_frame (anu_vreader *vreader) {
  * @return ANU_OK if success, AV_ERR on failure.
  *
  */
-static ALWAYS_INLINE int vreader_seek_decode_to_target (anu_vreader *vreader,
-                                                        int64_t target_pts_streambase,
-                                                        int64_t min_pts_streambase) {
+static int vreader_seek_decode_to_target (anu_vreader *vreader,
+                                          int64_t target_pts_streambase,
+                                          int64_t min_pts_streambase) {
 
   int ret = vreader_seek_pts(vreader, target_pts_streambase);
   if (ret != 0) {
@@ -517,8 +517,7 @@ static ALWAYS_INLINE bool detect_black_borders (AVFrame *frame, const int thresh
  * @param hash_algo TODO The type of hashing algorithm to use. Currently does not do anything.
  * @return Unsigned 64 bit integer (hash).
  */
-static ALWAYS_INLINE _pure_ uint64_t hash_decoded_frame (const uint8_t *restrict matrix,
-                                                         anu_hash_type hash_algo) {
+static _pure_ uint64_t hash_decoded_frame (const uint8_t *restrict matrix, const anu_hash_type hash_algo) {
 
   if (hash_algo != ANU_HASH_ALGO_DCT) {
     ANU_TODO("We've only implemented DCT hashing thus far.");
