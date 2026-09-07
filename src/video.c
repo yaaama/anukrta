@@ -18,6 +18,7 @@
 #include <libavutil/frame.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/mem.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 #include <libswscale/swscale.h>
@@ -577,95 +578,134 @@ static int normalise_sws_colourspace (SwsContext *context, int src_range) {
   return 0;
 }
 
-static int scale_frame (anu_vreader *vr,
-                        uint8_t matrix[static ANU_PHASH_TOTAL_PIXELS],
-                        int matrix_size,
-                        bool crop_black) {
-
-  AVFrame *src = vr->frame;
-  char *fname = vr->fname;
-
-  if (crop_black) {
-    cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
-
-    /* 24 is a safe threshold for limited-range YUV "black" */
-    if (!detect_black_borders(src, 24, &crop)) {
-      /* If returning false, then we have a fully black frame */
-      log_warn("%s: Frame is completely black.", fname);
-      return ANU_FRAME_BLACK;
-    }
-
-    /* Calculate frame bounds */
-    const int c_left = crop.x;
-    const int c_top = crop.y;
-    const int c_right = (src->width - crop.w - crop.x);
-    const int c_bottom = (src->height - crop.h - crop.y);
-
-    /* Did the cropping actually change the frame size? */
-    if (c_left || c_top || c_right || c_bottom) {
-      log_info("[%s] Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", fname,
-               pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
-               src->height, crop.x, crop.w, crop.y, crop.h);
-    }
-
-    /* Convert x, y, w, h to FFmpeg's left, top, right, bottom expectations */
-    src->crop_left = (size_t) c_left;
-    src->crop_top = (size_t) c_top;
-    src->crop_right = (size_t) c_right;
-    src->crop_bottom = (size_t) c_bottom;
-
-    int ret = av_frame_apply_cropping(src, 0);
-
-    if (ret < 0) {
-      log_error("%s: Failed to apply cropping: %s", fname, av_err2str(ret));
-      return ANU_LIBAV_FAIL;
-    }
+/**
+ * @brief Checks if an AVPixelFormat is Grayscale or RGB.
+ */
+static bool is_color_matrix_applicable (enum AVPixelFormat fmt) {
+  const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(fmt);
+  if (!desc) {
+    return false;
   }
 
-  enum AVPixelFormat src_format = src->format;
-  int src_range = (src->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+  /* If it's RGB or has less than 3 components (like GRAY8), YUV matrices don't apply */
+  if ((ANU_HAS_ANY_FLAG(desc->flags, AV_PIX_FMT_FLAG_RGB)) || (desc->nb_components < 3)) {
+    return false;
+  }
+  return true;
+}
 
-  /* HACK: Map deprecated "J" formats to standard formats and force full range pixel format.
-   * This is required otherwise ffmpeg will give us the warning:
-   * `deprecated pixel format used, make sure you did set range correctly`
-   */
+/**
+ * Map deprecated "J" formats to standard formats and force full range pixel format.
+ *
+ * This is required otherwise ffmpeg will give us the warning:
+ * `deprecated pixel format used, make sure you did set range correctly`
+ */
+static void standardise_pixel_format (const AVFrame *src,
+                                      enum AVPixelFormat *restrict out_fmt,
+                                      int *restrict out_range) {
+  *out_fmt = src->format;
+  *out_range = (src->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+
   switch (src->format) {
     case AV_PIX_FMT_YUVJ420P:
-      src_format = AV_PIX_FMT_YUV420P;
-      src_range = 1;
+      *out_fmt = AV_PIX_FMT_YUV420P;
+      *out_range = 1;
       break;
     case AV_PIX_FMT_YUVJ422P:
-      src_format = AV_PIX_FMT_YUV422P;
-      src_range = 1;
+      *out_fmt = AV_PIX_FMT_YUV422P;
+      *out_range = 1;
       break;
     case AV_PIX_FMT_YUVJ444P:
-      src_format = AV_PIX_FMT_YUV444P;
-      src_range = 1;
+      *out_fmt = AV_PIX_FMT_YUV444P;
+      *out_range = 1;
       break;
     case AV_PIX_FMT_YUVJ440P:
-      src_format = AV_PIX_FMT_YUV440P;
-      src_range = 1;
+      *out_fmt = AV_PIX_FMT_YUV440P;
+      *out_range = 1;
       break;
     default:
       break;
   }
+}
 
-  /* Previous sws context used */
+/**
+ * @brief Detects black borders and applies cropping to the AVFrame.
+ */
+static int apply_crop (anu_vreader *vr, int threshold_black, int threshold_white) {
+
+  AVFrame *src = vr->frame;
+  cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
+
+  const int threshold = threshold_black ? threshold_black : 24;
+  /* 24 is usually a safe threshold for limited-range YUV "black" */
+  if (!detect_black_borders(src, threshold, &crop)) {
+    log_warn("[%s]: Frame is completely black.", vr->fname);
+    return ANU_FRAME_BLACK;
+  }
+
+  const int c_left = crop.x;
+  const int c_top = crop.y;
+  const int c_right = (src->width - crop.w - crop.x);
+  const int c_bottom = (src->height - crop.h - crop.y);
+
+  if (c_left || c_top || c_right || c_bottom) {
+    log_info("[%s]: Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", vr->fname,
+             pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
+             src->height, crop.x, crop.w, crop.y, crop.h);
+  }
+
+  src->crop_left = (size_t) c_left;
+  src->crop_top = (size_t) c_top;
+  src->crop_right = (size_t) c_right;
+  src->crop_bottom = (size_t) c_bottom;
+
+  /*
+   * NOTE: The only flag currently is AV_FRAME_CROP_UNALIGNED and we want ALIGNED cropping
+   */
+  const int crop_flags = 0;
+
+  int ret = av_frame_apply_cropping(src, crop_flags);
+  if (ret < 0) {
+    log_error("[%s]: Failed to apply cropping: %s", vr->fname, av_err2str(ret));
+    return ANU_LIBAV_FAIL;
+  }
+  return 0;
+}
+
+/**
+ * @brief Scales a frame into a flat 1D matrix buffer targeting a specific pixel format.
+ */
+static int extract_scaled_matrix (anu_vreader *vr,
+                                  uint8_t *matrix,
+                                  int matrix_size,
+                                  enum AVPixelFormat target_fmt) {
+  AVFrame *src = vr->frame;
+  char *fname = vr->fname;
+
+  enum AVPixelFormat src_format;
+  int src_range;
+  standardise_pixel_format(src, &src_format, &src_range);
+
   struct SwsContext *prev_ctx = vr->sws_ctx;
 
-  /* Initialize the Scaler, converting pixel fmt from `src_format` to AV_PIX_FMT_GRAY8 (grayscale) */
+  /* Initialize the Scaler */
   vr->sws_ctx = sws_getCachedContext(vr->sws_ctx, src->width, src->height, src_format, matrix_size,
-                                     matrix_size, AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
+                                     matrix_size, target_fmt, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
     log_error("%s: Failed to create scaling context.", fname);
     return ANU_LIBAV_FAIL;
   }
 
-  /* Normalise colourspaces IF sws_ctx is not the same as the previous context */
-  if (prev_ctx != vr->sws_ctx && normalise_sws_colourspace(vr->sws_ctx, src_range)) {
-    log_error("%s: Colourspace normalisation failed.", fname);
-    return ANU_LIBAV_FAIL;
+  /* Only normalise colourspaces if the pixel format actually uses a YUV matrix */
+  bool requires_color_matrix =
+      (is_color_matrix_applicable(src_format) && is_color_matrix_applicable(target_fmt)) != 0;
+
+  if (prev_ctx != vr->sws_ctx && requires_color_matrix) {
+    if (normalise_sws_colourspace(vr->sws_ctx, src_range)) {
+      log_error("[%s]: Colourspace normalisation failed.", fname);
+      return ANU_LIBAV_FAIL;
+    }
   }
 
   /* Setup destination pointers to write DIRECTLY into flat matrix */
@@ -963,11 +1003,21 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
       av_frame_move_ref(vreader.frame, filtered_frame);
     }
 
-    /* Scale down frame to 32x32 and check for black bars */
-    errcode = scale_frame(&vreader, matrix, ANU_PHASH_INPUT_SIZE, detect_bars);
+    if (detect_bars) {
+      errcode = apply_crop(&vreader, 24, 0);
+      if (errcode != 0) {
+        log_error("[%s] Cropping failed: %s (%.2f s)", vr_fname,
+                  ((errcode == ANU_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)),
+                  pts_seconds);
+        mark_segment_failed(entries_out, i);
+        continue;
+      }
+    }
+
+    /* Scale down frame to 32x32 (whilst converting to GRAY8) */
+    errcode = extract_scaled_matrix(&vreader, matrix, ANU_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
     if (errcode != ANU_OK) {
-      log_error("[%s] Failed to scale frame (%.2f s): `%s`", vr_fname, pts_seconds,
-                (errcode == ANU_FRAME_BLACK) ? "Frame was found to be too dark." : av_err2str(errcode));
+      log_error("[%s] Failed to scale frame (%.2f s): `%s`", vr_fname, pts_seconds, av_err2str(errcode));
       mark_segment_failed(entries_out, i);
       continue;
     }
