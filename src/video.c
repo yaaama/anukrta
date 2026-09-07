@@ -137,9 +137,8 @@ static ALWAYS_INLINE _const_ int normalise_angle_360 (const int angle) {
  * @return Rotation angle between -180 and 180 degrees (if found).
  * @retval 0 if no rotation data.
  */
-static _nonnull_(1) int get_video_stream_rotation(anu_vreader *vr) {
-  /* Search the side data array inside the codec parameters */
-  AVStream *stream = vreader_video_stream(vr);
+static _nonnull_(1) int get_video_stream_rotation(const AVStream *stream) {
+  /* Search the side data array inside the streams codec parameters */
   const AVPacketSideData *sd = av_packet_side_data_get(
       stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
 
@@ -148,9 +147,7 @@ static _nonnull_(1) int get_video_stream_rotation(anu_vreader *vr) {
   }
 
   int32_t *display_matrix = (int32_t *) sd->data;
-  int rotation = (int) av_display_rotation_get(display_matrix);
-
-  return rotation;
+  return (int) av_display_rotation_get(display_matrix);
 }
 
 /**
@@ -937,7 +934,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
   AVFrame *filtered_frame = NULL;
 
   /* Check for whether stream should be rotated (this is a metadata check) */
-  int rotation = get_video_stream_rotation(&vreader);
+  int rotation = get_video_stream_rotation(video_stream);
   int rotation_normalised = normalise_angle_360(rotation);
   if (rotation_normalised) {
     log_info("[%s] Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
