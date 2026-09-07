@@ -41,8 +41,6 @@ typedef struct cropping {
   int h;
 } cropping;
 
-static int video_reader_get_frame(anu_vreader *vreader);
-
 static void vreader_close (anu_vreader *vreader) {
   if (!vreader) {
     return;
@@ -308,7 +306,7 @@ static ALWAYS_INLINE i64 vreader_get_duration (anu_vreader *vreader) {
  *
  * @note When `av_seek_frame` fails, this function returns libav's err code.
  */
-static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_streambase) {
+static ALWAYS_INLINE int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_streambase) {
 
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
@@ -330,6 +328,63 @@ static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_str
 }
 
 /**
+ * @brief Get a video frame.
+ * @param [in] vreader An instance of a vreader.
+ * @return Integer.
+ * @retval ANU_OK Successfully decoded packet.
+ * @retval -1 End of file.
+ * @retval -11 Error, please try again.
+ * @retval Anything else is an unknown error.
+ */
+static ALWAYS_INLINE int vreader_decode_frame (anu_vreader *vreader) {
+  int ret;
+  AVCodecContext *codec_ctx = vreader->codec_ctx;
+
+  for (;;) {
+    /* Try to grab a decoded frame first */
+    ret = avcodec_receive_frame(codec_ctx, vreader->frame);
+
+    if (ret >= 0) {
+      /* Success: We have a frame */
+      return ANU_OK;
+    }
+    if (ret == AVERROR_EOF) {
+      /* EOF reached */
+      return ret;
+    }
+    if (ret != AVERROR(EAGAIN)) {
+      /* Fatal decoding error */
+      log_error("[%s] Error receiving frame: %s", vreader->fname, av_err2str(ret));
+      return ret;
+    }
+
+    /* EAGAIN means the decoder needs more data. Read a packet. */
+    ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
+    if (ret == AVERROR_EOF) {
+      /* Flush the decoder and loop back to receive the remaining frames */
+      avcodec_send_packet(codec_ctx, NULL);
+      continue;
+    }
+
+    if (ret < 0) {
+      log_error("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
+      return ret;
+    }
+
+    /* Send the correct video packet to the decoder */
+    ret = avcodec_send_packet(codec_ctx, vreader->packet);
+    av_packet_unref(vreader->packet);
+
+    if (ret < 0) {
+      log_error("%s Decoding error: %s", vreader->fname, av_err2str(ret));
+      return ret;
+    }
+
+    /* Loop back to step 1 to receive the frame we just pushed data for */
+  }
+}
+
+/**
  * Seeks video to target pts, and then decodes forward til target is reached or PTS is > min pts.
  *
  * @param vreader Video reader.
@@ -338,9 +393,9 @@ static inline int vreader_seek_pts (anu_vreader *vreader, int64_t target_pts_str
  * @return ANU_OK if success, AV_ERR on failure.
  *
  */
-static inline int vreader_seek_and_read_to_target (anu_vreader *vreader,
-                                                   int64_t target_pts_streambase,
-                                                   int64_t min_pts_streambase) {
+static ALWAYS_INLINE int vreader_seek_decode_to_target (anu_vreader *vreader,
+                                                        int64_t target_pts_streambase,
+                                                        int64_t min_pts_streambase) {
 
   int ret = vreader_seek_pts(vreader, target_pts_streambase);
   if (ret != 0) {
@@ -348,7 +403,7 @@ static inline int vreader_seek_and_read_to_target (anu_vreader *vreader,
   }
 
   for (;;) {
-    ret = video_reader_get_frame(vreader);
+    ret = vreader_decode_frame(vreader);
     if (ret != ANU_OK) {
       return ret; /* EOF or decoding error */
     }
@@ -626,63 +681,6 @@ static int scale_frame (anu_vreader *vr,
   return 0;
 }
 
-/**
- * @brief Get a video frame.
- * @param [in] vreader An instance of a vreader.
- * @return Integer.
- * @retval ANU_OK Successfully decoded packet.
- * @retval -1 End of file.
- * @retval -11 Error, please try again.
- * @retval Anything else is an unknown error.
- */
-static int video_reader_get_frame (anu_vreader *vreader) {
-  int ret;
-  AVCodecContext *codec_ctx = vreader->codec_ctx;
-
-  for (;;) {
-    /* Try to grab a decoded frame first */
-    ret = avcodec_receive_frame(codec_ctx, vreader->frame);
-
-    if (ret >= 0) {
-      /* Success: We have a frame */
-      return ANU_OK;
-    }
-    if (ret == AVERROR_EOF) {
-      /* EOF reached */
-      return ret;
-    }
-    if (ret != AVERROR(EAGAIN)) {
-      /* Fatal decoding error */
-      log_error("[%s] Error receiving frame: %s", vreader->fname, av_err2str(ret));
-      return ret;
-    }
-
-    /* EAGAIN means the decoder needs more data. Read a packet. */
-    ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
-    if (ret == AVERROR_EOF) {
-      /* Flush the decoder and loop back to receive the remaining frames */
-      avcodec_send_packet(codec_ctx, NULL);
-      continue;
-    }
-
-    if (ret < 0) {
-      log_error("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
-      return ret;
-    }
-
-    /* Send the correct video packet to the decoder */
-    ret = avcodec_send_packet(codec_ctx, vreader->packet);
-    av_packet_unref(vreader->packet);
-
-    if (ret < 0) {
-      log_error("%s Decoding error: %s", vreader->fname, av_err2str(ret));
-      return ret;
-    }
-
-    /* Loop back to step 1 to receive the frame we just pushed data for */
-  }
-}
-
 typedef struct filter_ctx {
   AVFilterContext *buffersink_ctx;
   AVFilterContext *buffersrc_ctx;
@@ -904,7 +902,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
               target_segments, seek_target_sb, anu_time_microseconds_to_seconds(seek_target_us));
 
     /* Seek to timestamp */
-    errcode = vreader_seek_and_read_to_target(&vreader, seek_target_sb, last_pts_streambase);
+    errcode = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != ANU_OK) {
       log_error("[%s] Could not seek to segment `%d` (PTS `%ld`): %s", vr_fname, i, seek_target_sb,
                 av_err2str(errcode));
