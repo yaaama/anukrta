@@ -942,6 +942,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
       /* Add frame to filter */
       errcode = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame, AV_BUFFERSRC_FLAG_KEEP_REF);
       if (errcode < 0) {
+        log_error("[%s] Failed add frame to filter graph: %s", vr_fname, av_err2str(errcode));
         mark_segment_failed(entries_out, i);
         continue;
       }
@@ -949,6 +950,7 @@ enum ANU_STATUS anu_video_hash (anu_file *file, anu_config *config, hash_entry *
       /* Retrieve filtered frame */
       errcode = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame);
       if (errcode < 0) {
+        log_error("[%s] Failed retrieve frame from filter graph: %s", vr_fname, av_err2str(errcode));
         mark_segment_failed(entries_out, i);
         continue;
       }
