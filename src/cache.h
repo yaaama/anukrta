@@ -10,7 +10,7 @@
 #include "sqlite3.h"
 #include "util.h"
 
-typedef struct {
+typedef struct anu_cache_ctx {
   sqlite3 *db;
   sqlite3_stmt *stmt_check_cache;
   sqlite3_stmt *stmt_upsert_file;
