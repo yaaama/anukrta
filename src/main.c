@@ -108,7 +108,9 @@ static void *hash_worker_thread (void *arg) {
   return NULL;
 }
 
-static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *args, size_t file_count) {
+static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *args) {
+  /* Number of pending files to process */
+  size_t file_count = args->pending_count;
   /* NOTE: Thread count should not exceed file count */
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
   log_info("Available threads: %zu, utilising %zu of them", config->thread_count, final_thread_count);
@@ -281,7 +283,7 @@ static int anukrta_driver (anu_config *config, anu_paths *paths) {
   };
 
   if (pending_count > 0) {
-    execute_hash_worker_threads(config, &thread_ctx, pending_count);
+    execute_hash_worker_threads(config, &thread_ctx);
   } else {
     log_info("All %zu files already exist in cache, Skipping hashing phase.", file_count);
   }
