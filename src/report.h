@@ -17,7 +17,7 @@ typedef kvec_t(u64_vec) anu_report_groups;
  * Represents the entire report, containing multiple groups.
  * This will be printed after the program has hashed all files.
  */
-typedef struct {
+typedef struct anu_report {
   anu_report_groups groups;
   u64_vec unique;
   u64_vec skipped;
