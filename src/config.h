@@ -37,6 +37,7 @@ typedef enum runtime_flags : uint32_t {
   RT_DRY_RUN = (1U << 5),
   /** Read from and write to the cache */
   RT_CACHE = (1U << 6),
+  RT_PROGRESS_BAR = (1U << 7),
 } runtime_flags;
 
 /* START: BEST_FILE_STRATEGIES */
@@ -114,6 +115,7 @@ static ALWAYS_INLINE _const_ anu_config anukrta_default_config (void) {
   ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
   ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
   ANU_SET_FLAG(config.runtime_flags, RT_CACHE);
+  ANU_SET_FLAG(config.runtime_flags, RT_PROGRESS_BAR);
   ANU_SET_FLAG(config.report_flags, REPORT_PRINT_UNIQUE_FILES);
   return config;
 }

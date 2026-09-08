@@ -723,6 +723,8 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
 
 #define FOREACH_ELEMENT(i, array) FOREACH_ARRAY(i, array, ELEMENTSOF(array))
 
+#define STRLEN(x) (sizeof("" x "") - sizeof(typeof(x[0])))
+
 #define _STRV_FOREACH(s, l, i) for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
 
 #define STRV_FOREACH(s, l) _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))

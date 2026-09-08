@@ -24,7 +24,9 @@
 #include "mem.h"
 #include "report.h"
 #include "sqlite3.h"
+#include "term.h"
 #include "tree.h"
+#include "ui.h"
 #include "util.h"
 #include "video.h"
 
@@ -73,7 +75,9 @@ typedef struct hash_tworker_ctx {
   /** Number of files needing to be processed. */
   size_t pending_count;
   /** Index of file to process by thread worker. */
-  atomic_size_t *current_idx; /* Shared index */
+  atomic_size_t *current_idx;
+  /** Count for completed files */
+  atomic_size_t *completed_count;
   /** Array of result codes from threads. */
   enum ANU_STATUS *results;
 } hash_tworker_ctx;
@@ -103,6 +107,7 @@ static void *hash_worker_thread (void *arg) {
 
     /* Do the hashing and store return code */
     results[file_idx] = anu_video_hash(&files[file_idx], targs->config, (hash_entries + entry_offset));
+    atomic_fetch_add(targs->completed_count, 1);
   }
 
   return NULL;
@@ -120,10 +125,21 @@ static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *a
 
   pthread_t *threads __free(ptr) = xcalloc(final_thread_count, sizeof(*threads));
 
-  log_debug("Starting %zu hashing threads...", final_thread_count);
+  anu_term_ctx *term __free(anu_term_ctx) = xcalloc(1, sizeof(*term));
+  anu_ui_ctx *ui __free(anu_ui) = xcalloc(1, sizeof(*ui));
 
-  /* Create the threads */
+  if (anu_term_init(term)) {
+    log_error("Failed to initialise terminal context.");
+  }
+
+  anu_ui_init(config, term, ui);
+  char *progress_label_str = "HASHING";
+  anu_ui_start_progress(ui, args->completed_count, args->pending_count, progress_label_str,
+                        STRLEN("HASHING"));
+
+  /* Spawn hashing worker threads */
   int threads_made = 0;
+
   for (size_t i = 0; i < final_thread_count; i++) {
     int success = (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
     threads_made += success;
@@ -133,7 +149,7 @@ static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *a
     }
   }
 
-  log_debug("Spawned %d threads.", threads_made);
+  log_debug("Spawned %d worker threads.", threads_made);
 
   /* Wait for all threads to finish */
   int threads_joined = 0;
@@ -145,6 +161,8 @@ static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *a
     }
   }
 
+  /* Stop progress bar and clear it up */
+  anu_ui_stop_progress(ui);
   log_debug("Joined %d threads.", threads_joined);
 }
 
@@ -270,6 +288,7 @@ static int anukrta_driver (anu_config *config, anu_paths *paths) {
   log_debug("Current time: %ld", curr_time);
 
   atomic_size_t current_file_idx = 0;
+  atomic_size_t completed_count = 0;
 
   /* Package the arguments */
   hash_tworker_ctx thread_ctx = {
@@ -280,6 +299,7 @@ static int anukrta_driver (anu_config *config, anu_paths *paths) {
     .pending_count = pending_count,
     .pending_indices = pending_indices,
     .current_idx = &current_file_idx,
+    .completed_count = &completed_count,
   };
 
   if (pending_count > 0) {

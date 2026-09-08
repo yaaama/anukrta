@@ -84,6 +84,7 @@ static void print_help (void) {
   PRINT_OPT("--threads=int", "Number of threads to use (uses all available threads by default).");
   PRINT_OPT("--cache=bool", "Database cache should be used (default: %s).",
             ANU_HAS_ANY_FLAG(cfg.runtime_flags, RT_CACHE) ? "true" : "false");
+  PRINT_OPT("--progress-bar=bool", "Display a visual progress bar (default: true).");
 
 
   fprintf(stderr, "\n  Example:\n    %s\n\n", example);
@@ -316,6 +317,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
     ARG_SKIP_DURATION,
     FLAG_DRY_RUN,
     FLAG_CACHE,
+    FLAG_PROGRESS_BAR,
     FLAG_DETECT_BLACK_FRAME,
     FLAG_DETECT_BARS,
     FLAG_DETECT_ROTATION,
@@ -354,6 +356,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
     {"detect-rotation",    optional_argument,    NULL,  FLAG_DETECT_ROTATION},       // --detect-rotation
     {"detect-bars",        optional_argument,    NULL,  FLAG_DETECT_BARS},           // --detect-bars
     {"cache",              optional_argument,    NULL,  FLAG_CACHE},                 // --cache
+    {"progress-bar",       optional_argument,    NULL,  FLAG_PROGRESS_BAR},          // --progress
 
     {0,                    0,                    0,     0         }};                // END
   /* clang-format on */
@@ -448,6 +451,16 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
         {
           /* --cache defaults to true if no '=val' is provided */
           if (handle_bool_flag(&config->runtime_flags, RT_CACHE, true, arg_invoked, optarg) != 0) {
+            goto exit_error;
+          }
+          break;
+        }
+
+      /* --progress */
+      case FLAG_PROGRESS_BAR:
+        {
+          /* --cache defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->runtime_flags, RT_PROGRESS_BAR, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
           break;
