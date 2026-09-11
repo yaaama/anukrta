@@ -35,7 +35,7 @@ typedef enum runtime_flags : uint32_t {
   RT_SCAN_CURR_DIR = (1U << 4),
   /** List the files that would be hashed if run. */
   RT_DRY_RUN = (1U << 5),
-  /** Store results in cache */
+  /** Read from and write to the cache */
   RT_CACHE = (1U << 6),
 } runtime_flags;
 
@@ -55,11 +55,10 @@ typedef enum runtime_flags : uint32_t {
 
 typedef enum best_file_strat { BEST_FILE_STRATEGIES(GENERATE_ENUM) } best_file_strat;
 
-#define GENERATE_STRING(ENUM_NAME, STRING_VAL) [ENUM_NAME] = (STRING_VAL),
-
-static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENERATE_STRING)};
-
 #undef GENERATE_ENUM
+
+#define GENERATE_STRING(ENUM_NAME, STRING_VAL) [ENUM_NAME] = (STRING_VAL),
+static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENERATE_STRING)};
 #undef GENERATE_STRING
 
 /* END: BEST_FILE_STRATEGIES */
