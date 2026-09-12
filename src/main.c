@@ -118,7 +118,7 @@ static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *a
   size_t file_count = args->pending_count;
   /* NOTE: Thread count should not exceed file count */
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
-  log_info("Available threads: %zu, utilising %zu of them", config->thread_count, final_thread_count);
+  log_info("Utilising [%zu/%zu] threads.", config->thread_count, final_thread_count);
   config->thread_count = final_thread_count;
 
   assert(config->thread_count > 0);
@@ -167,11 +167,11 @@ static void execute_hash_worker_threads (anu_config *config, hash_tworker_ctx *a
 }
 
 /* Tries to load a single file from cache. */
-static ALWAYS_INLINE bool anu_try_load_from_cache (anu_cache_ctx *db,
-                                                   size_t segments_needed,
-                                                   anu_file *file,
-                                                   size_t file_idx,
-                                                   hash_entry *hash_entries) {
+static bool anu_try_load_from_cache (anu_cache_ctx *db,
+                                     size_t segments_needed,
+                                     anu_file *file,
+                                     size_t file_idx,
+                                     hash_entry *hash_entries) {
   u64 row_id = 0;
   i64 duration = 0;
 
