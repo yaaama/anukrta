@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <libavutil/log.h>
+#include <locale.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdatomic.h>
@@ -367,7 +368,43 @@ static int anukrta_driver (anu_config *config, anu_paths *paths) {
   return 0;
 }
 
+/**
+ * @brief Configure locales to safe values.
+ *
+ * Enforce predictable formatting/sorting/string behaviour by overriding hosts locale settings.
+ * - LC_NUMERIC: Force usage of '.' as decimal seperator.
+ * - LC_COLLATE: Force standard ASCII/byte-order string comparisons and collation.
+ *
+ * @warn We modify global state and therefore this function is not threadsafe.
+ * We should always invoke this very EARLY in the program.
+ *
+ * @return 0 on success, or -1 if any `setlocale()` call fails.
+ */
+static int setup_locales (void) {
+  /* NOLINTBEGIN (concurrency-mt-unsafe) */
+
+  /* Force numbers and math back to the safe "C" standard.
+   * Prevents the decimal/comma bug when parsing/printing numbers (floats) */
+  if (setlocale(LC_NUMERIC, "C") == NULL) {
+    fprintf(stderr, "Failed to set locale LC_NUMERIC\n");
+    return -1;
+  }
+
+  /* Force sorting/comparisons to C so string comparisons are predictable */
+  if (setlocale(LC_COLLATE, "C") == NULL) {
+    fprintf(stderr, "Failed to set locale LC_COLLATE\n");
+    return -1;
+  }
+
+  return 0;
+  /* NOLINTEND */
+}
+
 int main (int argc, char *argv[]) {
+
+  if (setup_locales()) {
+    return -1;
+  }
 
   /* Retrieve default configuration */
   anu_config config = anukrta_default_config();
