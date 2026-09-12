@@ -693,8 +693,8 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
                          sizeof(x) / sizeof((x)[0]), VOID_0))
 
 /**
- * Instead of writing if (x || y)...
- * Replace with if(IN_SET (x,y)) */
+ * Instead of writing `if (x || y, || ...) ...`
+ * Replace with if(IN_SET (x, y, ...)) */
 #define IN_SET(x, first, ...)                                                                       \
   ({                                                                                                \
     bool _found = false;                                                                            \
@@ -711,24 +711,7 @@ DEFINE_FREE(f_close, FILE *, if (_T) fclose(_T))
     _found;                                                                                         \
   })
 
-// NOLINTBEGIN (bugprone-macro-parentheses)
-#define _FOREACH_ARRAY(i, array, num, m, end)   \
-  for (typeof(array[0]) *i = (array), *end = ({ \
-         typeof(num) m = (num);                 \
-         (i && m > 0) ? i + m : NULL;           \
-       });                                      \
-       end && i < end; i++)
-
-#define FOREACH_ARRAY(i, array, num) _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
-
-#define FOREACH_ELEMENT(i, array) FOREACH_ARRAY(i, array, ELEMENTSOF(array))
-
-#define STRLEN(x) (sizeof("" x "") - sizeof(typeof(x[0])))
-
-#define _STRV_FOREACH(s, l, i) for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
-
-#define STRV_FOREACH(s, l) _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
-/* NOLINTEND */
+#define STRLEN(x) (sizeof("" x "") - sizeof(typeof((x)[0])))
 
 #define SWAP_TWO(x, y)  \
   do {                  \
