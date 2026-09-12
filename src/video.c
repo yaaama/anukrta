@@ -251,6 +251,7 @@ static _nonnull_(1, 2) ANU_STATUS vreader_init(const char *f_path, anu_vreader *
 
   /*
    * Settings for our decoder
+   * NOTE: This must come AFTER `avcodec_parameters_to_context` so that our overrides aren't overriden
    */
 
   /* NOTE: Set thread count to prevent CACHE THRASHING */
