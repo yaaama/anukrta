@@ -30,8 +30,6 @@ ifeq ($(COMPILER_ID), clang)
 	DEV_FLAGS += -fextend-variable-liveness -Wthread-safety \
 	-Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
 	CLANG_EXTRA_SANS := -fsanitize=integer,implicit-conversion,local-bounds
-	COMPILER_RELEASE_LDFLAGS += -flto=thin
-	RELEASE_FLAGS += -flto=thin
 	TEST_COMPILER_CFLAGS += -fmacro-backtrace-limit=1
 endif
 
@@ -39,8 +37,6 @@ endif
 ifeq ($(COMPILER_ID), gcc)
 	DEV_FLAGS += -Wuse-after-free=3 \
 -Wsuggest-final-types -Wsuggest-attribute=pure -Wsuggest-attribute=const
-  COMPILER_RELEASE_LDFLAGS += -flto
-  RELEASE_FLAGS += -flto
 	TEST_COMPILER_CFLAGS += -ftrack-macro-expansion=0
 endif
 
