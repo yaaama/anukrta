@@ -288,7 +288,7 @@ lint:
 	@run-clang-tidy -quiet -hide-progress -config-file .clang-tidy $(SRC_DIR)
 
 memcheck: debug
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/profile/$(TARGET_NAME)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/debug/$(TARGET_NAME)
 
 print-%: ; @echo $*=$($*)
 
