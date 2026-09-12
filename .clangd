@@ -41,6 +41,13 @@ Index:
   Background: Build
 
 ---
+If:
+  PathMatch: .*\.h
+CompileFlags:
+  Add:
+    - "-xc-header"
+
+---
 
 If:
   PathMatch: [tests/.*\.h, tests/.*\.c]
