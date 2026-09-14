@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "config.h"
 #include "defs.h"
@@ -48,6 +49,22 @@ typedef struct filter_ctx {
   AVFilterGraph *filter_graph;
   int init;
 } filter_ctx;
+
+u32 anu_libav_supports (void) {
+
+  flags32 av_supports = 0;
+
+  const char *av_config = avcodec_configuration();
+  if (!av_config) {
+    return 0;
+  }
+
+  if (strstr(av_config, "--enable-gray")) {
+    av_supports |= ANU_LAV_SUPPS_DEC_GRAY;
+  }
+
+  return av_supports;
+}
 
 /**
  * Destructor for vreader.
@@ -255,11 +272,22 @@ static _nonnull_(1, 2) ANU_STATUS vreader_init(const char *f_path, anu_vreader *
    */
 
   /* NOTE: Set thread count to prevent CACHE THRASHING */
-  codec_ctx->thread_count = 1;
-  /* Disable applying filter to save processing power */
+  /* codec_ctx->thread_count = 1; */
+
+  /* Disable applying filter to speed up decoding */
   codec_ctx->skip_loop_filter = AVDISCARD_ALL;
-  /* Decode videos in grayscale */
-  codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
+
+  /* Decode videos in grayscale
+     TODO: Apply grayscale decoding flag based on whether the ffmpeg build supports it or not:
+
+    if (HAS_FLAG(vreader->av_build, ANU_LAV_SUPPS_DEC_GRAY)) {
+    codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
+    }
+    ...
+  */
+
+  /* Enable speedup tricks whilst decoding the video */
+  codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
   /* Skip frames that are not reference frames */
   codec_ctx->skip_frame = AVDISCARD_NONREF;
 

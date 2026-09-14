@@ -35,6 +35,15 @@ typedef struct anu_vreader {
   int video_stream_idx;
 } anu_vreader;
 
+enum u32 { ANU_LAV_SUPPS_DEC_GRAY = (1 << 0) };
+
+/**
+ * Checks if the linked libavcodec was compiled with certain features.
+ *
+ * @return Supported features bitflag (`ANU_LAV_SUPPS_`)
+ */
+u32 anu_libav_supports(void);
+
 enum ANU_STATUS anu_video_hash(anu_file *file, anu_config *config, hash_entry *entries_out);
 
 #endif  // ANU_VIDEO_H
