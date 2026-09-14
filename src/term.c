@@ -15,18 +15,6 @@
 #include "util.h"
 
 /**
- * Setup terminal context with some sane defaults.
- */
-static void set_term_defaults (anu_term_ctx *ctx) {
-  ctx->term_width = 40;
-  ctx->term_height = 40;
-  ctx->sigwinch_fd = -1;
-  ctx->epoll_fd = -1;
-  ctx->is_tty = false;
-  ctx->is_dumb = false;
-}
-
-/**
  * Get environment variable and parse it as an integer.
  * @note Taken from: https://github.com/util-linux/util-linux/blob/master/lib/ttyutils.c
  */
