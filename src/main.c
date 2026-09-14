@@ -279,9 +279,10 @@ static int anukrta_driver (anu_config *config, anu_paths *paths) {
 
     ANU_CLEAR_FLAG(config->runtime_flags, RT_CACHE);
 
-    /* Add all files found to our work queue */
+    /* Add all files found to our work queue and set their status as PENDING */
     for (size_t i = 0; i < file_count; i++) {
       pending_indices[i] = i;
+      file_statuses[i] = ANU_STATUS_FILE_PENDING;
     }
     pending_count = file_count;
   }
