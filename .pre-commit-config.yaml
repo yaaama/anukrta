@@ -26,4 +26,4 @@ repos:
         # - id: cppcheck
         #   args: ["--enable=all", "--disable=style,unusedFunction", "--check-level=exhaustive", "--language=c", "--inconclusive", "--std=c11", "--suppress=missingIncludeSystem"]
         # - id: cpplint
-      # - id: include-what-you-use
+      - id: include-what-you-use
