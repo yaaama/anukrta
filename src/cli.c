@@ -6,6 +6,7 @@
 #include <getopt.h>  // IWYU pragma: keep
 #include <limits.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -208,13 +209,13 @@ static int parse_numeric_arg_sizet (const char *arg_name,
     return -1;
   }
 
-  /* Prevent negatives from being parsed */
   const char *p = arg_str;
   /* Skip leading whitespace */
   while (isspace((unsigned char) *p)) {
     ++p;
   }
 
+  /* Prevent negatives from being parsed */
   if (*p == '-') {
     fprintf(stderr, "[%s] Error: %s cannot be negative.\n", CLI_NAME, arg_name);
     return -1;
@@ -223,7 +224,7 @@ static int parse_numeric_arg_sizet (const char *arg_name,
   char *endptr = NULL;
   errno = 0;
 
-  unsigned long val = strtoul(arg_str, &endptr, 10);
+  unsigned long long val = strtoull(arg_str, &endptr, 10);
 
   if (endptr == arg_str || *endptr != '\0') {
     fprintf(stderr, "[%s] Error: %s requires a valid positive integer, got '%s'.\n", CLI_NAME, arg_name,
@@ -231,9 +232,9 @@ static int parse_numeric_arg_sizet (const char *arg_name,
     return -1;
   }
 
-  if (errno == ERANGE || val < min || val > max || val > ULONG_MAX) {
+  if (errno == ERANGE || val > SIZE_MAX || val < min || val > max) {
     fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME, arg_name, arg_str);
-    if (max == LONG_MAX) {
+    if (max == SIZE_MAX) {
       fprintf(stderr, "  Value must be %zu or greater.\n", min);
     } else {
       fprintf(stderr, "  Valid range is %zu to %zu.\n", min, max);
@@ -241,7 +242,7 @@ static int parse_numeric_arg_sizet (const char *arg_name,
     return -1;
   }
 
-  *out = val;
+  *out = (size_t) val;
   return 0;
 }
 
