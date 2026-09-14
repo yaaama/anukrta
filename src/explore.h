@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -13,7 +14,7 @@
 #include "kvec.h"
 #include "util.h"
 
-typedef enum ANU_MEDIA_TYPE {
+typedef enum ANU_MEDIA_TYPE : int32_t {
   ANU_MEDIA_TYPE_UNKNOWN = -1,
   ANU_MEDIA_TYPE_VIDEO,
   ANU_MEDIA_TYPE_IMAGE,
@@ -34,10 +35,10 @@ typedef struct anu_file {
   i64 duration_us;
 
   /** File mode change time. */
-  u64 ctime;
+  i64 ctime;
 
   /** File modification time. */
-  u64 mtime;
+  i64 mtime;
 
   /** Device ID */
   u64 dev;

@@ -3,11 +3,11 @@
  *
  * File searching/ paths recursively to retrieve files to analyse
  **/
+
 #include "explore.h"
 
 #include <assert.h>
 #include <dirent.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -24,7 +24,8 @@
 
 /* Wrapper to clean up a kvec containing allocated paths */
 static inline void cleanup_alloced_paths (anu_paths *v) {
-  for (size_t i = 0; i < kv_size(*v); i++) {
+  size_t path_count = kv_size(*v);
+  for (size_t i = 0; i < path_count; i++) {
     free(kv_A(*v, i));
   }
   kv_destroy(*v);
@@ -233,14 +234,13 @@ char *anu_path_basename_stem (char *restrict path, char *restrict out, size_t ou
  *
  * Adds the file pointed to by 'path' to the 'files_out' struct.
  **/
-int handle_path_pointing_to_file (char *path, anu_file_vec *files_out) {
+static _nonnull_(1, 2) int handle_path_pointing_to_file(char *path, anu_file_vec *files_out) {
 
   struct stat statb = {0};
   int stat_return = 0;
-  errno = 0;
   stat_return = stat(path, &statb);
-  if (stat_return && errno) {
-    perror("Error running 'stat' on file: ");
+  if (stat_return) {
+    log_error("Error running `stat()` on %s : (%s)", path, strerror(stat_return));
     return -1;
   }
 
@@ -250,8 +250,8 @@ int handle_path_pointing_to_file (char *path, anu_file_vec *files_out) {
     return 1;
   }
 
-  anu_file file = {.ctime = (usize) statb.st_ctime,
-                   .mtime = (usize) statb.st_mtime,
+  anu_file file = {.ctime = statb.st_ctime,
+                   .mtime = statb.st_mtime,
                    .size = (usize) statb.st_size,
                    .path = strdup(path),
                    .name_offset = (u32) (base_ptr - path)};
@@ -389,12 +389,15 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       }
 
       anu_file newfile = {.size = (usize) statb.st_size,
-                          .ctime = (usize) statb.st_ctime,
-                          .mtime = (usize) statb.st_mtime,
+                          .ctime = statb.st_ctime,
+                          .mtime = statb.st_mtime,
                           .ino = statb.st_ino,
                           .dev = statb.st_dev,
                           .path = final_path,
                           .name_offset = (u32) (curr_path_len + 1),
+                          /* TODO Change this to map to the type of file discovered
+                           * But for now leave it as video as we only handle video files!
+                           */
                           .media_type = ANU_MEDIA_TYPE_VIDEO};
 
       kv_push(*files_out, newfile);
