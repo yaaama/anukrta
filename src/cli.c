@@ -199,8 +199,8 @@ _unused_ static int parse_arg_integer (const char *restrict arg_name,
 }
 
 /** Parses a string to a size_t, putting value into *out param */
-static int parse_numeric_arg_sizet (const char *restrict arg_name,
-                                    const char *restrict arg_str,
+static int parse_numeric_arg_sizet (const char *arg_name,
+                                    const char *arg_str,
                                     size_t min,
                                     size_t max,
                                     size_t *out) {
@@ -251,7 +251,7 @@ static int parse_numeric_arg_sizet (const char *restrict arg_name,
  * @retval 0 if false.
  * @retval 1 if true.
  */
-static int parse_bool_arg (const char *restrict arg_name, const char *restrict arg_str) {
+static int parse_bool_arg (const char *arg_name, const char *arg_str) {
   if (!arg_str) {
     return -1;
   }

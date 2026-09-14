@@ -88,7 +88,7 @@ static inline int safe_bind_txt_static (sqlite3_stmt *stmt, const char *param_na
 void cache_sync_results_maybe (anu_cache_ctx *ctx,
                                anu_config *config,
                                anu_file_vec *files,
-                               enum ANU_STATUS *result_codes,
+                               ANU_STATUS *result_codes,
                                hash_entry *entries) {
 
   if (!ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE) || !ctx) {

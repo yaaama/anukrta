@@ -80,7 +80,7 @@ typedef struct hash_tworker_ctx {
   /** Count for completed files */
   atomic_size_t *completed_count;
   /** Array of result codes from threads. */
-  enum ANU_STATUS *results;
+  ANU_STATUS *results;
 } hash_tworker_ctx;
 
 static void *hash_worker_thread (void *arg) {
@@ -244,6 +244,7 @@ static int anukrta_driver (anu_config *config, anu_paths *paths) {
   anu_cache_ctx *cache_ctx __free(cache_ctx) = NULL;
 
   bool cache_enabled = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_CACHE);
+
   /* Setup sqlite3 for use if caching is enabled */
   if (cache_enabled) {
     log_debug("Initialising SQLite3 library and opening database");

@@ -29,14 +29,14 @@ DEFINE_FREE(cache_ctx, anu_cache_ctx *, if (_T) cache_ctx_destroy(&_T))
  * @name Database Transaction Helpers
  * @brief Transaction helpers for bulk operations.
  */
-static ALWAYS_INLINE int cache_begin_transaction (anu_cache_ctx *ctx) {
+static inline int cache_begin_transaction (anu_cache_ctx *ctx) {
   if (!ctx) {
     return 0;
   }
   return sqlite3_exec(ctx->db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
 }
 
-static ALWAYS_INLINE int cache_rollback_transaction (anu_cache_ctx *ctx) {
+static inline int cache_rollback_transaction (anu_cache_ctx *ctx) {
 
   if (!ctx) {
     return 0;
@@ -44,7 +44,7 @@ static ALWAYS_INLINE int cache_rollback_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "ROLLBACK;", NULL, NULL, NULL);
 }
 
-static ALWAYS_INLINE int cache_commit_transaction (anu_cache_ctx *ctx) {
+static inline int cache_commit_transaction (anu_cache_ctx *ctx) {
   if (!ctx) {
     return 0;
   }
@@ -66,7 +66,7 @@ int cache_get_hashes(anu_cache_ctx *ctx,
 void cache_sync_results_maybe(anu_cache_ctx *ctx,
                               anu_config *config,
                               anu_file_vec *files,
-                              enum ANU_STATUS *result_codes,
+                              ANU_STATUS *result_codes,
                               hash_entry *entries);
 
 #endif  // ANU_CACHE_H_
