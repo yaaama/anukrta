@@ -11,7 +11,7 @@ typedef enum anu_hash_type {
   AK_HASH_ALGO_DCT = 1,
 } anu_hash_type;
 
-typedef enum detect_flags : uint32_t {
+typedef enum AK_FLAG_ENUM detect_flags : uint32_t {
   /** Detect black frames and skip them. */
   DETECT_BLACK_FRAME = (1U << 0),
   /** Detect window/pillar/letter boxing and discard those pixels. */
@@ -27,10 +27,6 @@ typedef enum runtime_flags : uint32_t {
   RT_VERBOSITY_SHIFT = 1,        /* Bits 1 to 3 (Right To Left) are reserved for verbosity specifier*/
   RT_VERBOSITY_MASK = (3U << 1), /* 3U is binary 0011 and 3U << 1 is 00110 */
 
-/* Helper macro to retrieve verbosity level */
-#define AK_GET_VERBOSITY(flags) (((flags) & RT_VERBOSITY_MASK) >> RT_VERBOSITY_SHIFT)
-#define AK_SET_VERBOSITY(flags, v_lvl) ((flags) |= ((v_lvl) << RT_VERBOSITY_SHIFT))
-
   /** Only scan current directory. */
   RT_SCAN_CURR_DIR = (1U << 4),
   /** List the files that would be hashed if run. */
@@ -39,6 +35,14 @@ typedef enum runtime_flags : uint32_t {
   RT_CACHE = (1U << 6),
   RT_PROGRESS_BAR = (1U << 7),
 } runtime_flags;
+
+static AK_ALWAYS_INLINE uint32_t ak_get_verbosity (flags32 flags) {
+  return (flags & RT_VERBOSITY_MASK) >> RT_VERBOSITY_SHIFT;
+}
+
+static AK_ALWAYS_INLINE void ak_set_verbosity (flags32 *flags, uint32_t v_lvl) {
+  *flags = (*flags & ~RT_VERBOSITY_MASK) | ((v_lvl << RT_VERBOSITY_SHIFT) & RT_VERBOSITY_MASK);
+}
 
 /* START: BEST_FILE_STRATEGIES */
 #define BEST_FILE_STRATEGIES(X)                                 \
@@ -64,7 +68,7 @@ static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENER
 
 /* END: BEST_FILE_STRATEGIES */
 
-typedef enum report_flags : uint32_t {
+typedef enum AK_FLAG_ENUM report_flags : uint32_t {
   REPORT_PRINT_HASHES = (1U << 0),
   REPORT_PRINT_UNIQUE_FILES = (1U << 1),
 } report_flags;

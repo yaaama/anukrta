@@ -13,6 +13,7 @@
 #include "config.h"
 #include "defs.h"
 #include "explore.h"
+#include "util.h"
 
 /* Maximum number of video segments to process */
 #define AK_MAX_VIDEO_SEGMENTS 20
@@ -35,7 +36,7 @@ typedef struct ak_vreader {
   int video_stream_idx;
 } ak_vreader;
 
-enum u32 { AK_LAV_SUPPS_DEC_GRAY = (1 << 0) };
+enum AK_FLAG_ENUM u32 { AK_LAV_SUPPS_DEC_GRAY = (1 << 0) };
 
 /**
  * Checks if the linked libavcodec was compiled with certain features.
@@ -44,6 +45,6 @@ enum u32 { AK_LAV_SUPPS_DEC_GRAY = (1 << 0) };
  */
 u32 ak_libav_supports(void);
 
-enum AK_STATUS ak_video_hash(ak_file *file, ak_config *config, ak_hash_entry *entries_out);
+AK_STATUS ak_video_hash(ak_file *file, ak_config *config, ak_hash_entry *entries_out);
 
 #endif  // AK_VIDEO_H

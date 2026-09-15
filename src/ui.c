@@ -148,7 +148,7 @@ int ak_ui_ctx_init (const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui_ct
   /* Enable progress bar only if interactive, supported, and verbosity == 0 */
   bool flag_enabled = ak_flag_has(config->runtime_flags, RT_PROGRESS_BAR);
   bool can_render = (term->is_tty && !term->is_dumb) != 0;
-  bool quiet = (AK_GET_VERBOSITY(config->runtime_flags) == 0);
+  bool quiet = (ak_get_verbosity(config->runtime_flags) == 0);
 
   ui_ctx->is_interactive = ((flag_enabled && can_render && quiet) != 0);
   atomic_store(&ui_ctx->is_active, false);

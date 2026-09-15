@@ -49,12 +49,12 @@ static void log_lock_callback (bool lock, void *udata) {
  * @param anu_log_lvl Integer logging level.
  * @param logging_mutex Mutex to pass to logger.
  */
-static void ak_logging_init (int ak_level, pthread_mutex_t *logging_mutex) {
+static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
 
   static const int ak_map[] = {LOG_ERROR, LOG_INFO, LOG_DEBUG, LOG_TRACE};
-  static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_INFO, AV_LOG_VERBOSE};
+  static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_VERBOSE, AV_LOG_DEBUG};
 
-  int safe_lvl = (ak_level >= 0 && ak_level <= 3) ? ak_level : 0;
+  u32 safe_lvl = (ak_log_level >= 0 && ak_log_level <= 3) ? ak_log_level : 0;
 
   av_log_set_level(libav_map[safe_lvl]);
   log_set_level(ak_map[safe_lvl]);
@@ -81,10 +81,10 @@ typedef struct hash_tworker_ctx {
   atomic_size_t *completed_count;
   /** Array of result codes from threads. */
   AK_STATUS *results;
-} hash_tworker_ctx;
+} hashing_thread_ctx;
 
 static void *hash_worker_thread (void *arg) {
-  hash_tworker_ctx *targs = (hash_tworker_ctx *) arg;
+  hashing_thread_ctx *targs = (hashing_thread_ctx *) arg;
 
   const size_t segments = targs->config->segments;
   enum AK_STATUS *results = targs->results;
@@ -114,12 +114,12 @@ static void *hash_worker_thread (void *arg) {
   return NULL;
 }
 
-static void execute_hash_worker_threads (ak_config *config, hash_tworker_ctx *args) {
+static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *args) {
   /* Number of pending files to process */
   size_t file_count = args->pending_count;
   /* NOTE: Thread count should not exceed file count */
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
-  log_info("Utilising [%zu/%zu] threads.", config->thread_count, final_thread_count);
+  log_info("Utilising [%zu/%zu] threads.", final_thread_count, config->thread_count);
   config->thread_count = final_thread_count;
 
   assert(config->thread_count > 0);
@@ -150,7 +150,7 @@ static void execute_hash_worker_threads (ak_config *config, hash_tworker_ctx *ar
     }
   }
 
-  log_debug("Spawned %d worker threads.", threads_made);
+  log_info("Spawned '%d' worker threads.", threads_made);
 
   /* Wait for all threads to finish */
   int threads_joined = 0;
@@ -164,7 +164,7 @@ static void execute_hash_worker_threads (ak_config *config, hash_tworker_ctx *ar
 
   /* Stop progress bar and clear it up */
   ak_ui_progress_stop(ui);
-  log_debug("Joined %d threads.", threads_joined);
+  log_debug("Joined '%d' threads.", threads_joined);
 }
 
 /* Tries to load a single file from cache. */
@@ -228,7 +228,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
 
   /* The total number of segments to hash = number of files * number of segments */
   const usize segments_count = (file_count * config->segments);
-  log_debug("Total segments to process: (%zu * %zu) = `%zu`", file_count, config->segments, segments_count);
+  log_info("Total segments to process: (%zu * %zu) = `%zu`", file_count, config->segments, segments_count);
 
   /* List of hash entries (each segment has a hash entry) */
   ak_hash_entry *hash_entries AK_AUTO(free) = xmalloc(segments_count * sizeof(*hash_entries));
@@ -256,7 +256,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
    * TODO Check for # of files stored in database and only run loop if > 0
    */
   if (cache_ctx) {
-    log_info("Checking database cache for already hashed files...");
+    log_debug("Checking database cache for already hashed files...");
 
     for (size_t i = 0; i < file_count; i++) {
 
@@ -294,7 +294,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
   atomic_size_t completed_count = 0;
 
   /* Package the arguments */
-  hash_tworker_ctx thread_ctx = {
+  hashing_thread_ctx thread_ctx = {
     .files = &files,
     .config = config,
     .hash_entries = hash_entries,
@@ -342,7 +342,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
 
     /* File was loaded from cache */
     if (result == AK_STATUS_FILE_CACHED) {
-      log_debug("`%s` was loaded from cache.", ak_file_name(file));
+      log_trace("`%s` was loaded from cache.", ak_file_name(file));
     }
 
     /* Add items to bk hash */
@@ -425,14 +425,14 @@ int main (int argc, char *argv[]) {
   pthread_mutex_t log_mutex;
   pthread_mutex_init(&log_mutex, NULL);
 
-  int logging_level = AK_GET_VERBOSITY(config.runtime_flags);
+  u32 logging_level = ak_get_verbosity(config.runtime_flags);
   if (logging_level > 0) {
     ak_cli_print_config(&config);
   }
   ak_logging_init(logging_level, &log_mutex);
 
   /* Start of program */
-  log_info("%s now running...", argv[0]);
+  log_debug("%s now running...", argv[0]);
 
   int driver_ret = anukrta_driver(&config, &paths);
   pthread_mutex_destroy(&log_mutex);

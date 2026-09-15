@@ -119,7 +119,7 @@ void ak_cli_print_config (ak_config *config) {
   PRINT_HEADING("General");
 
   /* Verbosity */
-  u32 v_level = AK_GET_VERBOSITY(rtflags);
+  u32 v_level = ak_get_verbosity(rtflags);
   PRINT_CONFIG_ZU("Verbosity", (size_t) v_level);
 
   /* clang-format off */
@@ -564,7 +564,7 @@ int anu_cli_parse_options (ak_config *config, int argc, char **argv, ak_paths *p
 
   if (verbosity_level > 0) {
     verbosity_level = MINIMUM(verbosity_level, 3);
-    AK_SET_VERBOSITY(config->runtime_flags, verbosity_level);
+    ak_set_verbosity(&config->runtime_flags, verbosity_level);
   }
 
   /* Process remaining positional arguments
