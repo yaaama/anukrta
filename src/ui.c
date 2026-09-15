@@ -216,6 +216,7 @@ void ak_ui_progress_stop (ak_ui_ctx *ctx) {
   if (ctx->is_interactive) {
     ak_term_clear_line(stdout);
     ak_term_cursor_show(stdout);
+    printf("\n");
     fflush(stdout);
   }
 }
