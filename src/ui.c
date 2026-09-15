@@ -5,12 +5,14 @@
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "config.h"
+#include "defs.h"
 #include "log.h"
 #include "term.h"
 #include "util.h"
@@ -94,14 +96,23 @@ static void render_progress_bar (ak_ui_ctx *ctx, size_t completed, double elapse
 static void *progress_monitor_thread (void *arg) {
   ak_ui_ctx *ctx = (ak_ui_ctx *) arg;
 
+  size_t last_completed = SIZE_MAX;
+  i64 last_elapsed_sec = -1;
+
   while (atomic_load(&ctx->is_active)) {
     size_t completed = atomic_load(ctx->completed_count);
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     double elapsed = get_elapsed_seconds(&ctx->start_time, &now);
+    i64 current_elapsed_sec = (i64) elapsed;
 
-    render_progress_bar(ctx, completed, elapsed);
+    /* Only render if the count increased or if a whole second has passed (so ETA timer updates) */
+    if (completed != last_completed || current_elapsed_sec != last_elapsed_sec) {
+      render_progress_bar(ctx, completed, elapsed);
+      last_completed = completed;
+      last_elapsed_sec = current_elapsed_sec;
+    }
 
     if (completed >= ctx->total_count) {
       break;
@@ -177,7 +188,7 @@ int ak_ui_progress_start (ak_ui_ctx *ctx,
   ctx->label = strdup(label);
 
   clock_gettime(CLOCK_MONOTONIC, &ctx->start_time);
-
+  atomic_store(&ctx->is_active, true);
   if (pthread_create(&ctx->monitor_thread, NULL, progress_monitor_thread, ctx) != 0) {
     log_error("Failed to create UI progress monitor thread");
     atomic_store(&ctx->is_active, false);
