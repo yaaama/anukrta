@@ -35,7 +35,7 @@ static int get_env_int (const char *name) {
   return -1;
 }
 
-static int is_terminal_dumb (anu_term_ctx *ctx) {
+static int is_terminal_dumb (ak_term_ctx *ctx) {
 
   const char *term_env = getenv("TERM");
 
@@ -83,7 +83,7 @@ static int try_get_terminal_dimensions (int termfd, int *restrict columns, int *
   return 0;
 }
 
-static int init_signal_handling (anu_term_ctx *ctx) {
+static int init_signal_handling (ak_term_ctx *ctx) {
   /* 1. Create a signal set containing ONLY SIGWINCH */
   sigset_t mask;
   sigemptyset(&mask);
@@ -117,7 +117,7 @@ static int init_signal_handling (anu_term_ctx *ctx) {
   return 0;
 }
 
-int anu_term_update (anu_term_ctx *ctx) {
+int ak_term_ctx_update (ak_term_ctx *ctx) {
   if (ctx->epoll_fd < 0 || ctx->sigwinch_fd < 0) {
     return -1;
   }
@@ -157,7 +157,7 @@ int anu_term_update (anu_term_ctx *ctx) {
   return 0;
 }
 
-void anu_term_destroy (anu_term_ctx *ctx) {
+void ak_term_ctx_destroy (ak_term_ctx *ctx) {
   if (!ctx) {
     return;
   }
@@ -182,7 +182,7 @@ void anu_term_destroy (anu_term_ctx *ctx) {
   free(ctx);
 }
 
-int anu_term_init (anu_term_ctx *ctx) {
+int ak_term_ctx_init (ak_term_ctx *ctx) {
 
   /* Set defaults */
   ctx->term_width = 40;
@@ -217,7 +217,7 @@ int anu_term_init (anu_term_ctx *ctx) {
 
   /* Initialize the signal handling context */
   if (init_signal_handling(ctx) == -1) {
-    anu_term_destroy(ctx); /* Cleanup any partial allocation */
+    ak_term_ctx_destroy(ctx); /* Cleanup any partial allocation */
     return -1;
   }
 

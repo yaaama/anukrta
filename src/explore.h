@@ -1,5 +1,5 @@
-#ifndef ANU_EXPLORE_H
-#define ANU_EXPLORE_H
+#ifndef AK_EXPLORE_H
+#define AK_EXPLORE_H
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -13,14 +13,14 @@
 #include "kvec.h"
 #include "util.h"
 
-typedef enum ANU_MEDIA_TYPE : int32_t {
-  ANU_MEDIA_TYPE_UNKNOWN = -1,
-  ANU_MEDIA_TYPE_VIDEO,
-  ANU_MEDIA_TYPE_IMAGE,
-  ANU_MEDIA_TYPE_AUDIO,
-} ANU_MEDIA_TYPE;
+typedef enum AK_MEDIA_TYPE : int32_t {
+  AK_MEDIA_TYPE_UNKNOWN = -1,
+  AK_MEDIA_TYPE_VIDEO,
+  AK_MEDIA_TYPE_IMAGE,
+  AK_MEDIA_TYPE_AUDIO,
+} AK_MEDIA_TYPE;
 
-typedef struct anu_file {
+typedef struct ak_file {
   /** Path of file. */
   char *path;
 
@@ -48,45 +48,43 @@ typedef struct anu_file {
   u32 name_offset;
 
   /** Media type. */
-  enum ANU_MEDIA_TYPE media_type;
-} anu_file;
+  enum AK_MEDIA_TYPE media_type;
+} ak_file;
 
 /**
  * Helper function to retrieve filename stored in `anu_file`.
  */
-static ALWAYS_INLINE _nonnull_all_ _pure_ char *anu_file_get_filename (anu_file *f) {
+static AK_ALWAYS_INLINE AK_NONNULL_ALL AK_PURE char *ak_file_name (ak_file *f) {
   return f->path + f->name_offset;
 }
 
 /**
  * Vector type for `anu_file`.
  */
-typedef kvec_t(anu_file) anu_file_vec;
+typedef kvec_t(ak_file) ak_file_v;
 
 /** Destructor for anu_file_vec */
-void anu_file_vec_destroy(anu_file_vec *v);
+void ak_file_v_destroy(ak_file_v *v);
 
-DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
+AK_DEFINE_AUTO(file_v, ak_file_v, ak_file_v_destroy(&_T))
 
 /**
  * Vector type of paths.
  */
-typedef kvec_t(char *) anu_paths;
+typedef kvec_t(char *) ak_paths;
 
-void anu_explore_scan_directories(anu_config *config,
-                                  anu_paths *paths,
-                                  anu_file_vec *files_out) _nonnull_all_;
+void anu_explore_scan_directories(ak_config *config, ak_paths *paths, ak_file_v *files_out) AK_NONNULL_ALL;
 
-int anu_explore_recursive_filewalk(char *path, anu_file_vec *files_out) _nonnull_all_;
+int anu_explore_recursive_filewalk(char *path, ak_file_v *files_out) AK_NONNULL_ALL;
 
-int anu_path_extension_supported(char *path) _nonnull_all_ _pure_;
+int anu_path_extension_supported(char *path) AK_NONNULL_ALL AK_PURE;
 
-bool anu_path_is_dir(char *path) _nonnull_all_ _warn_unused_;
+bool anu_path_is_dir(char *path) AK_NONNULL_ALL AK_NO_DISCARD;
 
-char *anu_path_resolve(char *path) _nonnull_all_ _malloc_ _warn_unused_;
+char *ak_path_resolve(char *path) AK_NONNULL_ALL AK_MALLOC AK_NO_DISCARD;
 
-char *anu_path_basename(char *path) _nonnull_all_ _warn_unused_ _pure_;
+char *ak_path_basename(char *path) AK_NONNULL_ALL AK_NO_DISCARD AK_PURE;
 
-char *anu_path_basename_stem(char *restrict path, char *restrict out, size_t out_size)
-    _nonnull_(1, 2) _pure_;
-#endif  // ANU_EXPLORE_H
+char *ak_path_basename_stem(char *restrict path, char *restrict out, size_t out_size)
+    AK_NONNULL_ARG(1, 2) AK_PURE;
+#endif  // AK_EXPLORE_H

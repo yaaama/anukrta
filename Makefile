@@ -78,16 +78,16 @@ ifneq ($(filter profile release,$(VARIANT)),)
 
 else ifeq ($(VARIANT), asan)
 	CFLAGS += $(DEV_FLAGS) -fno-optimize-sibling-calls -fno-omit-frame-pointer
-	CPPFLAGS += -DANU_DEBUG
+	CPPFLAGS += -DAK_DEBUG
 	SAN_FLAGS := -fsanitize=address,undefined,unreachable -fsanitize-address-use-after-scope $(CLANG_EXTRA_SANS)
 else ifeq ($(VARIANT), tsan)
 	CFLAGS += $(DEV_FLAGS) -fno-omit-frame-pointer
-	CPPFLAGS += -DANU_DEBUG
+	CPPFLAGS += -DAK_DEBUG
 	SAN_FLAGS := -fsanitize=thread,undefined,unreachable $(CLANG_EXTRA_SANS)
 # Debug Build
 else
 	CFLAGS += $(DEV_FLAGS)
-	PREPROC_DEFS += -DANU_DEBUG
+	PREPROC_DEFS += -DAK_DEBUG
 endif
 
 # ==========================================

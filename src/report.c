@@ -50,7 +50,7 @@ static void unite_sets (usize i, usize j, usize *restrict parent, usize *restric
 }
 
 static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
-static const int UNITS_IEC_COUNT = ANU_ARRAY_SIZE(units_iec);
+static const int UNITS_IEC_COUNT = AK_ARRAY_SIZE(units_iec);
 
 char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
 
@@ -62,7 +62,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
     bytes /= 1024.0; /* Equivalent to: bytes / 1024 */
     ++unit_index;
   }
-  _unused_ int c;
+  AK_UNUSED int c;
 
   if (unit_index == 0) {
     c = snprintf(buf, buf_size, "%.0f %s", bytes, units_iec[unit_index]);
@@ -70,7 +70,12 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
     c = snprintf(buf, buf_size, "%.2f %s", bytes, units_iec[unit_index]);
   }
 
-  assert(c > 0 && (size_t) c < buf_size);
+  /* If buffer was not large enough to hold the formatted string,
+   * we clear the buffer of the printed characters and then return null */
+  if ((size_t) c >= buf_size) {
+    ak_memzero_sz(buf, buf_size);
+    return NULL;
+  };
   return buf;
 }
 
@@ -88,7 +93,7 @@ static char *get_date_from_epoch (time_t *epoch_time, char *buf, usize buf_size)
   return buf;
 }
 
-static void print_file_hashes (const hash_entry *entries, const usize entries_count) {
+static void print_file_hashes (const ak_hash_entry *entries, const usize entries_count) {
   if (entries_count == 0 || entries == NULL) {
     return;
   }
@@ -101,8 +106,8 @@ static void print_file_hashes (const hash_entry *entries, const usize entries_co
   printf("]");
 }
 
-static bool is_better_file (const anu_file *restrict candidate,
-                            const anu_file *restrict current_best,
+static bool is_better_file (const ak_file *restrict candidate,
+                            const ak_file *restrict current_best,
                             best_file_strat strat) {
   bool better = false;
   bool tied = false;
@@ -141,7 +146,7 @@ static bool is_better_file (const anu_file *restrict candidate,
       tied = (candidate->duration_us == current_best->duration_us);
       break;
     default:
-      ANU_UNREACHABLE("Strategy enum is not fully accounted.");
+      AK_UNREACHABLE("Strategy enum is not fully accounted.");
   }
 
   /* Universal string tie-breaker for deterministic outputs */
@@ -155,7 +160,7 @@ static bool is_better_file (const anu_file *restrict candidate,
  * @brief Elect the best file based on strategy.
  * @todo Make this accept a function pointer and write our strategies separately.
  */
-static void elect_best_file (u64_vec *group, anu_file_vec *files, anu_config *config) {
+static void elect_best_file (u64_vec *group, ak_file_v *files, ak_config *config) {
 
   /* Exit early if no strategy or if group is just 1 file */
   usize group_count = kv_size(*group);
@@ -167,13 +172,13 @@ static void elect_best_file (u64_vec *group, anu_file_vec *files, anu_config *co
   const best_file_strat strat = config->best_file_strategy;
 
   usize best_index = 0;
-  anu_file *best_file = &kv_A(*files, (kv_A(*group, 0)));
+  ak_file *best_file = &kv_A(*files, (kv_A(*group, 0)));
   bool better = false;
 
   for (usize i = 1; i < group_count; i++) {
 
     usize curr_file_id = kv_A(*group, i);
-    anu_file *candidate = &kv_A(*files, curr_file_id);
+    ak_file *candidate = &kv_A(*files, curr_file_id);
     better = is_better_file(candidate, best_file, strat);
 
     if (better) {
@@ -190,20 +195,25 @@ static void elect_best_file (u64_vec *group, anu_file_vec *files, anu_config *co
   }
 }
 
-static void print_file_item (const anu_config *config,
-                             const anu_file_vec *files,
+static void print_file_item (const ak_config *config,
+                             const ak_file_v *files,
                              const i32 result,
-                             const hash_entry *entries,
+                             const ak_hash_entry *entries,
                              usize file_id,
                              const char *tag) {
 
-  const anu_file *file = &files->items[file_id];
+  const ak_file *file = &files->items[file_id];
   char sz[32];
   char dt[64];
   time_t t = (time_t) file->mtime;
 
-  get_human_sizing_iec(file->size, sz, ANU_ARRAY_SIZE(sz));
-  get_date_from_epoch(&t, dt, ANU_ARRAY_SIZE(dt));
+  bool valid_size = get_human_sizing_iec(file->size, sz, AK_ARRAY_SIZE(sz)) != NULL;
+
+  if (ak_unlikely(!valid_size)) {
+    AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
+  }
+
+  get_date_from_epoch(&t, dt, AK_ARRAY_SIZE(dt));
 
   // Format: "[TAG] path" or "  path"
   if (tag) {
@@ -212,9 +222,9 @@ static void print_file_item (const anu_config *config,
     printf("  %s\n", file->path);
   }
 
-  printf("%20s | %-.2fs | %-15s\n", sz, anu_time_microseconds_to_seconds(file->duration_us), dt);
+  printf("%20s | %-.2fs | %-15s\n", sz, ak_time_microsec_sec(file->duration_us), dt);
   /* entry may be NULL if we have not hashed the file (because it was skipped for example) */
-  int print_hashes = (entries && ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_HASHES));
+  int print_hashes = (entries && ak_flag_has(config->report_flags, REPORT_PRINT_HASHES));
   if (print_hashes) {
     print_file_hashes(entries + (file_id * config->segments), config->segments);
     printf("\n");
@@ -223,20 +233,20 @@ static void print_file_item (const anu_config *config,
 
 static const char *get_skip_reason_string (i32 status) {
   switch (status) {
-    case ANU_SKIPPED_SHORT_DURATION:
+    case AK_SKIP_SHORT_DURATION:
       return "VIDEO TOO SHORT";
-    case ANU_IO_FAIL:
+    case AK_IO_FAIL:
       return "I/O FAILURE";
     default:
       return "UNKNOWN";
   }
 }
 
-void anu_print_report (anu_config *config,
-                       anu_report *report,
-                       anu_file_vec *files,
-                       i32 *results,
-                       hash_entry *entries) {
+void ak_report_print (ak_config *config,
+                      ak_report *report,
+                      ak_file_v *files,
+                      i32 *results,
+                      ak_hash_entry *entries) {
 
   usize group_count = kv_size(report->groups);
 
@@ -258,7 +268,7 @@ void anu_print_report (anu_config *config,
   printf("+----------------------------------------------+\n");
 
   bool use_tags = (config->best_file_strategy != BEST_FILE_NONE);
-  bool print_unique = ANU_HAS_ANY_FLAG(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
+  bool print_unique = ak_flag_has(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
 
   for (usize i = 0; i < group_count; i++) {
     u64_vec *group = &kv_A(report->groups, i);
@@ -311,14 +321,14 @@ static int compare_uf_pairs (const void *a, const void *b) {
   return 0;
 }
 
-anu_report anu_generate_report (anu_file_vec *files,
-                                i32 *results,
-                                hash_entry *entries,
-                                anu_config *config,
-                                bk_node *tree) {
+ak_report ak_report_build (ak_file_v *files,
+                           i32 *results,
+                           ak_hash_entry *entries,
+                           ak_config *config,
+                           bk_node *tree) {
 
   usize file_count = kv_size(*files);
-  anu_report report = {0};
+  ak_report report = {0};
 
   if (file_count == 0 || tree == NULL) {
     return report;
@@ -327,7 +337,7 @@ anu_report anu_generate_report (anu_file_vec *files,
   kv_init(report.skipped);
 
   /* Union-Find to identify the groups */
-  usize *parent __free(ptr) = NULL;
+  usize *parent AK_AUTO(free) = NULL;
   parent = xmalloc(file_count * sizeof(*parent) * 2);
   usize *rank = parent + file_count;
 
@@ -344,7 +354,7 @@ anu_report anu_generate_report (anu_file_vec *files,
 
   for (usize i = 0; i < file_count; i++) {
     /* File was SKIPPED */
-    if ((results[i] != ANU_OK) && (results[i] != ANU_STATUS_FILE_CACHED)) {
+    if ((results[i] != AK_OK) && (results[i] != AK_STATUS_FILE_CACHED)) {
       kv_push(report.skipped, (u64) i);
       continue;
     }
@@ -372,19 +382,19 @@ anu_report anu_generate_report (anu_file_vec *files,
   /* Use a temporary array of stacks/dynamic arrays to bucket the files by their
   root parent */
 
-  uf_pair *pairs __free(ptr) = xmalloc(file_count * sizeof(uf_pair));
+  uf_pair *pairs AK_AUTO(free) = xmalloc(file_count * sizeof(uf_pair));
   usize valid_count = 0;
 
   /* Every bucket is their own parent in the beginning */
   for (u64 i = 0; i < file_count; i++) {
 
-    if (results[i] != ANU_OK && results[i] != ANU_STATUS_FILE_CACHED) {
+    if (results[i] != AK_OK && results[i] != AK_STATUS_FILE_CACHED) {
       continue;
     }
 
     usize root = find_set(i, parent);
     /* Should never happen if logic is correct */
-    ANU_ASSUME(root < file_count);
+    AK_ASSUME(root < file_count);
 
     pairs[valid_count].file_id = i;
     pairs[valid_count].root_id = (u64) root;
@@ -433,7 +443,7 @@ anu_report anu_generate_report (anu_file_vec *files,
   return report;
 }
 
-void anu_report_destroy (anu_report *report) {
+void ak_report_destroy (ak_report *report) {
   /* Free all file id vectors */
   usize group_count = report->groups.size;
   for (usize i = 0; i < group_count; i++) {

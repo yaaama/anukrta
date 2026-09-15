@@ -2,6 +2,8 @@
 #include <criterion/new/assert.h>
 #include <criterion/redirect.h>
 #include <signal.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "../src/defs.h"
 #include "../src/util.h"
@@ -61,8 +63,8 @@ Test (util, bits_roundup_64) {
 Test (util, array_size) {
   int arr_int[15];
   double arr_dbl[42];
-  cr_assert(eq(sz, ANU_ARRAY_SIZE(arr_int), 15));
-  cr_assert(eq(sz, ANU_ARRAY_SIZE(arr_dbl), 42));
+  cr_assert(eq(sz, AK_ARRAY_SIZE(arr_int), 15));
+  cr_assert(eq(sz, AK_ARRAY_SIZE(arr_dbl), 42));
 }
 
 // --- Time Conversion Tests ---
@@ -111,18 +113,12 @@ Test (util, pp_glue) {
  * This is generally preferred for testing specific lines.
  */
 
-Test (util, death_panic, .signal = SIGABRT) {
-  ANU_PANIC("This is an expected panic");
-}
+Test (util, death_panic, .signal = SIGABRT) { AK_PANIC("This is an expected panic"); }
 
-Test (util, death_die, .signal = SIGABRT) {
-  ANU_DIE("This is an expected fatal exit");
-}
+Test (util, death_die, .signal = SIGABRT) { AK_DIE("This is an expected fatal exit"); }
 
-Test (util, death_todo, .signal = SIGABRT) {
-  ANU_TODO("This feature isn't ready");
-}
+Test (util, death_todo, .signal = SIGABRT) { AK_TODO("This feature isn't ready"); }
 
-#ifdef ANU_DEBUG
-Test (util, death_assume_fail, .signal = SIGABRT) { ANU_ASSUME(1 == 2); }
+#ifdef AK_DEBUG
+Test (util, death_assume_fail, .signal = SIGABRT) { AK_ASSUME(1 == 2); }
 #endif

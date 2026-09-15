@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 /* Helper to visualise matrix */
-void print_matrix_float (FILE *fp, const float *matrix, const int rows, const int cols) {
+void ak_matrix_fprint_float (FILE *fp, const float *matrix, const int rows, const int cols) {
   fprintf(fp, "--- %dx%d Visual Dump ---\n", cols, rows);
   for (int y = 0; y < rows; y += 2) {  // Skip every other row to fit screen
     for (int x = 0; x < cols; x++) {
@@ -28,7 +28,7 @@ void print_matrix_float (FILE *fp, const float *matrix, const int rows, const in
   fprintf(fp, "-------------------------\n");
 }
 
-void anu_util_print_indent (FILE *fp, const int spaces, const int depth) {
+void ak_io_fprint_indent (FILE *fp, const int spaces, const int depth) {
 
   if ((depth < 0) || (spaces <= 0)) {
     return;

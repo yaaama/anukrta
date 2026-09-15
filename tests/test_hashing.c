@@ -26,16 +26,13 @@ Test (hashing, dct_flat_values) {
   uint64_t onehundred_hash_result = dct_hash(onehundred_value);
 
   cr_assert(eq(u64, zero_hash_result, 0,
-               "Matrix of all '0's should return 0. Returned: %lx instead: ",
-               zero_hash_result));
+               "Matrix of all '0's should return 0. Returned: %lx instead: ", zero_hash_result));
 
-  cr_assert(eq(u64, one_hash_result, 0,
-               "Matrix of all '1's should return 0. Returned: %lx instead.",
+  cr_assert(eq(u64, one_hash_result, 0, "Matrix of all '1's should return 0. Returned: %lx instead.",
                one_hash_result));
 
   cr_assert(eq(u64, onehundred_hash_result, 0,
-               "Matrix of all '100's should return 0. Returned: %lx instead.",
-               onehundred_hash_result));
+               "Matrix of all '100's should return 0. Returned: %lx instead.", onehundred_hash_result));
 }
 
 Test (hashing, hamming_distances) {
@@ -60,12 +57,11 @@ Test (hashing, hamming_distances) {
   };
   int answer_idx = 0;
   int distance = 0;
-  for (int i = 0; i < (int) ANU_ARRAY_SIZE(hamming); i += 2) {
+  for (int i = 0; i < (int) AK_ARRAY_SIZE(hamming); i += 2) {
     distance = hamming_distance(hamming[i], hamming[i + 1]);
 
-    cr_assert(eq(int, distance, hamming_answers[answer_idx],
-                 "Distance should be 1 for hash %lx and %lx.", hamming[i],
-                 hamming[i + 1]));
+    cr_assert(eq(int, distance, hamming_answers[answer_idx], "Distance should be 1 for hash %lx and %lx.",
+                 hamming[i], hamming[i + 1]));
     ++answer_idx;
   }
 }

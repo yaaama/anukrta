@@ -52,7 +52,7 @@ static void bkTree_insert_internal (bk_node *node, uint64_t hash, uint64_t file_
   uint64_t node_hash = node->hash;
   unsigned int hamming_dist = hamming_distance(node_hash, hash);
   /* If this is not true, then something horrible has gone wrong. */
-  ANU_ASSUME(hamming_dist <= 64);
+  AK_ASSUME(hamming_dist <= 64);
   size_t dist = (size_t) hamming_dist;
 
   if (!dist) {
@@ -116,7 +116,7 @@ void bk_tree_search (bk_node *root, uint64_t hash, size_t tolerance, u64_vec *gr
     const bk_node *node = kv_pop(stack);
     ptrdiff_t distance = (ptrdiff_t) hamming_distance(node->hash, hash);
 
-    ANU_ASSUME(distance >= 0 && distance <= 64);
+    AK_ASSUME(distance >= 0 && distance <= 64);
 
     /* Found a match */
     if (distance <= tol) {
@@ -139,7 +139,7 @@ void bk_tree_search (bk_node *root, uint64_t hash, size_t tolerance, u64_vec *gr
 // NOLINTBEGIN (*recursion)
 static void bk_node_print_recursive (bk_node *node, size_t depth, int edge_distance) {
   // NOLINTEND
-  if (UNLIKELY(!node)) {
+  if (ak_unlikely(!node)) {
     return;
   }
 
@@ -169,7 +169,7 @@ static void bk_node_print_recursive (bk_node *node, size_t depth, int edge_dista
      We iterate 1 to 64 because distance 0 is the node itself (handled in
      file_ids) */
   for (size_t i = 0; i < node->child_count; i++) {
-    ANU_ASSUME(node->children[i].distance <= 64);
+    AK_ASSUME(node->children[i].distance <= 64);
     bk_node_print_recursive(node->children[i].node, depth + 1, (int) node->children[i].distance);
   }
 }

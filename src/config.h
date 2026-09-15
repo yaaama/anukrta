@@ -1,5 +1,5 @@
-#ifndef ANU_CONFIG_H
-#define ANU_CONFIG_H
+#ifndef AK_CONFIG_H
+#define AK_CONFIG_H
 
 #include <stdint.h>
 
@@ -7,8 +7,8 @@
 #include "util.h"
 
 typedef enum anu_hash_type {
-  ANU_HASH_ALGO_AVERAGE = 0,
-  ANU_HASH_ALGO_DCT = 1,
+  AK_HASH_ALGO_AVERAGE = 0,
+  AK_HASH_ALGO_DCT = 1,
 } anu_hash_type;
 
 typedef enum detect_flags : uint32_t {
@@ -28,8 +28,8 @@ typedef enum runtime_flags : uint32_t {
   RT_VERBOSITY_MASK = (3U << 1), /* 3U is binary 0011 and 3U << 1 is 00110 */
 
 /* Helper macro to retrieve verbosity level */
-#define ANU_GET_VERBOSITY(flags) (((flags) & RT_VERBOSITY_MASK) >> RT_VERBOSITY_SHIFT)
-#define ANU_SET_VERBOSITY(flags, v_lvl) ((flags) |= ((v_lvl) << RT_VERBOSITY_SHIFT))
+#define AK_GET_VERBOSITY(flags) (((flags) & RT_VERBOSITY_MASK) >> RT_VERBOSITY_SHIFT)
+#define AK_SET_VERBOSITY(flags, v_lvl) ((flags) |= ((v_lvl) << RT_VERBOSITY_SHIFT))
 
   /** Only scan current directory. */
   RT_SCAN_CURR_DIR = (1U << 4),
@@ -95,14 +95,14 @@ typedef struct anu_config {
    * @see `best_file_strat`. */
   best_file_strat best_file_strategy;
   byte padding[4];
-} anu_config;
+} ak_config;
 
-static ALWAYS_INLINE _const_ anu_config anukrta_default_config (void) {
+static AK_ALWAYS_INLINE AK_CONST ak_config anukrta_default_config (void) {
 
-  anu_config config = {
+  ak_config config = {
     .segments = 3,
     .threshold = 8,
-    .hash_algorithm = ANU_HASH_ALGO_DCT,
+    .hash_algorithm = AK_HASH_ALGO_DCT,
     .skip_duration = 3,
     .thread_count = 1,
     .runtime_flags = 0,
@@ -111,13 +111,13 @@ static ALWAYS_INLINE _const_ anu_config anukrta_default_config (void) {
     .best_file_strategy = BEST_FILE_LONGEST,
   };
 
-  ANU_SET_FLAG(config.detect_flags, DETECT_ROTATION);
-  ANU_SET_FLAG(config.detect_flags, DETECT_BARS);
-  ANU_SET_FLAG(config.detect_flags, DETECT_BLACK_FRAME);
-  ANU_SET_FLAG(config.runtime_flags, RT_CACHE);
-  ANU_SET_FLAG(config.runtime_flags, RT_PROGRESS_BAR);
-  ANU_SET_FLAG(config.report_flags, REPORT_PRINT_UNIQUE_FILES);
+  config.detect_flags |= DETECT_ROTATION;
+  config.detect_flags |= DETECT_BARS;
+  config.detect_flags |= DETECT_BLACK_FRAME;
+  config.runtime_flags |= RT_CACHE;
+  config.runtime_flags |= RT_PROGRESS_BAR;
+  config.report_flags |= REPORT_PRINT_UNIQUE_FILES;
   return config;
 }
 
-#endif  // ANU_CONFIG_H
+#endif  // AK_CONFIG_H

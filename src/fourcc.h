@@ -4,21 +4,21 @@
 #include <stdint.h>
 
 /* Length Macros */
-#define ANU_VIDEO_EXT_MAX_LEN 4
-#define ANU_VIDEO_EXT_MIN_LEN 2
+#define AK_VIDEO_EXT_MAX_LEN 4
+#define AK_VIDEO_EXT_MIN_LEN 2
 
 /* Helper Macros for Prefixing */
-#define __ANU_4CC_GLUE(a, b) a##b
-#define __ANU_4CC_JOIN(a, b) __ANU_4CC_GLUE(a, b)
-#define __ANU_4CC_PREFIX ANU_EXT_4CC_
+#define __AK_4CC_GLUE(a, b) a##b
+#define __AK_4CC_JOIN(a, b) __AK_4CC_GLUE(a, b)
+#define __AK_4CC_PREFIX AK_EXT_4CC_
 
-#define ANU_4CC_MAKE(a, b, c, d) \
+#define AK_4CC_MAKE(a, b, c, d) \
   ((uint32_t) (a) | ((uint32_t) (b) << 8) | ((uint32_t) (c) << 16) | ((uint32_t) (d) << 24))
 
-#define ANU_VID_EXT_MAX_LEN 4
-#define ANU_VID_EXT_MIN_LEN 2
+#define AK_VID_EXT_MAX_LEN 4
+#define AK_VID_EXT_MIN_LEN 2
 
-#define ANU_VIDEO_EXT_TABLE                   \
+#define AK_VIDEO_EXT_TABLE                    \
   X(3G2, '3', 'g', '2', ' ', "3g2", "3G2")    \
   X(3GP, '3', 'g', 'p', ' ', "3gp", "3GP")    \
   X(AMV, 'a', 'm', 'v', ' ', "amv", "AMV")    \
@@ -58,9 +58,9 @@
 
 /* Generate the Enum */
 #define X(id, c1, c2, c3, c4, lower, upper) \
-  __ANU_4CC_JOIN(__ANU_4CC_PREFIX, id) = ANU_4CC_MAKE(c1, c2, c3, c4),
+  __AK_4CC_JOIN(__AK_4CC_PREFIX, id) = AK_4CC_MAKE(c1, c2, c3, c4),
 
-typedef enum { ANU_VIDEO_EXT_TABLE } ANU_VIDEO_4CC;
+typedef enum { AK_VIDEO_EXT_TABLE } AK_VIDEO_4CC;
 
 #undef X
 
@@ -70,7 +70,7 @@ typedef enum { ANU_VIDEO_EXT_TABLE } ANU_VIDEO_4CC;
  * The macro expands to (0 + 1 + 1 + 1...)
  */
 #define X(id, c1, c2, c3, c4, lower, upper) (+1)
-#define ANU_VIDEO_EXT_COUNT (0 ANU_VIDEO_EXT_TABLE)
+#define AK_VIDEO_EXT_COUNT (0 AK_VIDEO_EXT_TABLE)
 #undef X
 
 /*
@@ -80,15 +80,15 @@ typedef struct anu_ext_info {
   char lower[5];
   char upper[5];
   unsigned char _padding[2];
-  ANU_VIDEO_4CC fourcc;
+  AK_VIDEO_4CC fourcc;
 } anu_ext_info;
 
 static inline __attribute__((const)) int anu_4cc_is_valid (const uint32_t fourcc_code) {
   switch (fourcc_code) {
     /* Define X to build the case statements: */
-#define X(id, c1, c2, c3, c4, lower, upper) case __ANU_4CC_JOIN(__ANU_4CC_PREFIX, id):
+#define X(id, c1, c2, c3, c4, lower, upper) case __AK_4CC_JOIN(__AK_4CC_PREFIX, id):
 
-    ANU_VIDEO_EXT_TABLE
+    AK_VIDEO_EXT_TABLE
 
 #undef X /* Undefine X so it doesn't leak out */
     return 1;

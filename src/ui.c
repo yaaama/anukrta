@@ -19,13 +19,13 @@ static double get_elapsed_seconds (const struct timespec *start, const struct ti
   return (double) (end->tv_sec - start->tv_sec) + ((double) (end->tv_nsec - start->tv_nsec) / 1000000000.0);
 }
 
-static void render_progress_bar (anu_ui_ctx *ctx, size_t completed, double elapsed_sec) {
+static void render_progress_bar (ak_ui_ctx *ctx, size_t completed, double elapsed_sec) {
   if (!ctx->is_active) {
     return;
   }
 
   /* Query terminal resize events */
-  anu_term_update(ctx->term);
+  ak_term_ctx_update(ctx->term);
 
   int term_width = ctx->term->term_width;
   if (term_width < 20) {
@@ -68,7 +68,7 @@ static void render_progress_bar (anu_ui_ctx *ctx, size_t completed, double elaps
 
   /* If the terminal is narrow, suppress the bracketed bar and only show statistics */
   if (bar_width < 5) {
-    anu_term_clear_line(stdout);
+    ak_term_clear_line(stdout);
     printf("%s: %s", ctx->label, stats_buf);
     fflush(stdout);
     return;
@@ -76,7 +76,7 @@ static void render_progress_bar (anu_ui_ctx *ctx, size_t completed, double elaps
 
   int filled = (int) (progress * (double) bar_width);
 
-  anu_term_clear_line(stdout);
+  ak_term_clear_line(stdout);
   printf("%s: [", ctx->label);
   for (int i = 0; i < bar_width; i++) {
     if (i < filled) {
@@ -92,7 +92,7 @@ static void render_progress_bar (anu_ui_ctx *ctx, size_t completed, double elaps
 }
 
 static void *progress_monitor_thread (void *arg) {
-  anu_ui_ctx *ctx = (anu_ui_ctx *) arg;
+  ak_ui_ctx *ctx = (ak_ui_ctx *) arg;
 
   while (atomic_load(&ctx->is_active)) {
     size_t completed = atomic_load(ctx->completed_count);
@@ -115,13 +115,13 @@ static void *progress_monitor_thread (void *arg) {
   return NULL;
 }
 
-void anu_ui_destroy (anu_ui_ctx *ctx) {
+void ak_ui_destroy (ak_ui_ctx *ctx) {
   if (!ctx) {
     return;
   }
 
   if (atomic_load(&ctx->is_active)) {
-    anu_ui_stop_progress(ctx);
+    ak_ui_progress_stop(ctx);
   }
 
   if (ctx->label) {
@@ -131,7 +131,7 @@ void anu_ui_destroy (anu_ui_ctx *ctx) {
   free(ctx);
 }
 
-int anu_ui_init (const anu_config *config, anu_term_ctx *term, anu_ui_ctx *ui_ctx) {
+int ak_ui_ctx_init (const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui_ctx) {
 
   /* Enable interactive progress bar only if:
    * - Is not explicitly disabled
@@ -146,20 +146,20 @@ int anu_ui_init (const anu_config *config, anu_term_ctx *term, anu_ui_ctx *ui_ct
   ui_ctx->total_count = 0;
 
   /* Enable progress bar only if interactive, supported, and verbosity == 0 */
-  bool flag_enabled = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_PROGRESS_BAR);
+  bool flag_enabled = ak_flag_has(config->runtime_flags, RT_PROGRESS_BAR);
   bool can_render = (term->is_tty && !term->is_dumb) != 0;
-  bool quiet = (ANU_GET_VERBOSITY(config->runtime_flags) == 0);
+  bool quiet = (AK_GET_VERBOSITY(config->runtime_flags) == 0);
 
   ui_ctx->is_interactive = ((flag_enabled && can_render && quiet) != 0);
   atomic_store(&ui_ctx->is_active, false);
   return 0;
 }
 
-int anu_ui_start_progress (anu_ui_ctx *ctx,
-                           atomic_size_t *completed_count,
-                           size_t total_count,
-                           const char *label,
-                           int label_len) {
+int ak_ui_progress_start (ak_ui_ctx *ctx,
+                          atomic_size_t *completed_count,
+                          size_t total_count,
+                          const char *label,
+                          int label_len) {
 
   if (!ctx || !completed_count || total_count == 0) {
     return -1;
@@ -170,7 +170,7 @@ int anu_ui_start_progress (anu_ui_ctx *ctx,
     return 0;
   }
 
-  anu_term_cursor_hide(stdout);
+  ak_term_cursor_hide(stdout);
 
   ctx->completed_count = completed_count;
   ctx->total_count = total_count;
@@ -181,14 +181,14 @@ int anu_ui_start_progress (anu_ui_ctx *ctx,
   if (pthread_create(&ctx->monitor_thread, NULL, progress_monitor_thread, ctx) != 0) {
     log_error("Failed to create UI progress monitor thread");
     atomic_store(&ctx->is_active, false);
-    anu_term_cursor_show(stdout);
+    ak_term_cursor_show(stdout);
     return -1;
   }
   atomic_store(&ctx->is_active, true);
   return 0;
 }
 
-void anu_ui_stop_progress (anu_ui_ctx *ctx) {
+void ak_ui_progress_stop (ak_ui_ctx *ctx) {
   if (!ctx) {
     return;
   }
@@ -203,8 +203,8 @@ void anu_ui_stop_progress (anu_ui_ctx *ctx) {
 
   /* Clear the progress bar */
   if (ctx->is_interactive) {
-    anu_term_clear_line(stdout);
-    anu_term_cursor_show(stdout);
+    ak_term_clear_line(stdout);
+    ak_term_cursor_show(stdout);
     fflush(stdout);
   }
 }

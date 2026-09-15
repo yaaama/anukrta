@@ -20,7 +20,7 @@
 #include "util.h"
 
 #define CLI_NAME "anukrta"
-#define ANU_VERSION "0.0.1"
+#define AK_VERSION "0.0.1"
 
 static long get_available_threads (void) {
   errno = 0;
@@ -43,7 +43,7 @@ static void print_help (void) {
       "anukrta --cache=no --verbose --segments=5 /dir/one/ /dir/two/ "
       "videoFile.mp4";
 
-  anu_config cfg = anukrta_default_config();
+  ak_config cfg = anukrta_default_config();
 
 #define PRINT_HEADING(text) fprintf(stderr, "\n  %s:\n", text)
 #define PRINT_OPT(opt, ...)                   \
@@ -70,11 +70,11 @@ static void print_help (void) {
 
   PRINT_HEADING("Detection");
   PRINT_OPT("--detect-black=bool", "Detect black frames and skip over them (default: %s).",
-            ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_BLACK_FRAME) ? "true" : "false");
+            ak_flag_has(cfg.detect_flags, DETECT_BLACK_FRAME) ? "true" : "false");
   PRINT_OPT("--detect-bars=bool", "Detect bars around video (e.g. letterboxing) (default: %s).",
-            ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_BARS) ? "true" : "false");
+            ak_flag_has(cfg.detect_flags, DETECT_BARS) ? "true" : "false");
   PRINT_OPT("--detect-rotation=bool", "Detect rotated videos (default: %s).",
-            ANU_HAS_ANY_FLAG(cfg.detect_flags, DETECT_ROTATION) ? "true" : "false");
+            ak_flag_has(cfg.detect_flags, DETECT_ROTATION) ? "true" : "false");
 
 
   PRINT_HEADING("Report");
@@ -84,7 +84,7 @@ static void print_help (void) {
   PRINT_HEADING("Execution & Storage");
   PRINT_OPT("--threads=int", "Number of threads to use (uses all available threads by default).");
   PRINT_OPT("--cache=bool", "Database cache should be used (default: %s).",
-            ANU_HAS_ANY_FLAG(cfg.runtime_flags, RT_CACHE) ? "true" : "false");
+            ak_flag_has(cfg.runtime_flags, RT_CACHE) ? "true" : "false");
   PRINT_OPT("--progress-bar=bool", "Display a visual progress bar (default: true).");
 
 
@@ -96,7 +96,10 @@ static void print_help (void) {
 #undef PRINT_OPT
 }
 
-void anu_cli_print_configuration (anu_config *config) {
+/**
+ * TODO Make this take a file pointer to print it to the right place
+ */
+void ak_cli_print_config (ak_config *config) {
 
   /* This should be larger than the longest configuration option name  */
   const int OPT_W = 28;
@@ -104,7 +107,7 @@ void anu_cli_print_configuration (anu_config *config) {
 #define PRINT_HEADING(text) fprintf(stdout, "\n [%s] \n", text)
 #define PRINT_CONFIG_STR(cfg, val) fprintf(stdout, "   %-*s : %s\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_ZU(cfg, val) fprintf(stdout, "   %-*s : %zu\n", OPT_W, cfg, val)
-#define FLAG_VAL(var, flag) (ANU_HAS_ANY_FLAG((var), (flag)) ? "TRUE" : "FALSE")
+#define FLAG_VAL(var, flag) (ak_flag_has((var), (flag)) ? "TRUE" : "FALSE")
 
   flags32 rtflags = config->runtime_flags;
   flags32 detflags = config->detect_flags;
@@ -116,7 +119,7 @@ void anu_cli_print_configuration (anu_config *config) {
   PRINT_HEADING("General");
 
   /* Verbosity */
-  u32 v_level = ANU_GET_VERBOSITY(rtflags);
+  u32 v_level = AK_GET_VERBOSITY(rtflags);
   PRINT_CONFIG_ZU("Verbosity", (size_t) v_level);
 
   /* clang-format off */
@@ -149,7 +152,7 @@ void anu_cli_print_configuration (anu_config *config) {
 }
 
 /* Helper to reverse-lookup long option names */
-static _pure_ const char *get_long_opt_name (int val, const struct option *opts) {
+static AK_PURE const char *get_long_opt_name (int val, const struct option *opts) {
   for (int i = 0; opts[i].name != NULL; i++) {
     if (opts[i].val == val) {
       return opts[i].name;
@@ -159,11 +162,11 @@ static _pure_ const char *get_long_opt_name (int val, const struct option *opts)
 }
 
 /* Parses a string to a long, assigns out param (size_t) */
-_unused_ static int parse_arg_integer (const char *restrict arg_name,
-                                       const char *restrict arg_str,
-                                       int min,
-                                       int max,
-                                       int *out) {
+AK_UNUSED static int parse_arg_integer (const char *restrict arg_name,
+                                        const char *restrict arg_str,
+                                        int min,
+                                        int max,
+                                        int *out) {
 
   if (!arg_name || !arg_str || !out) {
     return -1;
@@ -279,9 +282,9 @@ static inline int handle_bool_flag (flags32 *flag_var,
   if (!arg_val) {
     /* If default value of flag is TRUE */
     if (default_value) {
-      ANU_SET_FLAG(*flag_var, flag_mask);
+      *flag_var |= flag_mask;
     } else {
-      ANU_CLEAR_FLAG(*flag_var, flag_mask);
+      *flag_var &= ~flag_mask;
     }
     return 0;
   }
@@ -293,15 +296,15 @@ static inline int handle_bool_flag (flags32 *flag_var,
   }
 
   if (res) {
-    ANU_SET_FLAG(*flag_var, flag_mask);
+    *flag_var |= flag_mask;
   } else {
-    ANU_CLEAR_FLAG(*flag_var, flag_mask);
+    ((*flag_var) &= ~flag_mask);
   }
 
   return 0;
 }
 
-int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths *paths_out) {
+int anu_cli_parse_options (ak_config *config, int argc, char **argv, ak_paths *paths_out) {
 
   const char *program_name = CLI_NAME;
 
@@ -422,14 +425,14 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
       case CMD_HELP:
         {
           print_help();
-          ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
+          config->runtime_flags |= RT_EXIT_EARLY;
           return 0;
         }
       /* --version */
       case CMD_VERSION:
         {
-          printf("%s - version: " ANU_VERSION "\n", program_name);
-          ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
+          printf("%s - version: " AK_VERSION "\n", program_name);
+          config->runtime_flags |= RT_EXIT_EARLY;
           return 0;
         }
 
@@ -443,7 +446,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
       /* --dry-run */
       case FLAG_DRY_RUN:
         {
-          ANU_SET_FLAG(config->runtime_flags, RT_DRY_RUN);
+          config->runtime_flags |= RT_DRY_RUN;
           break;
         }
 
@@ -469,7 +472,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
       /* --print-hashes */
       case FLAG_REPORT_PRINT_HASHES:
         {
-          ANU_SET_FLAG(config->report_flags, REPORT_PRINT_HASHES);
+          config->report_flags |= REPORT_PRINT_HASHES;
           break;
         }
 
@@ -554,14 +557,14 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
 
       default:
         {
-          ANU_UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
+          AK_UNREACHABLE(CLI_NAME ": Internal CLI Parsing Error");
         }
     }
   }
 
   if (verbosity_level > 0) {
     verbosity_level = MINIMUM(verbosity_level, 3);
-    ANU_SET_VERBOSITY(config->runtime_flags, verbosity_level);
+    AK_SET_VERBOSITY(config->runtime_flags, verbosity_level);
   }
 
   /* Process remaining positional arguments
@@ -579,7 +582,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
     }
 
   } else {
-    ANU_SET_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR);
+    config->runtime_flags |= RT_SCAN_CURR_DIR;
   }
 
   /* If thread is not explicitly stated, then assign default value (use all available threads) */
@@ -591,7 +594,7 @@ int anu_cli_parse_options (anu_config *config, int argc, char **argv, anu_paths 
 
 exit_error:
   {
-    ANU_SET_FLAG(config->runtime_flags, RT_EXIT_EARLY);
+    config->runtime_flags |= RT_EXIT_EARLY;
     ret = EINVAL;
     return ret;
   }

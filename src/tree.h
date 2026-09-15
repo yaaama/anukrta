@@ -1,5 +1,5 @@
-#ifndef ANU_BK_TREE_H
-#define ANU_BK_TREE_H
+#ifndef AK_BK_TREE_H
+#define AK_BK_TREE_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -35,4 +35,4 @@ void bk_tree_insert(bk_node **tree_ptr, uint64_t hash, uint64_t file_id);
 void bk_tree_node_free(bk_node *node);
 void bk_tree_print_ascii(bk_node *tree);
 
-#endif  // ANU_BK_TREE_H
+#endif  // AK_BK_TREE_H

@@ -1,5 +1,5 @@
-#ifndef ANU_VIDEO_H
-#define ANU_VIDEO_H
+#ifndef AK_VIDEO_H
+#define AK_VIDEO_H
 
 #include <assert.h>
 #include <libavcodec/avcodec.h>
@@ -15,9 +15,9 @@
 #include "explore.h"
 
 /* Maximum number of video segments to process */
-#define ANU_MAX_VIDEO_SEGMENTS 20
+#define AK_MAX_VIDEO_SEGMENTS 20
 
-typedef struct anu_vreader {
+typedef struct ak_vreader {
   /* File (container/AV file) context
    * AVFormatContext holds the header information stored in file (container) */
   AVFormatContext *fmt_ctx;
@@ -33,17 +33,17 @@ typedef struct anu_vreader {
   char *fname;
   /* Index of video stream inside container */
   int video_stream_idx;
-} anu_vreader;
+} ak_vreader;
 
-enum u32 { ANU_LAV_SUPPS_DEC_GRAY = (1 << 0) };
+enum u32 { AK_LAV_SUPPS_DEC_GRAY = (1 << 0) };
 
 /**
  * Checks if the linked libavcodec was compiled with certain features.
  *
- * @return Supported features bitflag (`ANU_LAV_SUPPS_`)
+ * @return Supported features bitflag (`AK_LAV_SUPPS_`)
  */
-u32 anu_libav_supports(void);
+u32 ak_libav_supports(void);
 
-enum ANU_STATUS anu_video_hash(anu_file *file, anu_config *config, hash_entry *entries_out);
+enum AK_STATUS ak_video_hash(ak_file *file, ak_config *config, ak_hash_entry *entries_out);
 
-#endif  // ANU_VIDEO_H
+#endif  // AK_VIDEO_H

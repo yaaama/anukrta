@@ -25,14 +25,14 @@
 #include "util.h"
 
 /* Wrapper to clean up a kvec containing allocated paths */
-static void cleanup_alloced_paths (anu_paths *v) {
+static void cleanup_alloced_paths (ak_paths *v) {
   size_t path_count = kv_size(*v);
   for (size_t i = 0; i < path_count; i++) {
     free(kv_A(*v, i));
   }
   kv_destroy(*v);
 }
-DEFINE_FREE(anu_paths_alloc, anu_paths, cleanup_alloced_paths(&_T))
+AK_DEFINE_AUTO(anu_paths_alloc, ak_paths, cleanup_alloced_paths(&_T))
 
 /**
  * @brief Compare strings lexicographically.
@@ -41,7 +41,7 @@ DEFINE_FREE(anu_paths_alloc, anu_paths, cleanup_alloced_paths(&_T))
  * e.g. a="Hello" , b="Hi"
  * (H - H) = 0
  * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
-static ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a, const void *restrict b) {
+static AK_ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a, const void *restrict b) {
   return strcmp(*(const char *const *) a, *(const char *const *) b);
 }
 
@@ -53,14 +53,14 @@ bool anu_path_is_dir (char *path) {
   return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 };
 
-void anu_file_vec_destroy (anu_file_vec *v) {
+void ak_file_v_destroy (ak_file_v *v) {
 
   if (!v) {
     return;
   }
 
   size_t sz = kv_size(*v);
-  anu_file *file = NULL;
+  ak_file *file = NULL;
 
   for (size_t i = 0; i < sz; i++) {
     file = &kv_A(*v, i);
@@ -93,19 +93,19 @@ int anu_path_extension_supported (char *path) {
       break;
     }
     /* Reached 5th character, extension is too long for a 4CC code */
-    if (i == ANU_VIDEO_EXT_MAX_LEN) {
+    if (i == AK_VIDEO_EXT_MAX_LEN) {
       return 0;
     }
 
-    bytes[i] = (uint8_t) anu_util_tolower(c);
+    bytes[i] = (uint8_t) ak_char_lower(c);
   }
 
   /* If i was less than two characters */
-  if (i < ANU_VIDEO_EXT_MIN_LEN) {
+  if (i < AK_VIDEO_EXT_MIN_LEN) {
     return 0;
   }
 
-  uint32_t ext_4cc = ANU_4CC_MAKE(bytes[0], bytes[1], bytes[2], bytes[3]);
+  uint32_t ext_4cc = AK_4CC_MAKE(bytes[0], bytes[1], bytes[2], bytes[3]);
 
   return anu_4cc_is_valid(ext_4cc);
 }
@@ -116,7 +116,7 @@ int anu_path_extension_supported (char *path) {
  * @param path[in] Path to resolve.
  * @return Alloced string holding resolved path, NULL on failure.
  **/
-char *anu_path_resolve (char *path) {
+char *ak_path_resolve (char *path) {
   errno = 0;
   char *p = realpath(path, NULL);
   if (p == NULL) {
@@ -130,7 +130,7 @@ char *anu_path_resolve (char *path) {
  *
  * @return Pointer to start of filename or `path` on failure.
  **/
-char *anu_path_basename (char *path) {
+char *ak_path_basename (char *path) {
   char *start = strrchr(path, '/');
   return start ? (start + 1) : path;
 }
@@ -138,11 +138,11 @@ char *anu_path_basename (char *path) {
 /**
  * Get filename, excluding the extension.
  **/
-char *anu_path_basename_stem (char *restrict path, char *restrict out, size_t out_size) {
+char *ak_path_basename_stem (char *restrict path, char *restrict out, size_t out_size) {
   assert(out_size > 0);
 
   /* Get files name */
-  char *start = anu_path_basename(path);
+  char *start = ak_path_basename(path);
   char *last_dot = strrchr(start, '.');
 
   size_t len;
@@ -172,7 +172,7 @@ char *anu_path_basename_stem (char *restrict path, char *restrict out, size_t ou
  *
  * Adds the file pointed to by 'path' to the 'files_out' struct.
  **/
-static _nonnull_(1, 2) int handle_path_pointing_to_file(char *path, anu_file_vec *files_out) {
+static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file(char *path, ak_file_v *files_out) {
 
   struct stat statb = {0};
   int stat_return = 0;
@@ -182,17 +182,17 @@ static _nonnull_(1, 2) int handle_path_pointing_to_file(char *path, anu_file_vec
     return -1;
   }
 
-  char *base_ptr = anu_path_basename(path);
+  char *base_ptr = ak_path_basename(path);
   if (base_ptr == path) {
     log_error("(%s): Could not determine basename", path);
     return 1;
   }
 
-  anu_file file = {.ctime = statb.st_ctime,
-                   .mtime = statb.st_mtime,
-                   .size = (usize) statb.st_size,
-                   .path = strdup(path),
-                   .name_offset = (u32) (base_ptr - path)};
+  ak_file file = {.ctime = statb.st_ctime,
+                  .mtime = statb.st_mtime,
+                  .size = (usize) statb.st_size,
+                  .path = strdup(path),
+                  .name_offset = (u32) (base_ptr - path)};
 
   kv_push(*files_out, file);
   return 0;
@@ -201,7 +201,7 @@ static _nonnull_(1, 2) int handle_path_pointing_to_file(char *path, anu_file_vec
 /**
  * @brief Recursively search path and return files found.
  **/
-int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
+int anu_explore_recursive_filewalk (char *path, ak_file_v *files_out) {
 
   /* Test to see if we can open the directory */
   DIR *first_dir = opendir(path);
@@ -216,7 +216,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
   }
 
   /* Stack to hold directories */
-  anu_paths dirstack;
+  ak_paths dirstack;
   kv_init(dirstack);
   /* Initialise with the path received */
   kv_push(dirstack, strdup(path));
@@ -225,15 +225,15 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
   while (kv_size(dirstack) > 0) {
 
     /* Current path we are searching */
-    char *curr_path __free(ptr) = NULL;
+    char *curr_path AK_AUTO(free) = NULL;
     curr_path = kv_pop(dirstack);
 
-    ANU_ASSUME(curr_path != NULL);
+    AK_ASSUME(curr_path != NULL);
 
     size_t curr_path_len = strlen(curr_path);
 
     /* Directory stream */
-    DIR *dir __free(dir_close) = NULL;
+    DIR *dir AK_AUTO(dir) = NULL;
     dir = opendir(curr_path);
     if (!dir) {
       log_warn("Could not open directory: %s", curr_path);
@@ -266,7 +266,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       struct stat statb;
       bool stat_called = false;
 
-      if (UNLIKELY(type == DT_UNKNOWN)) {
+      if (ak_unlikely(type == DT_UNKNOWN)) {
         if (fstatat(dir_fd, name, &statb, 0) != 0) {
           continue;
         }
@@ -291,7 +291,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       /* If its a directory push it to our directory stack */
       if (type == DT_DIR) {
         char *dir_path;
-        if (UNLIKELY(asprintf(&dir_path, "%s/%s", curr_path, name) == -1)) {
+        if (ak_unlikely(asprintf(&dir_path, "%s/%s", curr_path, name) == -1)) {
           log_error("Could not allocate memory for directory path!");
         }
         kv_push(dirstack, dir_path);
@@ -312,7 +312,7 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
         log_warn("Failed to fstatat file '%s/%s'", curr_path, name);
         continue;
       }
-      if (UNLIKELY(statb.st_size == 0)) {
+      if (ak_unlikely(statb.st_size == 0)) {
         log_debug("File size is 0 '%s/%s'", curr_path, name);
         continue;
       }
@@ -321,22 +321,22 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
       char *final_path;
       int final_path_len = asprintf(&final_path, "%s/%s", curr_path, name);
 
-      if (UNLIKELY(final_path_len == -1)) {
+      if (ak_unlikely(final_path_len == -1)) {
         log_error("Failed to allocate memory for path variable.");
         continue;
       }
 
-      anu_file newfile = {.size = (usize) statb.st_size,
-                          .ctime = statb.st_ctime,
-                          .mtime = statb.st_mtime,
-                          .ino = statb.st_ino,
-                          .dev = statb.st_dev,
-                          .path = final_path,
-                          .name_offset = (u32) (curr_path_len + 1),
-                          /* TODO Change this to map to the type of file discovered
-                           * But for now leave it as video as we only handle video files!
-                           */
-                          .media_type = ANU_MEDIA_TYPE_VIDEO};
+      ak_file newfile = {.size = (usize) statb.st_size,
+                         .ctime = statb.st_ctime,
+                         .mtime = statb.st_mtime,
+                         .ino = statb.st_ino,
+                         .dev = statb.st_dev,
+                         .path = final_path,
+                         .name_offset = (u32) (curr_path_len + 1),
+                         /* TODO Change this to map to the type of file discovered
+                          * But for now leave it as video as we only handle video files!
+                          */
+                         .media_type = AK_MEDIA_TYPE_VIDEO};
 
       kv_push(*files_out, newfile);
     }
@@ -351,15 +351,15 @@ int anu_explore_recursive_filewalk (char *path, anu_file_vec *files_out) {
  *
  * @todo Add a check for hard linked files (files with same inode number)
  */
-void anu_explore_scan_directories (anu_config *config, anu_paths *paths, anu_file_vec *files) {
+void anu_explore_scan_directories (ak_config *config, ak_paths *paths, ak_file_v *files) {
 
   /* Check if we need to scan current directory */
-  bool scan_curr_dir_only = ANU_HAS_ANY_FLAG(config->runtime_flags, RT_SCAN_CURR_DIR);
+  bool scan_curr_dir_only = ak_flag_has(config->runtime_flags, RT_SCAN_CURR_DIR);
   if (scan_curr_dir_only) {
-    char *resolved __free(ptr) = NULL;
+    char *resolved AK_AUTO(free) = NULL;
     resolved = realpath(".", NULL);
-    if (UNLIKELY(!resolved)) {
-      ANU_DIE("Could not resolve current path???");
+    if (ak_unlikely(!resolved)) {
+      AK_DIE("Could not resolve current path???");
     }
     log_info("Scanning current directory: '%s'", resolved);
     if (anu_explore_recursive_filewalk(resolved, files)) {
@@ -372,7 +372,7 @@ void anu_explore_scan_directories (anu_config *config, anu_paths *paths, anu_fil
   assert(kv_size(*paths));
 
   /* Array to hold resolved paths */
-  anu_paths real_paths __free(anu_paths_alloc);
+  ak_paths real_paths AK_AUTO(anu_paths_alloc);
   kv_init(real_paths);
 
   /* Resolve all paths before the path cleanup */

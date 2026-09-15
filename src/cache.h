@@ -1,5 +1,5 @@
-#ifndef ANU_CACHE_H_
-#define ANU_CACHE_H_
+#ifndef AK_CACHE_H_
+#define AK_CACHE_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -23,7 +23,7 @@ anu_cache_ctx *cache_open_db(const char *db_path);
 int cache_close_db(anu_cache_ctx *ctx);
 int cache_ctx_destroy(anu_cache_ctx **ctx);
 
-DEFINE_FREE(cache_ctx, anu_cache_ctx *, if (_T) cache_ctx_destroy(&_T))
+AK_DEFINE_AUTO(cache_ctx, anu_cache_ctx *, if (_T) cache_ctx_destroy(&_T))
 
 /**
  * @name Database Transaction Helpers
@@ -51,22 +51,22 @@ static inline int cache_commit_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
 }
 
-int cache_is_file_valid(anu_cache_ctx *ctx, anu_file *file, u64 *out_file_id, i64 *out_duration_us);
+int cache_is_file_valid(anu_cache_ctx *ctx, ak_file *file, u64 *out_file_id, i64 *out_duration_us);
 
-int cache_upsert_file(anu_cache_ctx *ctx, anu_file *file, uint64_t time_of_hash, uint64_t *row_id_out);
+int cache_upsert_file(anu_cache_ctx *ctx, ak_file *file, uint64_t time_of_hash, uint64_t *row_id_out);
 
-int cache_insert_hash(anu_cache_ctx *ctx, uint64_t file_id, hash_entry entry);
+int cache_insert_hash(anu_cache_ctx *ctx, uint64_t file_id, ak_hash_entry entry);
 
 int cache_get_hashes(anu_cache_ctx *ctx,
                      uint64_t file_id,
                      size_t max_hashes,
-                     hash_entry *entries_out,
+                     ak_hash_entry *entries_out,
                      u64 *out_count);
 
 void cache_sync_results_maybe(anu_cache_ctx *ctx,
-                              anu_config *config,
-                              anu_file_vec *files,
-                              ANU_STATUS *result_codes,
-                              hash_entry *entries);
+                              ak_config *config,
+                              ak_file_v *files,
+                              AK_STATUS *result_codes,
+                              ak_hash_entry *entries);
 
-#endif  // ANU_CACHE_H_
+#endif  // AK_CACHE_H_

@@ -1,5 +1,5 @@
-#ifndef ANU_DEFS_H_
-#define ANU_DEFS_H_
+#ifndef AK_DEFS_H_
+#define AK_DEFS_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -27,21 +27,21 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 
 /** @} */  // END Type Definitions
 
-typedef struct hash_entry {
+typedef struct ak_hash_entry {
   u64 hash;
   i64 timestamp;
-} hash_entry;
+} ak_hash_entry;
 
-typedef enum ANU_STATUS : int32_t {
-  ANU_OK = 0,                 /**< Function executed successfully. */
-  ANU_IO_FAIL,                /**< IO failure. */
-  ANU_OOM,                    /**< Out of memory/ could not allocate memory. */
-  ANU_STATUS_FILE_PENDING,    /**< File is pending processing. */
-  ANU_STATUS_FILE_CACHED,     /**< File is already in the database. */
-  ANU_SKIPPED_SHORT_DURATION, /**< Video file is too short to process. */
-  ANU_FRAME_BLACK,            /**< Frame is too dark to process. */
-  ANU_LIBAV_FAIL,             /**< Some error occured whilst using libav */
-} ANU_STATUS;
+typedef enum AK_STATUS : int32_t {
+  AK_OK = 0,              /**< Function executed successfully. */
+  AK_IO_FAIL,             /**< IO failure. */
+  AK_OOM,                 /**< Out of memory/ could not allocate memory. */
+  AK_STATUS_FILE_PENDING, /**< File is pending processing. */
+  AK_STATUS_FILE_CACHED,  /**< File is already in the database. */
+  AK_SKIP_SHORT_DURATION, /**< Video file is too short to process. */
+  AK_SKIP_FRAME_BLACK,    /**< Frame is too dark to process. */
+  AK_LIBAV_FAIL,          /**< Some error occured whilst using libav */
+} AK_STATUS;
 
 /**
  * @def CACHE_LINE_SIZE
@@ -72,4 +72,4 @@ typedef enum ANU_STATUS : int32_t {
 /** Number of `double` types that will fit within a single cache line. */
 #define CACHE_STRIDE_DOUBLE (CACHE_LINE_SIZE / sizeof(double))
 
-#endif  // ANU_DEFS_H_
+#endif  // AK_DEFS_H_

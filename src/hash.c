@@ -9,19 +9,19 @@
 #include "util.h"
 
 /** Size of row/col len of DCT hash */
-#define ANU_PHASH_DCT_SIZE 8
+#define AK_PHASH_DCT_SIZE 8
 
 /** Intermediate buffer length for DCT calculation
- * (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE)
+ * (AK_PHASH_INPUT_SIZE * AK_PHASH_DCT_SIZE)
  * (32 * 8)
  */
-#define DCT_INTERMEDIATE_BUF_LEN (ANU_PHASH_INPUT_SIZE * ANU_PHASH_DCT_SIZE)
+#define DCT_INTERMEDIATE_BUF_LEN (AK_PHASH_INPUT_SIZE * AK_PHASH_DCT_SIZE)
 
 /**
  * Final DCT digest length in bits
- * ANU_PHASH_DCT_SIZE^2
+ * AK_PHASH_DCT_SIZE^2
  */
-#define DCT_DIGEST_LEN (ANU_PHASH_DCT_SIZE * ANU_PHASH_DCT_SIZE)
+#define DCT_DIGEST_LEN (AK_PHASH_DCT_SIZE * AK_PHASH_DCT_SIZE)
 
 /** Scale factor: 2^15 (32768) */
 #define DCT_INT_FIXED_SHIFT 15
@@ -40,7 +40,7 @@
  */
 #define DCT_AC_COEFFICIENT_COUNT (DCT_DIGEST_LEN - 1)
 
-#if ANU_PHASH_DCT_SIZE != 8
+#if AK_PHASH_DCT_SIZE != 8
 #  warning "dct weights will not work if dct size is not 8."
 #endif
 
@@ -83,7 +83,7 @@ static const int16_t DCT_WEIGHTS_INT[256] = {
   /* clang-format on */
 };
 
-static ALWAYS_INLINE int64_t quickselect_median (int64_t *arr, int n) {
+static AK_ALWAYS_INLINE int64_t quickselect_median (int64_t *arr, int n) {
   int l = 0;
   int m = n - 1;
   int k = n / 2;
@@ -114,7 +114,7 @@ static ALWAYS_INLINE int64_t quickselect_median (int64_t *arr, int n) {
   return arr[k];
 }
 
-uint64_t _pure_ HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
+uint64_t AK_PURE AK_HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
 
   int32_t row_result[DCT_INTERMEDIATE_BUF_LEN];
   int64_t dct_result[DCT_DIGEST_LEN];
@@ -122,46 +122,46 @@ uint64_t _pure_ HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
 
   /* Pass 1: 1D DCT on Rows */
 
-  for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
-    const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[u * ANU_PHASH_INPUT_SIZE];
+  for (ptrdiff_t u = 0; u < AK_PHASH_DCT_SIZE; u++) {
+    const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[u * AK_PHASH_INPUT_SIZE];
 
-    for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
-      const uint8_t *restrict row_ptr = &input_pixels[(y * ANU_PHASH_INPUT_SIZE)];
+    for (ptrdiff_t y = 0; y < AK_PHASH_INPUT_SIZE; y++) {
+      const uint8_t *restrict row_ptr = &input_pixels[(y * AK_PHASH_INPUT_SIZE)];
 
       int32_t sum = 0;
 
       /* Vectorizable by compiler */
-      for (ptrdiff_t x = 0; x < ANU_PHASH_INPUT_SIZE; x++) {
+      for (ptrdiff_t x = 0; x < AK_PHASH_INPUT_SIZE; x++) {
         sum += (int32_t) row_ptr[x] * weight_ptr[x];
       }
 
       /* Max value is ~66 million, safely fits inside int32_t */
-      row_result[(u * ANU_PHASH_INPUT_SIZE) + y] = sum;
+      row_result[(u * AK_PHASH_INPUT_SIZE) + y] = sum;
     }
   }
 
   /* Pass 2: 1D DCT on Columns */
-  for (ptrdiff_t u = 0; u < ANU_PHASH_DCT_SIZE; u++) {
+  for (ptrdiff_t u = 0; u < AK_PHASH_DCT_SIZE; u++) {
     /* u is our output row index */
-    const int32_t *restrict row_of_t = &row_result[u * ANU_PHASH_INPUT_SIZE];
+    const int32_t *restrict row_of_t = &row_result[u * AK_PHASH_INPUT_SIZE];
 
-    for (ptrdiff_t v = 0; v < ANU_PHASH_DCT_SIZE; v++) {
+    for (ptrdiff_t v = 0; v < AK_PHASH_DCT_SIZE; v++) {
       /* v is our output column index */
-      const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[v * ANU_PHASH_INPUT_SIZE];
+      const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[v * AK_PHASH_INPUT_SIZE];
 
       int64_t sum = 0;
 
-      for (ptrdiff_t y = 0; y < ANU_PHASH_INPUT_SIZE; y++) {
+      for (ptrdiff_t y = 0; y < AK_PHASH_INPUT_SIZE; y++) {
         /* Max sum is ~1.75 * 10^13, safely fits inside int64_t */
         sum += (int64_t) row_of_t[y] * weight_ptr[y];
       }
-      dct_result[(u * ANU_PHASH_DCT_SIZE) + v] = sum;
+      dct_result[(u * AK_PHASH_DCT_SIZE) + v] = sum;
     }
   }
 
   static_assert((DCT_DIGEST_LEN - 1) % 2 == 1, "Count of coefficients should be odd");
 
-  memcpy(ac_coeffs, &dct_result[1], (ANU_ARRAY_SIZE(ac_coeffs) * sizeof(int64_t)));
+  memcpy(ac_coeffs, &dct_result[1], (AK_ARRAY_SIZE(ac_coeffs) * sizeof(int64_t)));
 
   int64_t median = quickselect_median(ac_coeffs, DCT_DIGEST_LEN - 1);
   /* Calculate threshold.
