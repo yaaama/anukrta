@@ -682,7 +682,7 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
   const int threshold = threshold_black ? threshold_black : 24;
   /* 24 is usually a safe threshold for limited-range YUV "black" */
   if (!detect_black_borders(src, threshold, &crop)) {
-    log_warn("[%s]: Frame is completely black.", vr->fname);
+    log_debug("[%s]: Frame is completely black.", vr->fname);
     return AK_SKIP_FRAME_BLACK;
   }
 
@@ -692,9 +692,9 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
   const int c_bottom = (src->height - crop.h - crop.y);
 
   if (c_left || c_top || c_right || c_bottom) {
-    log_info("[%s]: Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", vr->fname,
-             pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
-             src->height, crop.x, crop.w, crop.y, crop.h);
+    log_debug("[%s]: Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", vr->fname,
+              pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
+              src->height, crop.x, crop.w, crop.y, crop.h);
   }
 
   src->crop_left = (size_t) c_left;
@@ -709,7 +709,7 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
 
   int ret = av_frame_apply_cropping(src, crop_flags);
   if (ret < 0) {
-    log_error("[%s]: Failed to apply cropping: %s", vr->fname, av_err2str(ret));
+    log_warn("[%s]: Failed to apply cropping: %s", vr->fname, av_err2str(ret));
     return AK_LIBAV_FAIL;
   }
   return 0;
@@ -917,13 +917,13 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
 
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    log_info("[%s] SKIPPING: Video duration is zero (%zu)", vr_fname, file->duration_us);
+    log_debug("[%s] SKIPPING: Video duration is zero (%zu)", vr_fname, file->duration_us);
     return AK_SKIP_SHORT_DURATION;
   }
 
   if (file->duration_us < target_segments) {
-    log_info("[%s] SKIPPING: Video duration (%zu s) too short for # of segments (%d)", vr_fname,
-             file->duration_us, target_segments);
+    log_debug("[%s] SKIPPING: Video duration (%zu s) too short for # of segments (%d)", vr_fname,
+              file->duration_us, target_segments);
     return AK_SKIP_SHORT_DURATION;
   };
 
@@ -933,8 +933,8 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
 
   /* Check if file duration is longer than the skip threshold */
   if (file->duration_us <= (ak_time_sec_microsec((double) config->skip_duration))) {
-    log_info("[%s] SKIPPING: Duration (%.1f s) less than minimum threshold (%zu s)", vr_fname,
-             ak_time_microsec_sec(file->duration_us), config->skip_duration);
+    log_debug("[%s] SKIPPING: Duration (%.1f s) less than minimum threshold (%zu s)", vr_fname,
+              ak_time_microsec_sec(file->duration_us), config->skip_duration);
 
     return AK_SKIP_SHORT_DURATION;
   }
@@ -965,8 +965,8 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
   int rotation = get_video_stream_rotation(video_stream);
   int rotation_normalised = normalise_angle_360(rotation);
   if (rotation_normalised) {
-    log_info("[%s] Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
-             rotation_normalised);
+    log_debug("[%s] Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
+              rotation_normalised);
     filtered_frame = av_frame_alloc();
   }
   bool detect_bars = ak_flag_has(config->detect_flags, DETECT_BARS);
@@ -1000,7 +1000,7 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
     int64_t pts_microseconds = pts_to_useconds(pts_streambase, stream_timebase);
 
     if (ak_unlikely(pts_microseconds < 0)) {
-      log_warn(
+      log_debug(
           "[%s] ??? Frame timestamp is negative (%ld microsecs), defaulting to "
           "0.",
           vr_fname, pts_microseconds);
