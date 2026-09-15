@@ -60,7 +60,7 @@ static const char *DATABASE_SCHEMA[] = {
   /* Keep temp files in memory */
   "PRAGMA temp_store = MEMORY;"};
 
-static ALWAYS_INLINE int safe_param_index (sqlite3_stmt *stmt, const char *param_name) {
+static inline int safe_param_index (sqlite3_stmt *stmt, const char *param_name) {
   int idx = sqlite3_bind_parameter_index(stmt, param_name);
   if (idx == 0) {
     fprintf(stderr, "FATAL DATABASE ERROR: Bind parameter '%s' not found in statement!\n", param_name);

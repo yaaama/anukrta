@@ -8,6 +8,7 @@
 
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -24,7 +25,7 @@
 #include "util.h"
 
 /* Wrapper to clean up a kvec containing allocated paths */
-static inline void cleanup_alloced_paths (anu_paths *v) {
+static void cleanup_alloced_paths (anu_paths *v) {
   size_t path_count = kv_size(*v);
   for (size_t i = 0; i < path_count; i++) {
     free(kv_A(*v, i));
@@ -42,6 +43,31 @@ DEFINE_FREE(anu_paths_alloc, anu_paths, cleanup_alloced_paths(&_T))
  * (e - i) --> (101 - 105) = -4 => 'b' is lexicographically before 'a'  */
 static ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a, const void *restrict b) {
   return strcmp(*(const char *const *) a, *(const char *const *) b);
+}
+
+/**
+ * Calls `stat()` to determine if a path is a valid directory or not.
+ */
+bool anu_path_is_dir (char *path) {
+  struct stat statb;
+  return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
+};
+
+void anu_file_vec_destroy (anu_file_vec *v) {
+
+  if (!v) {
+    return;
+  }
+
+  size_t sz = kv_size(*v);
+  anu_file *file = NULL;
+
+  for (size_t i = 0; i < sz; i++) {
+    file = &kv_A(*v, i);
+    /* Must free the dynamically allocated path strings */
+    free(file->path);
+  }
+  kv_destroy(*v);
 }
 
 /* Check extension of filename */
@@ -85,17 +111,24 @@ int anu_path_extension_supported (char *path) {
 }
 
 /**
- * @brief Resolve a relative path.
+ * Resolve relative path using `realpath()`.
  *
  * @param path[in] Path to resolve.
- * @return Returns path on success, anything else on failure.
+ * @return Alloced string holding resolved path, NULL on failure.
  **/
-char *anu_path_resolve (char *path) { return realpath(path, NULL); }
+char *anu_path_resolve (char *path) {
+  errno = 0;
+  char *p = realpath(path, NULL);
+  if (p == NULL) {
+    log_error("Could not resolve path %s : %s", path, strerror(errno));
+  }
+  return p;
+}
 
 /**
- * @brief Get a file name (extension included) from path.
- * @return Success: pointer to the start of the file name.
- * Failure: Returns path pointer.
+ * Get a file name (extension included) from path.
+ *
+ * @return Pointer to start of filename or `path` on failure.
  **/
 char *anu_path_basename (char *path) {
   char *start = strrchr(path, '/');
@@ -103,7 +136,7 @@ char *anu_path_basename (char *path) {
 }
 
 /**
- * @brief Get filename, excluding the extension.
+ * Get filename, excluding the extension.
  **/
 char *anu_path_basename_stem (char *restrict path, char *restrict out, size_t out_size) {
   assert(out_size > 0);

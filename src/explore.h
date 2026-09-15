@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <time.h>
 
 #include "config.h"
@@ -27,8 +26,7 @@ typedef struct anu_file {
 
   /**
    * Size in bytes.
-   * NOTE: Files can have a 0 size.
-   */
+   * NOTE: Files can have a 0 size. */
   u64 size;
 
   /** Duration of video file in microseconds. */
@@ -56,43 +54,24 @@ typedef struct anu_file {
 /**
  * Helper function to retrieve filename stored in `anu_file`.
  */
-static ALWAYS_INLINE _nonnull_all_ char *anu_file_get_filename (anu_file *f) {
+static ALWAYS_INLINE _nonnull_all_ _pure_ char *anu_file_get_filename (anu_file *f) {
   return f->path + f->name_offset;
 }
 
 /**
- * @brief Vector type for anu_file.
+ * Vector type for `anu_file`.
  */
 typedef kvec_t(anu_file) anu_file_vec;
 
 /** Destructor for anu_file_vec */
-static ALWAYS_INLINE void anu_file_vec_destroy (anu_file_vec *v) {
+void anu_file_vec_destroy(anu_file_vec *v);
 
-  if (!v) {
-    return;
-  }
-
-  size_t sz = kv_size(*v);
-  anu_file *file = NULL;
-
-  for (size_t i = 0; i < sz; i++) {
-    file = &kv_A(*v, i);
-    /* Must free the dynamically allocated path strings */
-    free(file->path);
-  }
-  kv_destroy(*v);
-}
-
-/* Define auto cleanup function */
 DEFINE_FREE(anu_file_vec, anu_file_vec, anu_file_vec_destroy(&_T))
 
 /**
- * @brief Vector type of paths.
+ * Vector type of paths.
  */
 typedef kvec_t(char *) anu_paths;
-
-/** Autocleanup for anu_paths */
-DEFINE_FREE(anu_paths, anu_paths, kv_destroy(_T))
 
 void anu_explore_scan_directories(anu_config *config,
                                   anu_paths *paths,
@@ -102,10 +81,7 @@ int anu_explore_recursive_filewalk(char *path, anu_file_vec *files_out) _nonnull
 
 int anu_path_extension_supported(char *path) _nonnull_all_ _pure_;
 
-static ALWAYS_INLINE _nonnull_all_ bool anu_path_is_dir (char *path) {
-  struct stat statb;
-  return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
-};
+bool anu_path_is_dir(char *path) _nonnull_all_ _warn_unused_;
 
 char *anu_path_resolve(char *path) _nonnull_all_ _malloc_ _warn_unused_;
 

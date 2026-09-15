@@ -411,7 +411,7 @@ int main (int argc, char *argv[]) {
   /* Retrieve default configuration */
   anu_config config = anukrta_default_config();
 
-  anu_paths paths __free(anu_paths) = KV_INITIAL_VALUE;
+  anu_paths paths = KV_INITIAL_VALUE;
   /* Return code after parsing CLI options */
   int parsing_return = anu_cli_parse_options(&config, argc, argv, &paths);
 
@@ -436,5 +436,7 @@ int main (int argc, char *argv[]) {
 
   int driver_ret = anukrta_driver(&config, &paths);
   pthread_mutex_destroy(&log_mutex);
+  kv_destroy(paths);
+
   return driver_ret;
 }

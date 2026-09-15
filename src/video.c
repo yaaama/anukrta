@@ -488,7 +488,7 @@ static ALWAYS_INLINE _pure_ _nonnull_ (1) bool row_has_video(const uint8_t *cons
 }
 
 /* Detects the bounding box of non-black pixels */
-static ALWAYS_INLINE bool detect_black_borders (AVFrame *frame, const int threshold, cropping *crop_out) {
+static bool detect_black_borders (AVFrame *frame, const int threshold, cropping *crop_out) {
 
   const int w = frame->width;
   const int h = frame->height;
