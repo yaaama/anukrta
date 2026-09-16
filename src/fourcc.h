@@ -3,6 +3,16 @@
 
 #include <stdint.h>
 
+#ifndef __has_attribute
+#  define __has_attribute(attr) 0
+#endif
+
+#if __has_attribute(const)
+#  define __AK_4CC_CONST_ATTR __attribute__((const))
+#else
+#  define __AK_4CC_CONST_ATTR
+#endif
+
 /* Length Macros */
 #define AK_VIDEO_EXT_MAX_LEN 4
 #define AK_VIDEO_EXT_MIN_LEN 2
@@ -76,14 +86,14 @@ typedef enum { AK_VIDEO_EXT_TABLE } AK_VIDEO_4CC;
 /*
  * Struct definition for an extension.
  */
-typedef struct anu_ext_info {
+typedef struct ak_ext_info {
   char lower[5];
   char upper[5];
   unsigned char _padding[2];
   AK_VIDEO_4CC fourcc;
-} anu_ext_info;
+} ak_ext_info;
 
-static inline __attribute__((const)) int anu_4cc_is_valid (const uint32_t fourcc_code) {
+static inline __AK_4CC_CONST_ATTR int anu_4cc_is_valid (const uint32_t fourcc_code) {
   switch (fourcc_code) {
     /* Define X to build the case statements: */
 #define X(id, c1, c2, c3, c4, lower, upper) case __AK_4CC_JOIN(__AK_4CC_PREFIX, id):
@@ -98,5 +108,10 @@ static inline __attribute__((const)) int anu_4cc_is_valid (const uint32_t fourcc
       return 0;
   }
 }
+
+#undef __AK_4CC_CONST_ATTR
+#undef __AK_4CC_GLUE
+#undef __AK_4CC_JOIN
+#undef __AK_4CC_PREFIX
 
 #endif  // FOURCC_H_
