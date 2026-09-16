@@ -216,7 +216,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
   kv_ensure_space(files, 64); /* start off with 64 elements */
 
   /* Scan path(s) and store in files queue */
-  anu_explore_scan_directories(config, paths, &files);
+  ak_explore_scan_paths(config, paths, &files);
 
   /* Exit early if we do not find any files */
   const usize file_count = kv_size(files);

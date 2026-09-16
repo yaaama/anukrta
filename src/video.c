@@ -92,7 +92,7 @@ AK_DEFINE_AUTO(vreader_close, ak_vreader, vreader_close(&_T))
  *
  * @return Pointer to video stream (AVStream).
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG (1) AVStream *vreader_video_stream(ak_vreader *vreader) {
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (ak_vreader *vreader) {
   return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }
 
@@ -101,7 +101,7 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG (1) AVStream *vreader_video_stream(ak_vre
  *
  * @return The URL of the file as a char pointer.
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG (1) char *vreader_fmt_url(ak_vreader *vreader) {
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (ak_vreader *vreader) {
   return vreader->fmt_ctx->url;
 }
 
@@ -180,7 +180,7 @@ static AK_NONNULL_ALL int get_video_stream_rotation (const AVStream *stream) {
  * @return AK_OK if success, anything else is an error.
  *
  */
-static AK_NONNULL_ARG(1, 2) AK_STATUS vreader_init(const char *f_path, ak_vreader *vreader) {
+static AK_NONNULL_ARG(1, 2) AK_STATUS vreader_init (const char *f_path, ak_vreader *vreader) {
 
   /* Assign video stream index to an invalid index by default */
   vreader->video_stream_idx = -1;
@@ -472,7 +472,7 @@ static int vreader_seek_decode_to_target (ak_vreader *vreader,
  *
  * @return bool Whether there is a pixel in that row that has a pixel value above the threshold.
  */
-static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG (1) bool row_has_video(const uint8_t *const restrict row,
+static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint8_t *const restrict row,
                                                                       const int width,
                                                                       const int threshold) {
   AK_ASSUME(width >= 0 && threshold > 0);
@@ -776,10 +776,10 @@ static int extract_scaled_matrix (ak_vreader *vr,
  *
  * @return AK_OK on success, AV_ERROR on failure.
  */
-static AK_NONNULL_ARG(1, 2) int init_rotation_filter_graph(filter_ctx *fctx,
-                                                           AVFrame *frame,
-                                                           AVRational time_base,
-                                                           int rotation_normalised) {
+static AK_NONNULL_ARG(1, 2) int init_rotation_filter_graph (filter_ctx *fctx,
+                                                            AVFrame *frame,
+                                                            AVRational time_base,
+                                                            int rotation_normalised) {
 
   assert(rotation_normalised == 90 || rotation_normalised == 180 || rotation_normalised == 270);
 
@@ -878,7 +878,7 @@ end:
   return ret;
 }
 
-static AK_ALWAYS_INLINE AK_NONNULL_ARG (1) void mark_segment_failed(ak_hash_entry *entries,
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) void mark_segment_failed (ak_hash_entry *entries,
                                                                     ptrdiff_t index) {
   entries[index].hash = 0;
   entries[index].timestamp = 0;

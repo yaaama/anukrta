@@ -52,10 +52,33 @@ BinPackArguments: true
 ContinuationIndentWidth: 4
 
 # We can add some macro definitions here if we want...
-# AttributeMacros: [__free]
+AttributeMacros:
+  [
+    AK_AUTO,
+    AK_UNUSED,
+    AK_ALWAYS_INLINE,
+    AK_HOT_FUNC,
+    AK_COLD_FUNC,
+    AK_FLAG_ENUM,
+    AK_PREF_TYPE,
+    AK_SIZED_BY,
+    AK_COUNTED_BY,
+    AK_NEVER_INLINE,
+    AK_FLATTEN,
+    AK_PURE,
+    AK_CONST,
+    AK_NONNULL_ALL,
+    AK_NONNULL_ARG,
+    AK_RET_NONNULL,
+    AK_NO_DISCARD,
+    AK_NO_RETURN,
+    AK_MALLOC,
+    AK_ALLOC,
+    AK_DEALLOCATOR,
+    AK_PRINTF,
+    AK_CLEANUP
+  ]
 
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
-
-
 ...

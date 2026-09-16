@@ -52,18 +52,18 @@ typedef struct ak_file {
 } ak_file;
 
 /**
- * Helper function to retrieve filename stored in `anu_file`.
+ * Helper function to retrieve filename stored in `ak_file`.
  */
 static AK_ALWAYS_INLINE AK_NONNULL_ALL AK_PURE char *ak_file_name (ak_file *f) {
   return f->path + f->name_offset;
 }
 
 /**
- * Vector type for `anu_file`.
+ * Vector type for `ak_file`.
  */
 typedef kvec_t(ak_file) ak_file_v;
 
-/** Destructor for anu_file_vec */
+/** Destructor for ak_file_vec */
 void ak_file_v_destroy(ak_file_v *v);
 
 AK_DEFINE_AUTO(file_v, ak_file_v, ak_file_v_destroy(&_T))
@@ -73,18 +73,18 @@ AK_DEFINE_AUTO(file_v, ak_file_v, ak_file_v_destroy(&_T))
  */
 typedef kvec_t(char *) ak_paths;
 
-void anu_explore_scan_directories(ak_config *config, ak_paths *paths, ak_file_v *files_out) AK_NONNULL_ALL;
+void ak_explore_scan_paths(ak_config *config, ak_paths *paths, ak_file_v *files_out) AK_NONNULL_ALL;
 
-int anu_explore_recursive_filewalk(char *path, ak_file_v *files_out) AK_NONNULL_ALL;
+int ak_explore_filewalk(char *path, ak_file_v *files_out) AK_NONNULL_ALL;
 
-int anu_path_extension_supported(char *path) AK_NONNULL_ALL AK_PURE;
+int ak_explore_ext_supported(char *path) AK_NONNULL_ALL AK_PURE;
 
-bool anu_path_is_dir(char *path) AK_NONNULL_ALL AK_NO_DISCARD;
+bool ak_explore_is_dir(char *path) AK_NONNULL_ALL AK_NO_DISCARD;
 
 char *ak_path_resolve(char *path) AK_NONNULL_ALL AK_MALLOC AK_NO_DISCARD;
 
 char *ak_path_basename(char *path) AK_NONNULL_ALL AK_NO_DISCARD AK_PURE;
 
-char *ak_path_basename_stem(char *restrict path, char *restrict out, size_t out_size)
-    AK_NONNULL_ARG(1, 2) AK_PURE;
+char *ak_path_basename_stem(char *restrict path, char *restrict out, size_t out_size) AK_NONNULL_ARG(1, 2)
+AK_PURE;
 #endif  // AK_EXPLORE_H

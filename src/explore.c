@@ -48,7 +48,7 @@ static AK_ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a, c
 /**
  * Calls `stat()` to determine if a path is a valid directory or not.
  */
-bool anu_path_is_dir (char *path) {
+bool ak_explore_is_dir (char *path) {
   struct stat statb;
   return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 };
@@ -71,7 +71,7 @@ void ak_file_v_destroy (ak_file_v *v) {
 }
 
 /* Check extension of filename */
-int anu_path_extension_supported (char *path) {
+int ak_explore_ext_supported (char *path) {
   assert(path);
   char *dot = strrchr(path, '.');
 
@@ -172,7 +172,7 @@ char *ak_path_basename_stem (char *restrict path, char *restrict out, size_t out
  *
  * Adds the file pointed to by 'path' to the 'files_out' struct.
  **/
-static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file(char *path, ak_file_v *files_out) {
+static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file (char *path, ak_file_v *files_out) {
 
   struct stat statb = {0};
   int stat_return = 0;
@@ -201,14 +201,14 @@ static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file(char *path, ak_file
 /**
  * @brief Recursively search path and return files found.
  **/
-int anu_explore_recursive_filewalk (char *path, ak_file_v *files_out) {
+int ak_explore_filewalk (char *path, ak_file_v *files_out) {
 
   /* Test to see if we can open the directory */
   DIR *first_dir = opendir(path);
 
   /* If path does not open, then we can check if it is a file */
   if (!first_dir) {
-    if (anu_path_extension_supported(path)) {
+    if (ak_explore_ext_supported(path)) {
       log_info("Received path for regular video file: %s", path);
       return handle_path_pointing_to_file(path, files_out);
     }
@@ -303,7 +303,7 @@ int anu_explore_recursive_filewalk (char *path, ak_file_v *files_out) {
        */
 
       /* Check path for supported extension */
-      if (!anu_path_extension_supported(name)) {
+      if (!ak_explore_ext_supported(name)) {
         continue;
       }
 
@@ -351,7 +351,7 @@ int anu_explore_recursive_filewalk (char *path, ak_file_v *files_out) {
  *
  * @todo Add a check for hard linked files (files with same inode number)
  */
-void anu_explore_scan_directories (ak_config *config, ak_paths *paths, ak_file_v *files) {
+void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files) {
 
   /* Check if we need to scan current directory */
   bool scan_curr_dir_only = ak_flag_has(config->runtime_flags, RT_SCAN_CURR_DIR);
@@ -362,7 +362,7 @@ void anu_explore_scan_directories (ak_config *config, ak_paths *paths, ak_file_v
       AK_DIE("Could not resolve current path???");
     }
     log_info("Scanning current directory: '%s'", resolved);
-    if (anu_explore_recursive_filewalk(resolved, files)) {
+    if (ak_explore_filewalk(resolved, files)) {
       log_warn("Error searching for files in current directory.");
     }
     return;
@@ -449,7 +449,7 @@ void anu_explore_scan_directories (ak_config *config, ak_paths *paths, ak_file_v
   /* Now we filewalk only unique paths */
   for (size_t i = 0; i < unique_path_idx; i++) {
     char *path = kv_A(real_paths, i);
-    if (anu_explore_recursive_filewalk(path, files)) {
+    if (ak_explore_filewalk(path, files)) {
       log_warn("Error searching for files in '%s'", path);
     }
   }
