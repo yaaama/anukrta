@@ -278,7 +278,7 @@ static inline int handle_bool_flag (flags32 *flag_var,
                                     bool default_value,
                                     const char *restrict arg_name,
                                     const char *restrict arg_val) {
-  /* No argument provided: default to whatever */
+  /* No argument provided: Use default_value */
   if (!arg_val) {
     /* If default value of flag is TRUE */
     if (default_value) {
@@ -298,13 +298,13 @@ static inline int handle_bool_flag (flags32 *flag_var,
   if (res) {
     *flag_var |= flag_mask;
   } else {
-    ((*flag_var) &= ~flag_mask);
+    *flag_var &= ~flag_mask;
   }
 
   return 0;
 }
 
-int anu_cli_parse_options (ak_config *config, int argc, char **argv, ak_paths *paths_out) {
+int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths_out) {
 
   const char *program_name = CLI_NAME;
 
@@ -345,6 +345,7 @@ int anu_cli_parse_options (ak_config *config, int argc, char **argv, ak_paths *p
  * RUNTIME CONFIG:
  * Options to customise how the program does things.
  */
+    {"verbose",            optional_argument,    NULL,  FLAG_VERBOSE},               // -v | --verbose
     {"threshold",          required_argument,    NULL,  ARG_THRESHOLD},              // -t | --threshold
     {"segments",           required_argument,    NULL,  ARG_SEGMENTS},               // -s | --segments
     {"threads",            required_argument,    NULL,  ARG_THREADS},                // --threads
@@ -352,7 +353,6 @@ int anu_cli_parse_options (ak_config *config, int argc, char **argv, ak_paths *p
 /*
  * FLAGS
  */
-    {"verbose",            no_argument,          NULL,  FLAG_VERBOSE},               // -v | --verbose
     {"dry-run",            no_argument,          NULL,  FLAG_DRY_RUN},               // --dry-run
     {"print-hashes",       no_argument,          NULL,  FLAG_REPORT_PRINT_HASHES},   // --print-hashes
     {"print-unique",       no_argument,          NULL,  FLAG_REPORT_PRINT_UNIQUE},   // --print-unique
@@ -439,7 +439,19 @@ int anu_cli_parse_options (ak_config *config, int argc, char **argv, ak_paths *p
       /* -v | --verbose */
       case FLAG_VERBOSE:
         {
-          verbosity_level++;
+          // No argument provided (e.g., -v, -vvv, or --verbose)
+          if (optarg == NULL) {
+            verbosity_level++;
+          } else {
+            /* TODO Make this a u32 and create a new u32 parsing function */
+            size_t temp_verbosity = 0;
+
+            /*We allow for int_max and then clamp at the end */
+            if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, INT_MAX, &temp_verbosity) != 0) {
+              goto exit_error;
+            }
+            verbosity_level = (u32) temp_verbosity;
+          }
           break;
         }
 

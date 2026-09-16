@@ -11,7 +11,7 @@ typedef enum anu_hash_type {
   AK_HASH_ALGO_DCT = 1,
 } anu_hash_type;
 
-typedef enum AK_FLAG_ENUM detect_flags : uint32_t {
+typedef enum detect_flags : uint32_t {
   /** Detect black frames and skip them. */
   DETECT_BLACK_FRAME = (1U << 0),
   /** Detect window/pillar/letter boxing and discard those pixels. */
@@ -68,7 +68,7 @@ static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENER
 
 /* END: BEST_FILE_STRATEGIES */
 
-typedef enum AK_FLAG_ENUM report_flags : uint32_t {
+typedef enum report_flags : uint32_t {
   REPORT_PRINT_HASHES = (1U << 0),
   REPORT_PRINT_UNIQUE_FILES = (1U << 1),
 } report_flags;

@@ -413,7 +413,7 @@ int main (int argc, char *argv[]) {
 
   ak_paths paths = KV_INITIAL_VALUE;
   /* Return code after parsing CLI options */
-  int parsing_return = anu_cli_parse_options(&config, argc, argv, &paths);
+  int parsing_return = ak_cli_parse_args(&config, argc, argv, &paths);
 
   /* Exit if non zero return value OR
    * if config has exit_early flag set */

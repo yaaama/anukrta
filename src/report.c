@@ -197,7 +197,7 @@ static void elect_best_file (u64_vec *group, ak_file_v *files, ak_config *config
 
 static void print_file_item (const ak_config *config,
                              const ak_file_v *files,
-                             const i32 result,
+                             const AK_STATUS AK_UNUSED result,
                              const ak_hash_entry *entries,
                              usize file_id,
                              const char *tag) {
@@ -231,7 +231,7 @@ static void print_file_item (const ak_config *config,
   }
 }
 
-static const char *get_skip_reason_string (i32 status) {
+static const char *get_skip_reason_string (AK_STATUS status) {
   switch (status) {
     case AK_SKIP_SHORT_DURATION:
       return "VIDEO TOO SHORT";
@@ -245,7 +245,7 @@ static const char *get_skip_reason_string (i32 status) {
 void ak_report_print (ak_config *config,
                       ak_report *report,
                       ak_file_v *files,
-                      i32 *results,
+                      AK_STATUS *results,
                       ak_hash_entry *entries) {
 
   usize group_count = kv_size(report->groups);
@@ -322,7 +322,7 @@ static int compare_uf_pairs (const void *a, const void *b) {
 }
 
 ak_report ak_report_build (ak_file_v *files,
-                           i32 *results,
+                           AK_STATUS *results,
                            ak_hash_entry *entries,
                            ak_config *config,
                            bk_node *tree) {

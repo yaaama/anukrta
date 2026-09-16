@@ -154,7 +154,7 @@ static AK_ALWAYS_INLINE AK_CONST int normalise_angle_360 (const int angle) {
  * @return Rotation angle between -180 and 180 degrees (if found).
  * @retval 0 if no rotation data.
  */
-static AK_NONNULL_ARG(1) int get_video_stream_rotation(const AVStream *stream) {
+static AK_NONNULL_ALL int get_video_stream_rotation (const AVStream *stream) {
   /* Search the side data array inside the streams codec parameters */
   const AVPacketSideData *sd = av_packet_side_data_get(
       stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
