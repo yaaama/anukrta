@@ -677,12 +677,16 @@ static void standardise_pixel_format (const AVFrame *src,
 static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white) {
 
   AVFrame *src = vr->frame;
+  AVStream *stream = vreader_video_stream(vr);
   cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
 
   const int threshold = threshold_black ? threshold_black : 24;
   /* 24 is usually a safe threshold for limited-range YUV "black" */
   if (!detect_black_borders(src, threshold, &crop)) {
-    log_debug("[%s]: Frame is completely black.", vr->fname);
+    i64 frame_pts = get_frame_pts(src);
+
+    log_info("[%s] Frame (%" PRId64 ") is completely black.", vr->fname,
+             pts_to_useconds(frame_pts, stream->time_base));
     return AK_SKIP_FRAME_BLACK;
   }
 
