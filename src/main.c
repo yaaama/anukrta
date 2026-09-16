@@ -54,7 +54,7 @@ static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
   static const int ak_map[] = {LOG_ERROR, LOG_INFO, LOG_DEBUG, LOG_TRACE};
   static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_VERBOSE, AV_LOG_DEBUG};
 
-  u32 safe_lvl = (ak_log_level >= 0 && ak_log_level <= 3) ? ak_log_level : 0;
+  u32 safe_lvl = (ak_log_level > 0 && ak_log_level <= 3) ? ak_log_level : 0;
 
   av_log_set_level(libav_map[safe_lvl]);
   log_set_level(ak_map[safe_lvl]);
