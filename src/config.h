@@ -6,10 +6,10 @@
 #include "defs.h"
 #include "util.h"
 
-typedef enum anu_hash_type {
+typedef enum ak_hash_type {
   AK_HASH_ALGO_AVERAGE = 0,
   AK_HASH_ALGO_DCT = 1,
-} anu_hash_type;
+} ak_hash_type;
 
 typedef enum detect_flags : uint32_t {
   /** Detect black frames and skip them. */
@@ -94,7 +94,7 @@ typedef struct anu_config {
   flags32 report_flags;
   /** Hashing algorithm to use.
    * @see `anu_hash_type`.*/
-  anu_hash_type hash_algorithm;
+  ak_hash_type hash_algorithm;
   /** Strategy for determining the 'best' file out of a group of duplicates.
    * @see `best_file_strat`. */
   best_file_strat best_file_strategy;

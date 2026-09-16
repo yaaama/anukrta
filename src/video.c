@@ -320,7 +320,7 @@ static AK_NONNULL_ARG(1, 2) AK_STATUS vreader_init (const char *f_path, ak_vread
  * @return Duration of video in microseconds.
  *
  */
-static i64 vreader_get_duration (ak_vreader *vreader) {
+static inline AK_NONNULL_ALL i64 vreader_get_duration (ak_vreader *vreader) {
 
   AVStream *vid_stream = vreader_video_stream(vreader);
 
@@ -333,7 +333,7 @@ static i64 vreader_get_duration (ak_vreader *vreader) {
 
     /* NOTE: Container durations are in microseconds (AV_TIME_BASE) */
     duration = (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
-    log_debug(
+    log_info(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
         vreader->fname, ak_time_microsec_sec(duration));
@@ -444,6 +444,7 @@ static int vreader_seek_decode_to_target (ak_vreader *vreader,
                                           int64_t target_pts_streambase,
                                           int64_t min_pts_streambase) {
 
+  AK_ASSUME(target_pts_streambase >= 0);
   int ret = vreader_seek_pts(vreader, target_pts_streambase);
   if (ret != 0) {
     return ret;
@@ -485,7 +486,9 @@ static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint
   return false;
 }
 
-/* Detects the bounding box of non-black pixels */
+/* Detects the bounding box of non-black pixels
+ * TODO Replace this with an libav function later
+ */
 static bool detect_black_borders (AVFrame *frame, const int threshold, cropping *crop_out) {
 
   const int w = frame->width;
@@ -564,7 +567,7 @@ static bool detect_black_borders (AVFrame *frame, const int threshold, cropping 
  * @param hash_algo TODO The type of hashing algorithm to use. Currently does not do anything.
  * @return Unsigned 64 bit integer (hash).
  */
-static AK_PURE uint64_t hash_decoded_frame (const uint8_t *restrict matrix, const anu_hash_type hash_algo) {
+static AK_PURE uint64_t hash_decoded_frame (const uint8_t *restrict matrix, const ak_hash_type hash_algo) {
 
   if (hash_algo != AK_HASH_ALGO_DCT) {
     AK_TODO("We've only implemented DCT hashing thus far.");
@@ -624,7 +627,7 @@ static int normalise_sws_colourspace (SwsContext *context, int src_range) {
 /**
  * @brief Checks if an AVPixelFormat is Grayscale or RGB.
  */
-static bool is_color_matrix_applicable (enum AVPixelFormat fmt) {
+static inline AK_PURE bool is_color_matrix_applicable (enum AVPixelFormat const fmt) {
   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(fmt);
   if (!desc) {
     return false;
@@ -643,9 +646,9 @@ static bool is_color_matrix_applicable (enum AVPixelFormat fmt) {
  * This is required otherwise ffmpeg will give us the warning:
  * `deprecated pixel format used, make sure you did set range correctly`
  */
-static void standardise_pixel_format (const AVFrame *src,
-                                      enum AVPixelFormat *restrict out_fmt,
-                                      int *restrict out_range) {
+static inline void standardise_pixel_format (const AVFrame *src,
+                                             enum AVPixelFormat *restrict out_fmt,
+                                             int *restrict out_range) {
   *out_fmt = src->format;
   *out_range = (src->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
 
@@ -994,7 +997,9 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
     log_trace("[%s] [%d/%d] -> Seeking to PTS `%" PRId64 "` (%.1f s)", vr_fname, (i + 1), target_segments,
               seek_target_sb, seek_target_seconds);
 
-    /* Seek to timestamp */
+    /*
+     * Seek to timestamp
+     */
     errcode = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != AK_OK) {
       log_error("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
@@ -1014,7 +1019,10 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
 
     double pts_seconds = ak_time_microsec_sec(pts_microseconds);
 
-    /* If there is a rotation required, then do it now: */
+    /*
+     * ROTATION HANDLING
+     * Set up filter context and filters frames to rotate it
+     */
     if (rotation_normalised) {
 
       /* If filter context not initialised, lets initialise it now */
@@ -1045,6 +1053,9 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
       av_frame_move_ref(vreader.frame, filtered_frame);
     }
 
+    /*
+     *  BAR DETECTION
+     */
     if (detect_bars) {
       if ((errcode = apply_crop(&vreader, 24, 0)) != 0) {
         log_error("[%s] Cropping failed (%.1f s): %s ", vr_fname, pts_seconds,
@@ -1053,7 +1064,13 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
       }
     }
 
-    /* Scale down frame to 32x32 (whilst converting to GRAY8 if necessary) */
+    /*
+     * SCALING FRAME
+     *
+     * Scale down frame to 32x32 (whilst converting to GRAY8 if necessary) and
+     * extract grayscale values from it
+     */
+
     if ((errcode = extract_scaled_matrix(&vreader, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8)) !=
         AK_OK) {
       log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, av_err2str(errcode), pts_seconds);
@@ -1075,6 +1092,9 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
     continue;
 
   segment_failed:
+    /*
+     * FAILED HASHING SEGMENT
+     */
     {
       mark_segment_failed(entries_out, i);
     }
