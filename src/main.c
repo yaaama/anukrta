@@ -73,14 +73,14 @@ typedef struct hash_tworker_ctx {
   ak_hash_entry *hash_entries;
   /** Indices of files to be processed. */
   size_t *pending_indices;
-  /** Number of files needing to be processed. */
-  size_t pending_count;
   /** Index of file to process by thread worker. */
   atomic_size_t *current_idx;
   /** Count for completed files */
   atomic_size_t *completed_count;
   /** Array of result codes from threads. */
   AK_STATUS *results;
+  /** Number of files needing to be processed. */
+  size_t pending_count;
 } hashing_thread_ctx;
 
 static void *hash_worker_thread (void *arg) {
