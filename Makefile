@@ -57,7 +57,8 @@ CFLAGS := -std=gnu23 \
 -Wconversion -Wsign-conversion -Wdouble-promotion -Wmissing-include-dirs \
 -Wnested-externs -Wredundant-decls -Wold-style-definition \
 -Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes \
--Wuninitialized -Warray-parameter -Winit-self -Wundef
+-Wuninitialized -Warray-parameter -Winit-self -Wundef \
+-Wattributes -Wignored-attributes -Wnonnull -Wunused-result -Wmissing-noreturn -Wmissing-format-attribute
 
 # Inject Compiler-specific flags from config.mk
 CFLAGS += $(COMPILER_CFLAGS)
@@ -87,7 +88,7 @@ else ifeq ($(VARIANT), tsan)
 # Debug Build
 else
 	CFLAGS += $(DEV_FLAGS)
-	PREPROC_DEFS += -DAK_DEBUG
+	CPPFLAGS += -DAK_DEBUG
 endif
 
 # ==========================================

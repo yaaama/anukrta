@@ -36,7 +36,8 @@ endif
 # GCC
 ifeq ($(COMPILER_ID), gcc)
 	DEV_FLAGS += -Wuse-after-free=3 \
--Wsuggest-final-types -Wsuggest-attribute=pure -Wsuggest-attribute=const
+-Wsuggest-final-types -Wsuggest-attribute=pure -Wsuggest-attribute=const \
+-Wsuggest-attribute=noreturn -Wsuggest-attribute=malloc -Wsuggest-attribute=format
 	TEST_COMPILER_CFLAGS += -ftrack-macro-expansion=0
 endif
 
