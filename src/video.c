@@ -897,92 +897,95 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
 
   assert(file);
   assert(entries_out);
-
   assert(config->segments > 0);
   AK_ASSUME(config->segments < INT_MAX);
+
   int target_segments = (int) config->segments;
+  int errcode = AK_OK;
 
   ak_vreader vreader AK_AUTO(vreader_close) = {0};
 
   /* Setup video reader */
-  int code = 0;
-  code = vreader_init(file->path, &vreader);
-  if (code != AK_OK) {
-    return code;
+  if ((errcode = vreader_init(file->path, &vreader)) != AK_OK) {
+    return errcode;
   }
   vreader.fname = ak_file_name(file);
-  char *vr_fname = vreader.fname;
+  const char *vr_fname = vreader.fname;
 
   file->duration_us = vreader_get_duration(&vreader);
-
-  /* Return early if duration is 0 */
-  if (file->duration_us == 0) {
-    log_debug("[%s] SKIPPING: Video duration is zero (%zu)", vr_fname, file->duration_us);
-    return AK_SKIP_SHORT_DURATION;
-  }
-
-  if (file->duration_us < target_segments) {
-    log_debug("[%s] SKIPPING: Video duration (%zu s) too short for # of segments (%d)", vr_fname,
-              file->duration_us, target_segments);
-    return AK_SKIP_SHORT_DURATION;
-  };
+  double duration_s = ak_time_microsec_sec(file->duration_us);
 
   /* As long as this is true we won't break anything when we cast for libav */
   assert(file->duration_us < INT64_MAX);
   AK_ASSUME(file->duration_us < INT64_MAX);
 
-  /* Check if file duration is longer than the skip threshold */
-  if (file->duration_us <= (ak_time_sec_microsec((double) config->skip_duration))) {
-    log_debug("[%s] SKIPPING: Duration (%.1f s) less than minimum threshold (%zu s)", vr_fname,
-              ak_time_microsec_sec(file->duration_us), config->skip_duration);
-
+  /*
+   * DURATION VALIDATION
+   */
+  int64_t min_duration_us = ak_time_sec_microsec((double) config->skip_duration);
+  /* Return early if duration is 0 */
+  if (file->duration_us == 0) {
+    log_info("[%s] SKIPPING: Video duration is zero (%zu)", vr_fname, file->duration_us);
+    return AK_SKIP_SHORT_DURATION;
+  }
+  if (file->duration_us <= min_duration_us) {
+    log_info("[%s] SKIPPING: Duration (%.1f s) less than minimum threshold (%zu s)", vr_fname, duration_s,
+             config->skip_duration);
     return AK_SKIP_SHORT_DURATION;
   }
 
-  const i64 frame_step_us = (file->duration_us / target_segments);
-  /* Counter for # of frames successfully decoded */
-  int frames_decoded = 0;
+  /* Return early if duration (seconds) is lower than the number of targeted segments */
+  if (duration_s < target_segments) {
+    log_info("[%s] SKIPPING: Video duration (%.1f s) too short for # of segments (%d)", vr_fname,
+             duration_s, target_segments);
+    return AK_SKIP_SHORT_DURATION;
+  }
 
-  /* Target timestamp in microseconds */
-  int64_t seek_target_us = 0;
+  /*
+   * HASHING SETUP
+   */
+
+  /* Frames to step by for each segment */
+  const i64 frame_step_us = (file->duration_us / target_segments);
+  /* The seeking jumps by this many microseconds */
   const i64 seek_target_us_jump = (frame_step_us / 2);
 
+  /* Counter for # of frames successfully decoded */
+  u32 frames_decoded = 0;
+  /* Previously decoded frames PTS, initialise it to -1 */
+  int64_t last_pts_streambase = -1;
+
+  /* Stores our matrix of black and white pixels */
   uint8_t matrix[AK_PHASH_TOTAL_PIXELS] = {0};
 
   /* Video stream */
   AVStream *video_stream = vreader_video_stream(&vreader);
-
+  /* Video streams timebase */
   const AVRational stream_timebase = video_stream->time_base;
-  /* Previously decoded frames PTS */
-  int64_t last_pts_streambase = -1;
 
   /* Filter context in case we need to run any filters on frames */
   filter_ctx fctx = {0};
-  /* Filtered frame */
   AVFrame *filtered_frame = NULL;
 
-  /* Check for whether stream should be rotated (this is a metadata check) */
-  int rotation = get_video_stream_rotation(video_stream);
-  int rotation_normalised = normalise_angle_360(rotation);
+  /* Check metadata for whether frame should be rotated */
+  int rotation_normalised = normalise_angle_360(get_video_stream_rotation(video_stream));
   if (rotation_normalised) {
-    log_debug("[%s] Detected rotation: %d degrees (%d degrees normalised)\n", vr_fname, rotation,
-              rotation_normalised);
+    log_info("[%s] Detected rotation: %d degrees (normalised)\n", vr_fname, rotation_normalised);
     filtered_frame = av_frame_alloc();
   }
+
+  /* Should we detect black bars in the video frame? */
   bool detect_bars = ak_flag_has(config->detect_flags, DETECT_BARS);
 
   /*
    * Main Loop
    */
   for (int i = 0; i < target_segments; i++) {
-    /* Target to seek to in microseconds */
-    seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
-
+    /* Find frame with this timestamp */
+    int64_t seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
     /* Target timestamp in streams time base (tick) */
     int64_t seek_target_sb = av_rescale_q(seek_target_us, AV_TIME_BASE_Q, stream_timebase);
     double seek_target_seconds = ak_time_microsec_sec(seek_target_us);
-
-    int errcode = 0;
 
     log_trace("[%s] [%d/%d] -> Seeking to PTS `%" PRId64 "` (%.1f s)", vr_fname, (i + 1), target_segments,
               seek_target_sb, seek_target_seconds);
@@ -992,54 +995,45 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
     if (errcode != AK_OK) {
       log_error("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
                 target_segments, seek_target_sb, seek_target_seconds, av_err2str(errcode));
-      mark_segment_failed(entries_out, i);
-      continue;
+      goto segment_failed;
     }
 
     int64_t pts_streambase = get_frame_pts(vreader.frame);
     int64_t pts_microseconds = pts_to_useconds(pts_streambase, stream_timebase);
+    last_pts_streambase = pts_streambase; /* Keep tracked for next iteration */
 
     if (ak_unlikely(pts_microseconds < 0)) {
-      log_debug(
-          "[%s] ??? Frame timestamp is negative (%ld microsecs), defaulting to "
-          "0.",
-          vr_fname, pts_microseconds);
+      log_error("[%s] ??? Frame timestamp is negative (%ld microsecs), defaulting to 0.", vr_fname,
+                pts_microseconds);
       pts_microseconds = 0;
     }
 
     double pts_seconds = ak_time_microsec_sec(pts_microseconds);
-
-    /* Keep track of frame PTS so we can seek to a higher one next iteration */
-    last_pts_streambase = pts_streambase;
 
     /* If there is a rotation required, then do it now: */
     if (rotation_normalised) {
 
       /* If filter context not initialised, lets initialise it now */
       if (!fctx.init) {
-        int ret = init_rotation_filter_graph(&fctx, vreader.frame, stream_timebase, rotation_normalised);
-        if (ret < 0) {
-          log_error("[%s] Failed to init filter graph: %s", vr_fname, av_err2str(ret));
-          mark_segment_failed(entries_out, i);
-          continue;
+        if ((errcode = init_rotation_filter_graph(&fctx, vreader.frame, stream_timebase,
+                                                  rotation_normalised)) < 0) {
+          log_error("[%s] Failed to init filter graph: %s", vr_fname, av_err2str(errcode));
+          goto segment_failed;
         }
         fctx.init = 1;
       }
 
       /* Add frame to filter */
-      errcode = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame, AV_BUFFERSRC_FLAG_KEEP_REF);
-      if (errcode < 0) {
+      if ((errcode = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame,
+                                                  AV_BUFFERSRC_FLAG_KEEP_REF)) < 0) {
         log_error("[%s] Failed add frame to filter graph: %s", vr_fname, av_err2str(errcode));
-        mark_segment_failed(entries_out, i);
-        continue;
+        goto segment_failed;
       }
 
       /* Retrieve filtered frame */
-      errcode = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame);
-      if (errcode < 0) {
+      if ((errcode = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame)) < 0) {
         log_error("[%s] Failed retrieve frame from filter graph: %s", vr_fname, av_err2str(errcode));
-        mark_segment_failed(entries_out, i);
-        continue;
+        goto segment_failed;
       }
 
       /* Swap original frame out with the new filtered one. */
@@ -1048,32 +1042,38 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
     }
 
     if (detect_bars) {
-      errcode = apply_crop(&vreader, 24, 0);
-      if (errcode != 0) {
+      if ((errcode = apply_crop(&vreader, 24, 0)) != 0) {
         log_error("[%s] Cropping failed (%.1f s): %s ", vr_fname, pts_seconds,
                   ((errcode == AK_SKIP_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)));
-        mark_segment_failed(entries_out, i);
-        continue;
+        goto segment_failed;
       }
     }
 
     /* Scale down frame to 32x32 (whilst converting to GRAY8 if necessary) */
-    errcode = extract_scaled_matrix(&vreader, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
-    if (errcode != AK_OK) {
+    if ((errcode = extract_scaled_matrix(&vreader, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8)) !=
+        AK_OK) {
       log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, av_err2str(errcode), pts_seconds);
-      mark_segment_failed(entries_out, i);
-      continue;
+      goto segment_failed;
     }
 
     /*
      * If everything was SUCCESSFUL
      */
-    entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
+
     AK_ASSUME(pts_microseconds >= 0);
+    entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
     entries_out[i].timestamp = pts_microseconds;
     log_debug("[%s] [%d/%d ] -> PTS %" PRId64 " (%.1f s)  produced hash `%" PRIX64 "`", vr_fname, (i + 1),
               target_segments, pts_microseconds, pts_seconds, entries_out[i].hash);
-    ++frames_decoded;
+    frames_decoded++;
+
+    /* Skip error block */
+    continue;
+
+  segment_failed:
+    {
+      mark_segment_failed(entries_out, i);
+    }
   }
 
   if (filtered_frame) {
