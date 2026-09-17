@@ -14,7 +14,8 @@ KeepEmptyLinesAtTheStartOfBlocks: true
 MaxEmptyLinesToKeep: 1
 PPIndentWidth: 2
 PointerAlignment: Right
-ReflowComments: IndentOnly
+ReflowComments: true
+AlignTrailingComments: true
 RemoveEmptyLinesInUnwrappedLines: true
 SeparateDefinitionBlocks: Always
 SpaceAfterCStyleCast: true
