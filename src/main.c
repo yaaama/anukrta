@@ -1,4 +1,10 @@
-/* Video similarity tool */
+/**
+ * @file main.c
+ *
+ * @brief Main file for `anukrta`.
+ *
+ *
+ */
 
 #include <assert.h>
 #include <inttypes.h>
@@ -46,7 +52,7 @@ static void log_lock_callback (bool lock, void *udata) {
 /**
  * Setup loggers for internal logging and libav.
  *
- * @param anu_log_lvl Integer logging level.
+ * @param ak_log_lvl Integer logging level for application.
  * @param logging_mutex Mutex to pass to logger.
  */
 static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
@@ -65,24 +71,29 @@ static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
  * @brief Context data passed to threads.
  */
 typedef struct hash_tworker_ctx {
-  /** Pointer to file queue that needs to be hashed. */
-  ak_file_v *files;
-  /** Pointer to program configuration. */
-  ak_config *config;
-  /** Array of hash_entries (stores hash + timestamp for hash) */
-  ak_hash_entry *hash_entries;
-  /** Indices of files to be processed. */
-  size_t *pending_indices;
-  /** Index of file to process by thread worker. */
-  atomic_size_t *current_idx;
-  /** Count for completed files */
-  atomic_size_t *completed_count;
-  /** Array of result codes from threads. */
-  AK_STATUS *results;
-  /** Number of files needing to be processed. */
-  size_t pending_count;
+  ak_file_v *files;               /**< Pointer to file queue that needs to be hashed. */
+  ak_config *config;              /**< Pointer to program configuration. */
+  ak_hash_entry *hash_entries;    /**< Array of hash_entries */
+  size_t *pending_indices;        /**< Indices of files to be processed. */
+  atomic_size_t *current_idx;     /**< Index of file to process by thread worker. */
+  atomic_size_t *completed_count; /**< Count for completed files */
+  AK_STATUS *results;             /**< Array of result codes from threads. */
+  size_t pending_count;           /**< Number of files needing to be processed. */
 } hashing_thread_ctx;
 
+/**
+ * @brief Worker thread routine for hashing video files.
+ *
+ * @details This function runs in a loop, fetching the next available file from
+ * a shared work queue using an atomic counter (`current_idx`).
+ * It maps the queue index to the actual file index, calculates the correct memory offset for the
+ * resulting hashes, and performs the video hashing.
+ * The thread terminates automatically when the work queue is exhausted.
+ *
+ * @param arg Pointer to `hashing_thread_ctx` struct.
+ *
+ * @return Always returns NULL.
+ */
 static void *hash_worker_thread (void *arg) {
   hashing_thread_ctx *targs = (hashing_thread_ctx *) arg;
 
@@ -114,6 +125,18 @@ static void *hash_worker_thread (void *arg) {
   return NULL;
 }
 
+/**
+ * Spawn and manage worker threads to hash pending files.
+ *
+ * Determines the optimal number of threads based on the number of available threads
+ * and the number of pending files.
+ * Initialises terminal context so we know if we are in interactive mode (TTY) or not.
+ * Starts progress bar for the terminal if we are in a TTY, and then cleans it up.
+ *
+ * @param config Pointer to global configuration.
+ * @param args Pointer to the thread context/arguments containing pending files, status tracking, and shared
+ * counters.
+ */
 static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *args) {
   /* Number of pending files to process */
   size_t file_count = args->pending_count;
@@ -198,14 +221,16 @@ static bool search_cache_for_file (anu_cache_ctx *db,
  *
  * We conduct most of our business logic here:
  * - Search for files and collect the files we are interested in.
- * - Check for files that are already hashed.
- * - Retrieve cached hashes.
- * - Hash new files.
- * - Print report of the run.
+ * - Check database for files that are already hashed.
+ * - Retrieve cached hashes or queue newly discovered files for hashing.
+ * - Spin up threads to hash pending files.
+ * - Build BK Tree of the file hashes.
+ * - Generate and print report of the run.
  *
- * @param config
+ * @param config Pointer to the configuration settings.
+ * @param paths  Pointer to the dynamic array of paths to scan.
  *
- * @return
+ * @return 0 on success, or a non-zero error code if initialization/scanning fails.
  */
 static int anukrta_driver (ak_config *config, ak_paths *paths) {
 
@@ -371,7 +396,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
 }
 
 /**
- * @brief Configure locales to safe values.
+ * Configure locales to safe values.
  *
  * Enforce predictable formatting/sorting/string behaviour by overriding hosts locale settings.
  * - LC_NUMERIC: Force usage of '.' as decimal seperator.
@@ -402,6 +427,17 @@ static int setup_locales (void) {
   /* NOLINTEND */
 }
 
+/**
+ * @brief Application entry point.
+ *
+ * Sets up safe locales, parses CLI arguments, initializes logging,
+ * and then hands off execution to the main driver function.
+ *
+ * @param argc
+ * @param argv
+ *
+ * @return 0 for success, non-zero for failure.
+ */
 int main (int argc, char *argv[]) {
 
   if (setup_locales()) {
