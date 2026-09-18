@@ -71,14 +71,18 @@ static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
  * @brief Context data passed to threads.
  */
 typedef struct hash_tworker_ctx {
-  ak_file_v *files;               /**< Pointer to file queue that needs to be hashed. */
-  ak_config *config;              /**< Pointer to program configuration. */
-  ak_hash_entry *hash_entries;    /**< Array of hash_entries */
-  size_t *pending_indices;        /**< Indices of files to be processed. */
-  atomic_size_t *current_idx;     /**< Index of file to process by thread worker. */
-  atomic_size_t *completed_count; /**< Count for completed files */
-  AK_STATUS *results;             /**< Array of result codes from threads. */
-  size_t pending_count;           /**< Number of files needing to be processed. */
+  ak_file_v *files;            /**< Pointer to file queue that needs to be hashed. */
+  ak_config *config;           /**< Pointer to program configuration. */
+  ak_hash_entry *hash_entries; /**< Array of hash_entries */
+  AK_STATUS *results;          /**< Array of result codes from threads. */
+
+  /** Indices of files to be processed.
+   * E.g. Index 0 of this array may be '5' which means ak_file_v[5] requires processing. */
+  size_t *pending_indices;
+  size_t pending_count; /**< Number of elements in `pending_indices`. */
+
+  atomic_size_t current_idx;     /**< Index of file to process by thread worker. */
+  atomic_size_t completed_count; /**< Count for completed files */
 } hashing_thread_ctx;
 
 /**
@@ -101,11 +105,10 @@ static void *hash_worker_thread (void *arg) {
   enum AK_STATUS *results = targs->results;
   ak_file *files = targs->files->items;
   ak_hash_entry *hash_entries = targs->hash_entries;
-  _Atomic size_t *current_idx = targs->current_idx;
 
   for (;;) {
     /* Get index of next file in queue */
-    size_t q_idx = atomic_fetch_add(current_idx, 1);
+    size_t q_idx = atomic_fetch_add(&targs->current_idx, 1);
 
     /* Check if next index exceeds file count */
     if (q_idx >= targs->pending_count) {
@@ -119,7 +122,7 @@ static void *hash_worker_thread (void *arg) {
 
     /* Do the hashing and store return code */
     results[file_idx] = ak_video_hash(&files[file_idx], targs->config, (hash_entries + entry_offset));
-    atomic_fetch_add(targs->completed_count, 1);
+    atomic_fetch_add(&targs->completed_count, 1);
   }
 
   return NULL;
@@ -158,7 +161,7 @@ static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *
 
   ak_ui_ctx_init(config, term, ui);
   char *progress_label_str = "HASHING";
-  ak_ui_progress_start(ui, args->completed_count, args->pending_count, progress_label_str,
+  ak_ui_progress_start(ui, &args->completed_count, args->pending_count, progress_label_str,
                        STRLEN("HASHING"));
 
   /* Spawn hashing worker threads */
@@ -326,9 +329,11 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
     .results = file_statuses,
     .pending_count = pending_count,
     .pending_indices = pending_indices,
-    .current_idx = &current_file_idx,
-    .completed_count = &completed_count,
+    .current_idx = current_file_idx,
+    .completed_count = completed_count,
   };
+  atomic_init(&thread_ctx.current_idx, 0);
+  atomic_init(&thread_ctx.completed_count, 0);
 
   if (pending_count > 0) {
     execute_hash_worker_threads(config, &thread_ctx);
