@@ -91,12 +91,12 @@ static int init_signal_handling (ak_term_ctx *ctx) {
 
   /* Block SIGWINCH signal */
   if (pthread_sigmask(SIG_BLOCK, &mask, NULL) != 0) {
-    log_error("Failed to block SIGWINCH");
+    log_error("Failed to block signals!");
     return -1;
   }
 
-  ctx->sigwinch_fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
-  if (ctx->sigwinch_fd == -1) {
+  ctx->signals_fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+  if (ctx->signals_fd == -1) {
     log_error("Failed to create signalfd");
     return -1;
   }
@@ -109,8 +109,8 @@ static int init_signal_handling (ak_term_ctx *ctx) {
   }
 
   /* Register with epoll */
-  struct epoll_event ev = {.events = EPOLLIN, .data.fd = ctx->sigwinch_fd};
-  if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->sigwinch_fd, &ev) == -1) {
+  struct epoll_event ev = {.events = EPOLLIN, .data.fd = ctx->signals_fd};
+  if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->signals_fd, &ev) == -1) {
     log_error("Failed to add signalfd to epoll");
     return -1;
   }
@@ -118,7 +118,7 @@ static int init_signal_handling (ak_term_ctx *ctx) {
 }
 
 int ak_term_ctx_update (ak_term_ctx *ctx) {
-  if (ctx->epoll_fd < 0 || ctx->sigwinch_fd < 0) {
+  if (ctx->epoll_fd < 0 || ctx->signals_fd < 0) {
     return -1;
   }
 
@@ -143,7 +143,7 @@ int ak_term_ctx_update (ak_term_ctx *ctx) {
   bool resized = false;
 
   /* Read all pending signals from the fd until EAGAIN */
-  while ((s = read(ctx->sigwinch_fd, &fdsi, sizeof(struct signalfd_siginfo))) > 0) {
+  while ((s = read(ctx->signals_fd, &fdsi, sizeof(struct signalfd_siginfo))) > 0) {
     if (s == sizeof(struct signalfd_siginfo) && fdsi.ssi_signo == SIGWINCH) {
       resized = true;
     }
@@ -167,9 +167,9 @@ void ak_term_ctx_destroy (ak_term_ctx *ctx) {
     ctx->epoll_fd = -1;
   }
 
-  if (ctx->sigwinch_fd != -1) {
-    close(ctx->sigwinch_fd);
-    ctx->sigwinch_fd = -1;
+  if (ctx->signals_fd != -1) {
+    close(ctx->signals_fd);
+    ctx->signals_fd = -1;
   }
 
   /* Safely unblock SIGWINCH in case the thread continues to live
@@ -187,7 +187,7 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
   /* Set defaults */
   ctx->term_width = 40;
   ctx->term_height = 40;
-  ctx->sigwinch_fd = -1;
+  ctx->signals_fd = -1;
   ctx->epoll_fd = -1;
   ctx->is_tty = false;
   ctx->is_dumb = false;

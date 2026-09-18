@@ -48,19 +48,13 @@
  * Current state of terminal (if there is one).
  */
 typedef struct ak_term_ctx {
-  /* Width of tty */
-  int term_width;
-  /* Height of terminal */
-  int term_height;
-
-  /* Window change signal file descriptor */
-  int sigwinch_fd;
-  /* File descriptor for epoll */
-  int epoll_fd;
-
-  /* TTY flags */
-  bool is_tty;
-  bool is_dumb;
+  int term_width;    /**< Width of terminal. */
+  int term_height;   /**< Height of terminal. */
+  int signals_fd;    /**< File descriptor where signals are written. */
+  int epoll_fd;      /**< File descriptor for epoll. */
+  bool is_tty;       /**< Is running in TTY. */
+  bool is_dumb;      /**< Terminal is DUMB (no colour, or no escape processing etc). */
+  bool quit_request; /**< Received a SIGINT/SIGTERM signal. */
 } ak_term_ctx;
 
 static AK_ALWAYS_INLINE void ak_term_cursor_hide (FILE *stream) { fputs(ANSI_CURSOR_HIDE, stream); }
