@@ -1,5 +1,10 @@
 # -clang-diagnostic-missing-prototypes,
 ---
+
+# -clang-analyzer-unix.Malloc, Does not play well with using __free__ attributes,
+# -altera-*, Checks related to OpenCL programming for FPGAs. Not relevant,
+# -bugprone-reserved-identifier, We use underscore prefix to indicate private names (e.g. "_shada_mark"),
+# -llvmlibc-restrict-system-libc-headers, We want to use glibc,
 Checks: >
   *,
   clang-diagnostic-*,
@@ -13,7 +18,7 @@ Checks: >
   misc-*,
   clang-analyzer-*,
   -clang-analyzer-security.insecureAPI.*,
-  -clang-analyzer-unix.Malloc, Does not play well with using __free__ attributes,
+  -clang-analyzer-unix.Malloc,
   -*cert-err33-c,
   -cert-dcl51-cpp,
   -cert-dcl37-c,
@@ -23,6 +28,7 @@ Checks: >
   -readability-magic-numbers,
   -readability-avoid-unconditional-preprocessor-if,
   -readability-non-const-parameter,
+  -readability-implicit-bool-conversion,
   readability-redundant-function-ptr-dereference,
   readability-redundant-casting,
   readability-avoid-const-params-in-decls,
@@ -32,15 +38,15 @@ Checks: >
   -*swappable-parameters,
   -clang-diagnostic-padded,
   modernize-use-designated-initializers,
-  -altera-*, Checks related to OpenCL programming for FPGAs. Not relevant,
+  -altera-*,
   -android-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-inc-dec-in-conditions,
-  -bugprone-reserved-identifier, We use underscore prefix to indicate private names (e.g. "_shada_mark"),
+  -bugprone-reserved-identifier,
   -bugprone-swapped-arguments,
   -bugprone-assignment-in-if-condition,
   -llvm-header-guard, We use #AK_...,
-  -llvmlibc-restrict-system-libc-headers, We want to use glibc,
+  -llvmlibc-restrict-system-libc-headers,
   -cppcoreguidelines-macro-to-enum,
   -cppcoreguidelines-avoid-magic-numbers,
   -hicpp-signed-bitwise,
@@ -65,7 +71,7 @@ CheckOptions:
     value: glibc
     # Do not auto-insert these headers
   - key: misc-include-cleaner.IgnoreHeaders
-    value: "bits/.*;bits/getopt_core.h;asm/.*;asm-generic/.*;criterion/.*;errno.h;getopt.h;"
+    value: "bits/.*;asm/.*;asm-generic/.*;criterion/.*;errno.h;getopt.h;"
   - key: bugprone-unsafe-functions.CustomFunctions
     value: |
       ^malloc$, xmalloc,;
@@ -91,8 +97,9 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.EnumConstantCase
     value: UPPER_CASE
-
   - key: readability-implicit-bool-conversion.AllowIntegerConditions
+    value: "true"
+  - key: readability-implicit-bool-conversion.AllowLogicalOperatorConversion
     value: "true"
   # Allows 'if (ptr)' instead of 'if (ptr != NULL)'
   - key: readability-implicit-bool-conversion.AllowPointerConditions
