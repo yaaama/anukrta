@@ -2,17 +2,12 @@
 
 #include <errno.h>
 #include <limits.h>
-#include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <sys/ioctl.h>
-#include <sys/signalfd.h>
 #include <unistd.h>
 
 #include "log.h"
-#include "mem.h"
 
 /**
  * Get environment variable and parse it as an integer.
@@ -84,80 +79,27 @@ static int try_get_terminal_dimensions (int termfd, int *restrict columns, int *
   return c > 0 && l > 0;
 }
 
-static int init_sigwinch_handling (ak_term_ctx *ctx) {
-  /* Create a signal set containing ONLY SIGWINCH */
-  sigset_t mask;
-  sigemptyset(&mask);
-  sigaddset(&mask, SIGWINCH);
-
-  ctx->old_mask = xcalloc(1, sizeof(*ctx->old_mask));
-  /* Block SIGWINCH signal */
-  if (pthread_sigmask(SIG_BLOCK, &mask, ctx->old_mask) != 0) {
-    log_error("Failed to block signals!");
-    return -1;
+static bool query_winsize (int fd, int *cols, int *rows) {
+  struct winsize ws;
+  if (ioctl(fd, TIOCGWINSZ, &ws) != 0 || ws.ws_col == 0) {
+    return false;
   }
-
-  /* Store FD of signal queue */
-  ctx->signals_fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
-  if (ctx->signals_fd == -1) {
-    log_error("Failed to create signalfd");
-    return -1;
-  }
-
-  /* Create epoll */
-  ctx->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-  if (ctx->epoll_fd == -1) {
-    log_error("Failed to create epoll instance");
-    return -1;
-  }
-
-  /* Register with epoll */
-  struct epoll_event ev = {.events = EPOLLIN, .data.fd = ctx->signals_fd};
-  if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->signals_fd, &ev) == -1) {
-    log_error("Failed to add signalfd to epoll");
-    return -1;
-  }
-  return 0;
+  *cols = ws.ws_col;
+  *rows = ws.ws_row;
+  return true;
 }
 
-int ak_term_ctx_update (ak_term_ctx *ctx) {
-  if (ctx->epoll_fd < 0 || ctx->signals_fd < 0) {
-    return -1;
+/* Call this at the top of every render tick. */
+bool ak_term_ctx_update (ak_term_ctx *ctx) {
+  int cols;
+  int rows;
+  if (!query_winsize(STDOUT_FILENO, &cols, &rows)) {
+    return false; /* ioctl failed: keep last known size */
   }
-
-  struct epoll_event ev;
-  /* Non-blocking poll (timeout = 0) */
-  int n = epoll_wait(ctx->epoll_fd, &ev, 1, 0);
-
-  if (n == -1) {
-    /* Interrupted by unblocked signal, safe to ignore */
-    if (errno == EINTR) {
-      return 0;
-    }
-    return -1;
-  }
-
-  if (n <= 0) {
-    return 0;
-  }
-
-  struct signalfd_siginfo fdsi;
-  ssize_t s;
-  bool resized = false;
-
-  /* Read all pending signals from the fd until EAGAIN */
-  while ((s = read(ctx->signals_fd, &fdsi, sizeof(struct signalfd_siginfo))) > 0) {
-    if (s == sizeof(struct signalfd_siginfo) && fdsi.ssi_signo == SIGWINCH) {
-      resized = true;
-    }
-  }
-
-  /* If a resize happened in this batch, update dimensions */
-  if (resized) {
-    try_get_terminal_dimensions(STDOUT_FILENO, &ctx->term_width, &ctx->term_height);
-    return 1;
-  }
-  return 0;
+  bool resized = (cols != ctx->term_width) || (rows != ctx->term_height);
+  ctx->term_width = cols;
+  ctx->term_height = rows;
+  return resized;
 }
 
 void ak_term_ctx_destroy (ak_term_ctx *ctx) {
@@ -165,20 +107,6 @@ void ak_term_ctx_destroy (ak_term_ctx *ctx) {
     return;
   }
 
-  if (ctx->epoll_fd != -1) {
-    close(ctx->epoll_fd);
-    ctx->epoll_fd = -1;
-  }
-
-  if (ctx->signals_fd != -1) {
-    close(ctx->signals_fd);
-    ctx->signals_fd = -1;
-  }
-
-  /* Safely restore previous signal mask */
-  pthread_sigmask(SIG_SETMASK, ctx->old_mask, NULL);
-
-  free(ctx->old_mask);
   free(ctx);
 }
 
@@ -188,8 +116,6 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
   *ctx = (ak_term_ctx){
     .term_width = 40,
     .term_height = 40,
-    .signals_fd = -1,
-    .epoll_fd = -1,
     .is_tty = false,
     .supports_ansi = false,
     .colour_enabled = false,
@@ -209,12 +135,6 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
 
   if (!try_get_terminal_dimensions(STDOUT_FILENO, &ctx->term_width, &ctx->term_height)) {
     log_info("Failed to retrieve terminal dimensions, using default.");
-  }
-
-  /* Initialize the signal handling context */
-  if (init_sigwinch_handling(ctx) == -1) {
-    ak_term_ctx_destroy(ctx); /* Cleanup any partial allocation */
-    return -1;
   }
 
   return 0;

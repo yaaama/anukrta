@@ -103,9 +103,9 @@ static void *progress_monitor_thread (void *arg) {
     clock_gettime(CLOCK_MONOTONIC, &now);
     double elapsed = get_elapsed_seconds(&ctx->start_time, &now);
     i64 current_elapsed_sec = (i64) elapsed;
-    int resized = ak_term_ctx_update(ctx->term); /* poll every tick */
+    bool resized = ak_term_ctx_update(ctx->term); /* poll every tick */
     /* Only render if the count increased or if a whole second has passed (so ETA timer updates) */
-    if (completed != last_completed || current_elapsed_sec != last_elapsed_sec) {
+    if (completed != last_completed || current_elapsed_sec != last_elapsed_sec || resized) {
       render_progress_bar(ctx, completed, elapsed);
       last_completed = completed;
       last_elapsed_sec = current_elapsed_sec;

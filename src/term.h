@@ -48,11 +48,8 @@
  * Current state of terminal (if there is one).
  */
 typedef struct ak_term_ctx {
-  sigset_t *old_mask;
   int term_width;      /**< Width of terminal. */
   int term_height;     /**< Height of terminal. */
-  int signals_fd;      /**< File descriptor where signals are written. */
-  int epoll_fd;        /**< File descriptor for epoll. */
   bool is_tty;         /**< Is running in TTY. */
   bool supports_ansi;  /**< Terminal is DUMB (no colour, or no escape processing etc). */
   bool colour_enabled; /**< Colour is enabled for output. */
@@ -71,19 +68,19 @@ static AK_ALWAYS_INLINE void ak_term_clear_line (FILE *stream) {
 }
 
 /**
- * Initialise terminal context, block SIGWINCH signals and setup FDs.
+ * Initialise terminal context.
  */
 int ak_term_ctx_init(ak_term_ctx *ctx) AK_NONNULL_ARG(1);
 
 /**
- * Close FDs and cleanup terminal context.
+ * Cleanup terminal context.
  */
 void ak_term_ctx_destroy(ak_term_ctx *ctx);
 
 AK_DEFINE_AUTO(term_ctx, ak_term_ctx *, if (_T) ak_term_ctx_destroy(_T))
 
 /**
- * Update terminal context
+ * Update terminal context.
  */
-int ak_term_ctx_update(ak_term_ctx *ctx);
+bool ak_term_ctx_update(ak_term_ctx *ctx);
 #endif  // AK_TERM_H_
