@@ -414,7 +414,7 @@ static int vreader_decode_frame (ak_vreader *vreader) {
     }
 
     if (ret < 0) {
-      log_error("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
+      log_warn("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
       return ret;
     }
 
@@ -423,7 +423,7 @@ static int vreader_decode_frame (ak_vreader *vreader) {
     av_packet_unref(vreader->packet);
 
     if (ret < 0) {
-      log_error("%s Decoding error: %s", vreader->fname, av_err2str(ret));
+      log_warn("%s Decoding error: %s", vreader->fname, av_err2str(ret));
       return ret;
     }
 
@@ -1002,8 +1002,8 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
      */
     errcode = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != AK_OK) {
-      log_error("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
-                target_segments, seek_target_sb, seek_target_seconds, av_err2str(errcode));
+      log_warn("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
+               target_segments, seek_target_sb, seek_target_seconds, av_err2str(errcode));
       goto segment_failed;
     }
 
