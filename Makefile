@@ -63,8 +63,8 @@ CFLAGS := -std=gnu23 \
 # Inject Compiler-specific flags from config.mk
 CFLAGS += $(COMPILER_CFLAGS)
 LDFLAGS += $(COMPILER_LDFLAGS)
-INCLUDES := $(addprefix -I,$(VENDOR_DIR) $(SRC_DIR))
 CPPFLAGS := $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
+INCLUDES := $(addprefix -iquote ,$(SRC_DIR)) $(addprefix -I ,$(VENDOR_DIR))
 
 # Release or Profile
 ifneq ($(filter profile release,$(VARIANT)),)
