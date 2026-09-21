@@ -48,18 +48,23 @@
  * Current state of terminal (if there is one).
  */
 typedef struct ak_term_ctx {
-  int term_width;    /**< Width of terminal. */
-  int term_height;   /**< Height of terminal. */
-  int signals_fd;    /**< File descriptor where signals are written. */
-  int epoll_fd;      /**< File descriptor for epoll. */
-  bool is_tty;       /**< Is running in TTY. */
-  bool is_dumb;      /**< Terminal is DUMB (no colour, or no escape processing etc). */
-  bool quit_request; /**< Received a SIGINT/SIGTERM signal. */
+  sigset_t *old_mask;
+  int term_width;      /**< Width of terminal. */
+  int term_height;     /**< Height of terminal. */
+  int signals_fd;      /**< File descriptor where signals are written. */
+  int epoll_fd;        /**< File descriptor for epoll. */
+  bool is_tty;         /**< Is running in TTY. */
+  bool supports_ansi;  /**< Terminal is DUMB (no colour, or no escape processing etc). */
+  bool colour_enabled; /**< Colour is enabled for output. */
 } ak_term_ctx;
 
-static AK_ALWAYS_INLINE void ak_term_cursor_hide (FILE *stream) { fputs(ANSI_CURSOR_HIDE, stream); }
+static AK_ALWAYS_INLINE void ak_term_cursor_hide (FILE *stream) {
+  fputs(ANSI_CURSOR_HIDE, stream);
+}
 
-static AK_ALWAYS_INLINE void ak_term_cursor_show (FILE *stream) { fputs(ANSI_CURSOR_SHOW, stream); }
+static AK_ALWAYS_INLINE void ak_term_cursor_show (FILE *stream) {
+  fputs(ANSI_CURSOR_SHOW, stream);
+}
 
 static AK_ALWAYS_INLINE void ak_term_clear_line (FILE *stream) {
   fputs("\r" ANSI_ERASE_TO_END_OF_LINE, stream);

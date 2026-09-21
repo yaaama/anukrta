@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "log.h"
-#include "util.h"
+#include "mem.h"
 
 /**
  * Get environment variable and parse it as an integer.
@@ -35,25 +35,25 @@ static int get_env_int (const char *name) {
   return -1;
 }
 
-static int is_terminal_dumb (ak_term_ctx *ctx) {
+static bool env_term_is_dumb (void) {
 
   const char *term_env = getenv("TERM");
 
-  if (!term_env) {
-    return 1;
+  /* If we don't find a term environment variable */
+  if (!term_env || term_env[0] == '\0') {
+    return true;
+  }
+  /* If term is actually dumb */
+  if (strcmp(term_env, "dumb") == 0) {
+    return true;
   }
 
-  if (strncmp(term_env, "dumb", STRLEN("dumb")) == 0) {
-    ctx->is_dumb = true;
-    log_info("Dumb terminal detected. Advanced formatting should be DISABLED.");
-  } else {
-    ctx->is_dumb = false;
-  }
-
-  return 0;
+  return false;
 }
 
-static bool is_color_disabled (void) { return (getenv("NO_COLOR") != NULL); }
+static bool env_nocolor_defined (void) {
+  return (getenv("NO_COLOR") != NULL);
+}
 
 static int try_get_terminal_dimensions (int termfd, int *restrict columns, int *restrict lines) {
 
@@ -80,21 +80,24 @@ static int try_get_terminal_dimensions (int termfd, int *restrict columns, int *
   *columns = c > 0 ? c : default_cols;
   *lines = l > 0 ? l : default_lines;
 
-  return 0;
+  /* Return whether terminal dimensions were actually found */
+  return c > 0 && l > 0;
 }
 
-static int init_signal_handling (ak_term_ctx *ctx) {
-  /* 1. Create a signal set containing ONLY SIGWINCH */
+static int init_sigwinch_handling (ak_term_ctx *ctx) {
+  /* Create a signal set containing ONLY SIGWINCH */
   sigset_t mask;
   sigemptyset(&mask);
   sigaddset(&mask, SIGWINCH);
 
+  ctx->old_mask = xcalloc(1, sizeof(*ctx->old_mask));
   /* Block SIGWINCH signal */
-  if (pthread_sigmask(SIG_BLOCK, &mask, NULL) != 0) {
+  if (pthread_sigmask(SIG_BLOCK, &mask, ctx->old_mask) != 0) {
     log_error("Failed to block signals!");
     return -1;
   }
 
+  /* Store FD of signal queue */
   ctx->signals_fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
   if (ctx->signals_fd == -1) {
     log_error("Failed to create signalfd");
@@ -172,25 +175,25 @@ void ak_term_ctx_destroy (ak_term_ctx *ctx) {
     ctx->signals_fd = -1;
   }
 
-  /* Safely unblock SIGWINCH in case the thread continues to live
-     after the terminal context is destroyed */
-  sigset_t mask;
-  sigemptyset(&mask);
-  sigaddset(&mask, SIGWINCH);
-  pthread_sigmask(SIG_UNBLOCK, &mask, NULL);
+  /* Safely restore previous signal mask */
+  pthread_sigmask(SIG_SETMASK, ctx->old_mask, NULL);
 
+  free(ctx->old_mask);
   free(ctx);
 }
 
 int ak_term_ctx_init (ak_term_ctx *ctx) {
 
   /* Set defaults */
-  ctx->term_width = 40;
-  ctx->term_height = 40;
-  ctx->signals_fd = -1;
-  ctx->epoll_fd = -1;
-  ctx->is_tty = false;
-  ctx->is_dumb = false;
+  *ctx = (ak_term_ctx){
+    .term_width = 40,
+    .term_height = 40,
+    .signals_fd = -1,
+    .epoll_fd = -1,
+    .is_tty = false,
+    .supports_ansi = false,
+    .colour_enabled = false,
+  };
 
   ctx->is_tty = (isatty(STDOUT_FILENO) == 1);
 
@@ -201,22 +204,15 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
     return 0;
   }
 
-  if (is_terminal_dumb(ctx)) {
-    log_warn("Environment variable $TERM not found!");
-    ctx->is_dumb = true;
-  }
+  ctx->supports_ansi = (ctx->is_tty && !env_term_is_dumb());
+  ctx->colour_enabled = (ctx->supports_ansi && !env_nocolor_defined());
 
-  if (is_color_disabled()) {
-    log_info("Env variable $NO_COLOR is set, colour will be DISABLED.");
-    ctx->is_dumb = true;
-  }
-
-  if (try_get_terminal_dimensions(STDOUT_FILENO, &ctx->term_width, &ctx->term_height)) {
-    log_error("Failed to retrieve terminal dimensions!");
+  if (!try_get_terminal_dimensions(STDOUT_FILENO, &ctx->term_width, &ctx->term_height)) {
+    log_info("Failed to retrieve terminal dimensions, using default.");
   }
 
   /* Initialize the signal handling context */
-  if (init_signal_handling(ctx) == -1) {
+  if (init_sigwinch_handling(ctx) == -1) {
     ak_term_ctx_destroy(ctx); /* Cleanup any partial allocation */
     return -1;
   }

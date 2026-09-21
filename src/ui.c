@@ -26,9 +26,6 @@ static void render_progress_bar (ak_ui_ctx *ctx, size_t completed, double elapse
     return;
   }
 
-  /* Query terminal resize events */
-  ak_term_ctx_update(ctx->term);
-
   int term_width = ctx->term->term_width;
   if (term_width < 20) {
     term_width = 20;
@@ -106,7 +103,7 @@ static void *progress_monitor_thread (void *arg) {
     clock_gettime(CLOCK_MONOTONIC, &now);
     double elapsed = get_elapsed_seconds(&ctx->start_time, &now);
     i64 current_elapsed_sec = (i64) elapsed;
-
+    int resized = ak_term_ctx_update(ctx->term); /* poll every tick */
     /* Only render if the count increased or if a whole second has passed (so ETA timer updates) */
     if (completed != last_completed || current_elapsed_sec != last_elapsed_sec) {
       render_progress_bar(ctx, completed, elapsed);
@@ -158,10 +155,10 @@ int ak_ui_ctx_init (const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui_ct
 
   /* Enable progress bar only if interactive, supported, and verbosity == 0 */
   bool flag_enabled = ak_flag_has(config->runtime_flags, RT_PROGRESS_BAR);
-  bool can_render = (term->is_tty && !term->is_dumb) != 0;
+  bool can_render = (term->is_tty && term->supports_ansi);
   bool quiet = (ak_get_verbosity(config->runtime_flags) == 0);
 
-  ui_ctx->is_interactive = ((flag_enabled && can_render && quiet) != 0);
+  ui_ctx->is_interactive = (flag_enabled && can_render && quiet);
   atomic_store(&ui_ctx->is_active, false);
   return 0;
 }
@@ -195,7 +192,6 @@ int ak_ui_progress_start (ak_ui_ctx *ctx,
     ak_term_cursor_show(stdout);
     return -1;
   }
-  atomic_store(&ctx->is_active, true);
   return 0;
 }
 
