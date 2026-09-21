@@ -63,8 +63,8 @@ CFLAGS := -std=gnu23 \
 # Inject Compiler-specific flags from config.mk
 CFLAGS += $(COMPILER_CFLAGS)
 LDFLAGS += $(COMPILER_LDFLAGS)
-CPPFLAGS := $(INCLUDES) -MMD -MP $(PREPROC_DEFS)
 INCLUDES := $(addprefix -iquote ,$(SRC_DIR)) $(addprefix -I ,$(VENDOR_DIR))
+CPPFLAGS := -MMD -MP $(PREPROC_DEFS)
 
 # Release or Profile
 ifneq ($(filter profile release,$(VARIANT)),)
@@ -226,7 +226,7 @@ $(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS) $(SQLITE_OBJ)
 $(OBJ_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Compiling Test [no-warnings] $<..."
-	$(Q)$(CC) $(TEST_CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(Q)$(CC) $(TEST_CFLAGS) $(INCLUDES) $(CPPFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
 	@mkdir -p $(dir $@)
@@ -240,7 +240,7 @@ $(SQLITE_OBJ): $(SQLITE_SRC) $(SQLITE_DIR)/sqlite_config.h
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Compiling [$(VARIANT)] $<..."
-	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(Q)$(CC) $(CFLAGS) $(INCLUDES) $(CPPFLAGS) -c $< -o $@
 
 .PHONY: run test run-asan test-asan run-tsan test-tsan
 
