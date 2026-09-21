@@ -16,7 +16,11 @@
 #include "sqlite3.h"
 #include "util.h"
 
-enum DATABASE_SCHEMA_TABLE_IDX { DB_FILE_TABLE_IDX = 0, DB_HASHES_TABLE_IDX = 1, DB_PRAGMAS_IDX = 2 };
+enum DATABASE_SCHEMA_TABLE_IDX {
+  DB_FILE_TABLE_IDX = 0,
+  DB_HASHES_TABLE_IDX = 1,
+  DB_PRAGMAS_IDX = 2
+};
 
 static const char *DATABASE_SCHEMA[] = {
   /*
@@ -41,7 +45,8 @@ static const char *DATABASE_SCHEMA[] = {
   "  hash INTEGER NOT NULL,"                                        /* Hash value (64 bits) */
   "  frame_ts INTEGER NOT NULL,"                                    /* Frame timestamp of hash */
   "  PRIMARY KEY (file_id, frame_ts),"                              /* Composite Primary Key */
-  "  FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE" /* file_id in table is referring to files.id */
+  "  FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE" /* file_id in table is referring to
+                                                                       files.id */
   ") WITHOUT ROWID;" /* Without ROWID skips creating builtin row id column */
   "CREATE INDEX IF NOT EXISTS idx_hash_lookup ON hashes(hash);", /* Create an index on the hash value */
 
@@ -435,7 +440,8 @@ anu_cache_ctx *cache_open_db (const char *db_path) {
   /* If we cannot open the database, create one: */
   if (ret == SQLITE_CANTOPEN) {
     log_info("Database does not yet exist. Creating one...");
-    /* NOTE: Sqlite3_open_v2 must be closed if any error occurs during opening (even if we try to open it again) */
+    /* NOTE: Sqlite3_open_v2 must be closed if any error occurs during opening (even if we try to open it
+     * again) */
     sqlite3_close(db);
     db = NULL;
 

@@ -546,7 +546,9 @@
 /**
  * Dummy function to ensure we check pointers during the close.
  */
-static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) { return p; }
+static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
+  return p;
+}
 
 /**
  * @def AK_DEFINE_AUTO
@@ -992,13 +994,13 @@ static AK_ALWAYS_INLINE AK_CONST int ak_char_lower (int c) {
     } while (0)
 
 /* Assumption crashes when false. */
-#  define AK_ASSUME(cond)                                                                              \
-    do {                                                                                               \
-      if (!(cond)) {                                                                                   \
-        (void) fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", AK_STRINGIFY(cond), __FILE__, \
-                       __LINE__);                                                                      \
-        abort();                                                                                       \
-      }                                                                                                \
+#  define AK_ASSUME(cond)                                                \
+    do {                                                                 \
+      if (!(cond)) {                                                     \
+        (void) fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", \
+                       AK_STRINGIFY(cond), __FILE__, __LINE__);          \
+        abort();                                                         \
+      }                                                                  \
     } while (0)
 
 /* ------------------------------------------------------------------------ */
