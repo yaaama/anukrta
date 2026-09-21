@@ -1,5 +1,4 @@
 #include "video.h"
-
 #include <assert.h>
 #include <errno.h> /* IWYU pragma: keep */
 #include <inttypes.h>
@@ -12,6 +11,7 @@
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
+#include <libavformat/avio.h>
 #include <libavutil/avutil.h>
 #include <libavutil/display.h>
 #include <libavutil/error.h>
@@ -34,6 +34,7 @@
 #include "explore.h"
 #include "hash.h"
 #include "log.h"
+#include "signals.h"
 #include "util.h"
 
 typedef struct cropping {
@@ -49,6 +50,19 @@ typedef struct filter_ctx {
   AVFilterGraph *filter_graph;
   int init;
 } filter_ctx;
+
+/**
+ * libav calls this during BLOCKING I/O (file reads in av_read_frame,
+ * avformat_find_stream_info, seeks, etc). Returning non-zero aborts the
+ * operation with AVERROR_EXIT.
+ *
+ * @note Only interrupts I/O, not pure CPU decode, but since we seek per
+ * segment, I/O is where the time goes.
+ */
+static int av_interrupt_cb (void *opaque) {
+  const ak_signals_ctx *signals = opaque;
+  return (signals && ak_shutdown_requested(signals)) ? 1 : 0;
+}
 
 u32 ak_libav_supports (void) {
 
@@ -180,7 +194,9 @@ static AK_NONNULL_ALL int get_video_stream_rotation (const AVStream *stream) {
  * @return AK_OK if success, anything else is an error.
  *
  */
-static AK_NONNULL_ARG(1, 2) AK_STATUS vreader_init (const char *f_path, ak_vreader *vreader) {
+static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
+                                                       ak_signals_ctx *signals,
+                                                       ak_vreader *vreader) {
 
   /* Assign video stream index to an invalid index by default */
   vreader->video_stream_idx = -1;
@@ -191,7 +207,8 @@ static AK_NONNULL_ARG(1, 2) AK_STATUS vreader_init (const char *f_path, ak_vread
    * Initialise FORMAT CONTEXT.
    * This step will check if file is existent, can be opened, etc.
    */
-
+  vreader->fmt_ctx = avformat_alloc_context();
+  vreader->fmt_ctx->interrupt_callback = (AVIOInterruptCB){.callback = av_interrupt_cb, .opaque = signals};
   /* Opens input file and guesses format of file */
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
@@ -413,6 +430,10 @@ static int vreader_decode_frame (ak_vreader *vreader) {
       continue;
     }
 
+    if (ret == AVERROR_EXIT) {
+      return ret;
+    }
+
     if (ret < 0) {
       log_warn("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
       return ret;
@@ -421,6 +442,10 @@ static int vreader_decode_frame (ak_vreader *vreader) {
     /* Send the correct video packet to the decoder */
     ret = avcodec_send_packet(codec_ctx, vreader->packet);
     av_packet_unref(vreader->packet);
+
+    if (ret == AVERROR_EXIT) {
+      return ret;
+    }
 
     if (ret < 0) {
       log_warn("%s Decoding error: %s", vreader->fname, av_err2str(ret));
@@ -900,7 +925,10 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) void mark_segment_failed (ak_hash_entr
  *
  * @return AK_STATUS
  */
-enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *entries_out) {
+enum AK_STATUS ak_video_hash (ak_file *file,
+                              ak_config *config,
+                              ak_signals_ctx *signals,
+                              ak_hash_entry *entries_out) {
 
   assert(file);
   assert(entries_out);
@@ -913,7 +941,7 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
   ak_vreader vreader AK_AUTO(vreader_close) = {0};
 
   /* Setup video reader */
-  if ((errcode = vreader_init(file->path, &vreader)) != AK_OK) {
+  if ((errcode = vreader_init(file->path, signals, &vreader)) != AK_OK) {
     return errcode;
   }
   vreader.fname = ak_file_name(file);
@@ -1002,6 +1030,11 @@ enum AK_STATUS ak_video_hash (ak_file *file, ak_config *config, ak_hash_entry *e
      */
     errcode = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
     if (errcode != AK_OK) {
+      if (errcode == AVERROR_EXIT) {
+        log_warn("[%s] Hashing interrupted by shutdown request.\n", vr_fname);
+        return AK_IO_FAIL;
+      }
+
       log_warn("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
                target_segments, seek_target_sb, seek_target_seconds, av_err2str(errcode));
       goto segment_failed;

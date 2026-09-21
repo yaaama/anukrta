@@ -30,6 +30,7 @@
 #include "log.h"
 #include "mem.h"
 #include "report.h"
+#include "signals.h"
 #include "sqlite3.h"
 #include "term.h"
 #include "tree.h"
@@ -75,11 +76,12 @@ typedef struct hash_tworker_ctx {
   ak_config *config;           /**< Pointer to program configuration. */
   ak_hash_entry *hash_entries; /**< Array of hash_entries */
   AK_STATUS *results;          /**< Array of result codes from threads. */
+  ak_signals_ctx *signals;
 
   /** Indices of files to be processed.
    * E.g. Index 0 of this array may be '5' which means ak_file_v[5] requires processing. */
   size_t *pending_indices;
-  size_t pending_count; /**< Number of elements in `pending_indices`. */
+  atomic_size_t pending_count; /**< Number of elements in `pending_indices`. */
 
   atomic_size_t current_idx;     /**< Index of file to process by thread worker. */
   atomic_size_t completed_count; /**< Count for completed files */
@@ -121,11 +123,25 @@ static void *hash_worker_thread (void *arg) {
     size_t entry_offset = (file_idx * segments);
 
     /* Do the hashing and store return code */
-    results[file_idx] = ak_video_hash(&files[file_idx], targs->config, (hash_entries + entry_offset));
+    results[file_idx] =
+        ak_video_hash(&files[file_idx], targs->config, targs->signals, (hash_entries + entry_offset));
     atomic_fetch_add(&targs->completed_count, 1);
   }
 
   return NULL;
+}
+
+/**
+ * Shutdown callback
+ * This poisons the work queue.
+ * (`q_idx >= pending_count`) will lead to exiting the hashing loop early.
+ */
+static void poison_hash_queue (int signo, void *userdata) {
+  (void) signo;
+  hashing_thread_ctx *tctx = userdata;
+  /* Silence all libav output before quitting out of hashing */
+  av_log_set_level(AV_LOG_QUIET);
+  atomic_store(&tctx->pending_count, 0);
 }
 
 /**
@@ -235,7 +251,7 @@ static bool search_cache_for_file (anu_cache_ctx *db,
  *
  * @return 0 on success, or a non-zero error code if initialization/scanning fails.
  */
-static int anukrta_driver (ak_config *config, ak_paths *paths) {
+static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *signals) {
 
   assert(config->segments > 0);
 
@@ -327,6 +343,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
     .config = config,
     .hash_entries = hash_entries,
     .results = file_statuses,
+    .signals = signals,
     .pending_count = pending_count,
     .pending_indices = pending_indices,
     .current_idx = current_file_idx,
@@ -335,10 +352,37 @@ static int anukrta_driver (ak_config *config, ak_paths *paths) {
   atomic_init(&thread_ctx.current_idx, 0);
   atomic_init(&thread_ctx.completed_count, 0);
 
+  /* Register the shutdown callback BEFORE the pre-spawn check below.
+   * Ordering matters:
+   *   - Signal arrives before registration  -> caught by the check below.
+   *   - Signal arrives after registration   -> queue gets poisoned.
+   */
+  signals->on_shutdown_data = &thread_ctx;
+  atomic_store(&signals->on_shutdown, poison_hash_queue);
+
+  /* A signal may have arrived before the callback was registered. Nothing
+   * has been hashed yet, so there is nothing new to cache, just exit. */
+  if (ak_shutdown_requested(signals)) {
+    atomic_store(&signals->on_shutdown, NULL);
+    return ak_shutdown_exit_code(signals);
+  }
   if (pending_count > 0) {
     execute_hash_worker_threads(config, &thread_ctx);
   } else {
     log_info("All %zu files already exist in cache, Skipping hashing phase.", file_count);
+  }
+  atomic_store(&signals->on_shutdown, NULL);
+
+  /* Interrupted mid-hash: skip the tree/report phase, but STILL sync the
+   * cache - files that finished carry AK_OK and get saved, so the next run
+   * resumes where this one stopped.
+   * All remaining resources (files vector, hash_entries, cache_ctx) unwind via
+   * their AK_AUTO destructors. */
+  if (ak_shutdown_requested(signals)) {
+    log_warn("Shutdown requested (signal %d). Saved completed work, exiting.",
+             atomic_load(&signals->received));
+    cache_sync_results_maybe(cache_ctx, config, &files, file_statuses, hash_entries);
+    return ak_shutdown_exit_code(signals);
   }
 
   /* Cache the results (if caching enabled) */
@@ -448,6 +492,11 @@ int main (int argc, char *argv[]) {
   if (setup_locales()) {
     return -1;
   }
+  ak_signals_ctx signals;
+  if (ak_signals_install(&signals) != 0) {
+    fprintf(stderr, "Failed to install signal handling\n");
+    return -1;
+  }
 
   /* Retrieve default configuration */
   ak_config config = anukrta_default_config();
@@ -475,7 +524,7 @@ int main (int argc, char *argv[]) {
   /* Start of program */
   log_debug("%s now running...", argv[0]);
 
-  int driver_ret = anukrta_driver(&config, &paths);
+  int driver_ret = anukrta_driver(&config, &paths, &signals);
   pthread_mutex_destroy(&log_mutex);
   kv_destroy(paths);
 

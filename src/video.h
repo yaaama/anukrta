@@ -13,6 +13,7 @@
 #include "config.h"
 #include "defs.h"
 #include "explore.h"
+#include "signals.h"
 #include "util.h"
 
 /* Maximum number of video segments to process */
@@ -45,6 +46,9 @@ enum AK_FLAG_ENUM u32 { AK_LAV_SUPPS_DEC_GRAY = (1 << 0) };
  */
 u32 ak_libav_supports(void);
 
-AK_STATUS ak_video_hash(ak_file *file, ak_config *config, ak_hash_entry *entries_out);
+AK_STATUS ak_video_hash(ak_file *file,
+                        ak_config *config,
+                        ak_signals_ctx *signals,
+                        ak_hash_entry *entries_out);
 
 #endif  // AK_VIDEO_H
