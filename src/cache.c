@@ -126,7 +126,7 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
       cache_insert_hash(ctx, row_out, entries[curr_seg_idx]);
     }
 
-    ++sync_count;
+    sync_count++;
   }
 
   cache_commit_transaction(ctx);
@@ -182,7 +182,10 @@ int cache_close_db (anu_cache_ctx *ctx) {
 
 int cache_ctx_destroy (anu_cache_ctx **ctx) {
 
-  assert(*ctx);
+  if (ctx == NULL || *ctx == NULL) {
+    return 0;
+  }
+
   cache_close_db(*ctx);
   free(*ctx);
   *ctx = NULL;
@@ -208,11 +211,13 @@ static int init_db__pragmas (anu_cache_ctx *ctx) {
   return ret;
 }
 
+AK_DEFINE_AUTO(sqlite3_errmsg, char *, sqlite3_free(*ak__obj));
+
 /**
  * @brief Create database tables (if they are not present).
  */
 static int init_db__schema (anu_cache_ctx *ctx) {
-  char *err_msg = NULL;
+  char *err_msg AK_AUTO(sqlite3_errmsg) = NULL;
 
   int ret = 0;
 
@@ -224,7 +229,7 @@ static int init_db__schema (anu_cache_ctx *ctx) {
 
   if (ret != SQLITE_OK) {
     log_error("Failed to create files table (%s)", err_msg);
-    sqlite3_free(err_msg);
+    cache_rollback_transaction(ctx);
     return ret;
   }
 
@@ -234,7 +239,6 @@ static int init_db__schema (anu_cache_ctx *ctx) {
   if (ret != SQLITE_OK) {
     log_error("Failed to create hashes table (%s)", err_msg);
     cache_rollback_transaction(ctx);
-    sqlite3_free(err_msg);
     return ret;
   }
 
@@ -371,7 +375,7 @@ int cache_upsert_file (anu_cache_ctx *ctx, ak_file *file, uint64_t time_of_hash,
  * @param hash
  * @param frame_timestamp_us
  *
- * @return 0 on success, 1 on fail.
+ * @return 0 on success, -1 on fail.
  * @note Place this in a transaction when bulk inserting.
  */
 int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, ak_hash_entry entry) {
@@ -386,7 +390,7 @@ int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, ak_hash_entry entry
     log_error("Failed to insert hash (%s)", sqlite3_errmsg(sqlite3_db_handle(stmt_insert_hash)));
   }
   sqlite3_reset(stmt_insert_hash);
-  /* Return 0 on success or 1 on fail */
+  /* Return 0 on success or -1 on fail */
   return (ret == SQLITE_DONE) ? 0 : -1;
 }
 
