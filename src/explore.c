@@ -198,6 +198,10 @@ static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file (char *path, ak_fil
   return 0;
 }
 
+static AK_ALWAYS_INLINE bool dot_or_dotdot (const char *s) {
+  return (s[0] == '.' && s[1] == '\0') || (s[0] == '.' && s[1] == '.' && s[2] == '\0');
+}
+
 /**
  * @brief Recursively search path and return files found.
  **/
@@ -257,7 +261,7 @@ int ak_explore_filewalk (char *path, ak_file_v *files_out) {
       char *name = dp->d_name;
 
       /* Check for whether file is '.' or '..' */
-      if ((name[0] == '.' && name[1] == '\0') || (name[1] == '.' && name[2] == '\0')) {
+      if (dot_or_dotdot(name)) {
         continue;
       }
 
