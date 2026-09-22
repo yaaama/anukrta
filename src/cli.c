@@ -408,10 +408,14 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
         }
       case '?':
         {
-          if (optopt) {
+          if (optopt != 0) {
             const char *long_name = get_long_opt_name(optopt, anukrta_opts);
-            fprintf(stderr, "%s: Unrecognized option '%s'.\n", program_name,
-                    (long_name ? long_name : arg_invoked));
+            if (long_name) {
+              fprintf(stderr, "%s: Unrecognized option '--%s'.\n", program_name, long_name);
+            } else {
+              fprintf(stderr, "%s: Unrecognized option '-%c'.\n", program_name, optopt);
+            }
+
           } else {
             /* optopt is sometimes 0 for unrecognized long options in certain libc implementations */
             fprintf(stderr, "%s: Unrecognized option.\n", program_name);
