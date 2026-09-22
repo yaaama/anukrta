@@ -863,7 +863,7 @@ static AK_ALWAYS_INLINE AK_CONST int64_t ak_time_sec_microsec (double seconds) {
 #define MINIMUM(X, Y) ((X) < (Y) ? (X) : (Y))
 
 /** Return smallest number between X, Y, and Z*/
-#define MININUM_3(X, Y, Z) ((X) < (Y) ? ((X) < (Z) ? (X) : (Z)) : ((Y) < (Z) ? (Y) : (Z)))
+#define MINIMUM_3(X, Y, Z) ((X) < (Y) ? ((X) < (Z) ? (X) : (Z)) : ((Y) < (Z) ? (Y) : (Z)))
 
 /** Absolute value of X */
 #define ABSOLUTE(X) ((X) > 0 ? (X) : -(X))
