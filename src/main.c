@@ -71,7 +71,7 @@ static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
 /**
  * @brief Context data passed to threads.
  */
-typedef struct hash_tworker_ctx {
+typedef struct hashing_thread_ctx {
   ak_file_v *files;            /**< Pointer to file queue that needs to be hashed. */
   ak_config *config;           /**< Pointer to program configuration. */
   ak_hash_entry *hash_entries; /**< Array of hash_entries */
@@ -330,9 +330,6 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
     }
     pending_count = file_count;
   }
-
-  time_t curr_time = time(NULL);
-  log_debug("Current time: %ld", curr_time);
 
   atomic_size_t current_file_idx = 0;
   atomic_size_t completed_count = 0;
