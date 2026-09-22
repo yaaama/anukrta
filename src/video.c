@@ -1,4 +1,5 @@
 #include "video.h"
+
 #include <assert.h>
 #include <errno.h> /* IWYU pragma: keep */
 #include <inttypes.h>
@@ -910,6 +911,10 @@ end:
   return ret;
 }
 
+AK_DEFINE_AUTO(avframe, AVFrame *, if (ak__obj) av_frame_free(ak__obj))
+
+AK_DEFINE_AUTO(filterctx, filter_ctx, if (ak__obj->init) avfilter_graph_free(&ak__obj->filter_graph));
+
 static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) void mark_segment_failed (ak_hash_entry *entries,
                                                                     ptrdiff_t index) {
   entries[index].hash = 0;
@@ -999,8 +1004,8 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   const AVRational stream_timebase = video_stream->time_base;
 
   /* Filter context in case we need to run any filters on frames */
-  filter_ctx fctx = {0};
-  AVFrame *filtered_frame = NULL;
+  filter_ctx fctx AK_AUTO(filterctx) = {0};
+  AVFrame *filtered_frame AK_AUTO(avframe) = NULL;
 
   /* Check metadata for whether frame should be rotated */
   int rotation_normalised = normalise_angle_360(get_video_stream_rotation(video_stream));
@@ -1133,13 +1138,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     }
   }
 
-  if (filtered_frame) {
-    av_frame_free(&filtered_frame);
-  }
-  if (fctx.init) {
-    avfilter_graph_free(&fctx.filter_graph);
-  }
-
   log_trace("[%s] DONE. Processed %d frames.", vr_fname, frames_decoded);
+
   return AK_OK;
 }
