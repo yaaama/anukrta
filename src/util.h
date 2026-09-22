@@ -545,6 +545,7 @@
 #  define AK_CLEANUP(func) __attribute__((cleanup(func)))
 #else
 #  define AK_CLEANUP(func)
+#error "Compiler needs `cleanup` attribute for program resource management."
 #endif
 
 /**
