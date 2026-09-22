@@ -954,7 +954,7 @@ static AK_ALWAYS_INLINE AK_CONST int ak_char_lower (int c) {
  */
 #define AK_PANIC(message)                                                          \
   do {                                                                             \
-    (void) fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
+    fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
     abort();                                                                       \
   } while (0)
 

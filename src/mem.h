@@ -1,5 +1,5 @@
-#ifndef MEM_H_
-#define MEM_H_
+#ifndef AK_MEM_H_
+#define AK_MEM_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,4 +67,4 @@ static inline AK_ALLOC_SZ(2) AK_NO_DISCARD void *ak__xrealloc_impl(void *ptr,
 
 /* NOLINTEND */
 
-#endif  // MEM_H_
+#endif  // AK_MEM_H_
