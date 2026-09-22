@@ -58,7 +58,9 @@ static AK_ALWAYS_INLINE void ak_set_verbosity (flags32 *flags, uint32_t v_lvl) {
 
 #define GENERATE_ENUM(ENUM_NAME, STRING_VAL) ENUM_NAME,
 
-typedef enum best_file_strat { BEST_FILE_STRATEGIES(GENERATE_ENUM) } best_file_strat;
+typedef enum best_file_strat {
+  BEST_FILE_STRATEGIES(GENERATE_ENUM)
+} best_file_strat;
 
 #undef GENERATE_ENUM
 

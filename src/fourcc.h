@@ -70,7 +70,9 @@
 #define X(id, c1, c2, c3, c4, lower, upper) \
   __AK_4CC_JOIN(__AK_4CC_PREFIX, id) = AK_4CC_MAKE(c1, c2, c3, c4),
 
-typedef enum { AK_VIDEO_EXT_TABLE } AK_VIDEO_4CC;
+typedef enum {
+  AK_VIDEO_EXT_TABLE
+} AK_VIDEO_4CC;
 
 #undef X
 

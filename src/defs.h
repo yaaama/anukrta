@@ -27,7 +27,6 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 
 /** @} */  // END Type Definitions
 
-
 /* Maximum number of video segments to process */
 #define AK_MAX_VIDEO_SEGMENTS 20
 /* Maximum number of bits that can differ between two 64 bit integers. */

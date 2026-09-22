@@ -16,7 +16,6 @@
 #include "signals.h"
 #include "util.h"
 
-
 typedef struct ak_vreader {
   /* File (container/AV file) context
    * AVFormatContext holds the header information stored in file (container) */
@@ -35,7 +34,9 @@ typedef struct ak_vreader {
   int video_stream_idx;
 } ak_vreader;
 
-enum AK_FLAG_ENUM : u32 { AK_LAV_SUPPS_DEC_GRAY = (1 << 0) } ;
+enum AK_FLAG_ENUM : u32 {
+  AK_LAV_SUPPS_DEC_GRAY = (1 << 0)
+};
 
 /**
  * Checks if the linked libavcodec was compiled with certain features.

@@ -546,7 +546,7 @@
 #  define AK_CLEANUP(func) __attribute__((cleanup(func)))
 #else
 #  define AK_CLEANUP(func)
-#error "Compiler needs `cleanup` attribute for program resource management."
+#  error "Compiler needs `cleanup` attribute for program resource management."
 #endif
 
 /**
@@ -564,11 +564,11 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
  * @param type The type of the object (e.g., void*, int, FILE*).
  * @param ... The statement to free the object.
  */
-#define AK_DEFINE_AUTO(name, type, ...)                 \
+#define AK_DEFINE_AUTO(name, type, ...)                   \
   static AK_ALWAYS_INLINE void ak__auto_##name(void *p) { \
-    type *const ak__obj = (type *) p;                       \
-    (void) ak__obj;                                         \
-    __VA_ARGS__;                                             \
+    type *const ak__obj = (type *) p;                     \
+    (void) ak__obj;                                       \
+    __VA_ARGS__;                                          \
   }
 
 /**
@@ -608,13 +608,12 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD int ak__fd_must_check (const int fd) {
  * Prevent automatic cleanup of a file descriptor (taking ownership).
  * Because FDs are integers, we invalidate them with -1, not NULL.
  */
-#define ak_take_fd(fd)                    \
-  (ak__fd_must_check(({                   \
-    __typeof__(fd) ak__val = (fd);        \
-    (fd) = -1;                            \
-    ak__val;                              \
+#define ak_take_fd(fd)             \
+  (ak__fd_must_check(({            \
+    __typeof__(fd) ak__val = (fd); \
+    (fd) = -1;                     \
+    ak__val;                       \
   })))
-
 
 /** Free an allocated pointer (e.g., malloc, calloc) */
 AK_DEFINE_AUTO(free, void *, if (*ak__obj) free(*ak__obj))
@@ -794,8 +793,9 @@ AK_DEFINE_AUTO(file, FILE *, if (*ak__obj) fclose(*ak__obj))
     bool _found = false;                                                                            \
     /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
      * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
-    static const typeof(+x) __assert_in_set[] AK_UNUSED = {first, __VA_ARGS__};                     \
-    static_assert(AK_ARRAY_SIZE(__assert_in_set) <= 22);                                            \
+    static const typeof(+x) ak__assert_in_set[] AK_UNUSED = {first, __VA_ARGS__};                   \
+    static_assert(AK_ARRAY_SIZE(ak__assert_in_set) <= 22,                                           \
+                  "IN_SET() supports at most 22 values; extend the CASE_F_* macros for more");      \
     switch (x) {                                                                                    \
       FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                                                        \
       _found = true;                                                                                \

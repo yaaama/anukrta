@@ -820,7 +820,11 @@ static AK_NONNULL_ARG(1, 2) int init_rotation_filter_graph (filter_ctx *fctx,
   int ret = AK_OK;
 
   /* Index for filter strings */
-  enum FILTER_FOR_ANGLE { _90_DEGREES = 0, _180_DEGREES = 1, _270_DEGREES = 2 };
+  enum FILTER_FOR_ANGLE {
+    _90_DEGREES = 0,
+    _180_DEGREES = 1,
+    _270_DEGREES = 2
+  };
 
   /* Filter strings */
   const char *filter_strings[3] = {[_90_DEGREES] = "transpose=2",
