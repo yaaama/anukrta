@@ -12,58 +12,58 @@
 #  define XALLOC_EXIT_CODE EXIT_FAILURE
 #endif
 
-static AK_NEVER_INLINE AK_COLD_FUNC AK_NO_RETURN void __err_oom (const char *file, unsigned int line) {
+static AK_NEVER_INLINE AK_COLD_FUNC AK_NO_RETURN void ak__err_oom (const char *file, unsigned int line) {
   fprintf(stderr, "%s:%d Out of memory! Cannot continue.\n", file, line);
   exit(XALLOC_EXIT_CODE);  // NOLINT (concurrency-mt-unsafe)
 }
 
-static AK_NEVER_INLINE AK_COLD_FUNC AK_NO_RETURN void __err_alloc_sz_zero (const char *file,
-                                                                           unsigned int line) {
+static AK_NEVER_INLINE AK_COLD_FUNC AK_NO_RETURN void ak__err_alloc_sz_zero (const char *file,
+                                                                             unsigned int line) {
   fprintf(stderr, "%s:%d Attempting to make allocation with size 0!\n", file, line);
   exit(XALLOC_EXIT_CODE);  // NOLINT (concurrency-mt-unsafe)
 }
 
-#define err_oom() __err_oom(__FILE__, __LINE__)
-
-static inline AK_ALLOC_SZ(1) AK_NO_DISCARD void *xmalloc(const size_t sz) {
+static inline AK_ALLOC_SZ(1)
+    AK_NO_DISCARD void *ak__xmalloc_impl(const size_t sz, const char *filename, const unsigned int line) {
   void *ret = malloc(sz);
   if (ak_unlikely(!ret && sz)) {
-    err_oom();
+    ak__err_oom(filename, line);
   }
   return ret;
 }
 
-static inline AK_ALLOC_SZ(2) AK_NO_DISCARD void *xaligned_alloc(const size_t alignment, const size_t sz) {
-  void *ret = aligned_alloc(alignment, sz);
-  if (ak_unlikely(!ret && sz && alignment)) {
-    err_oom();
-  }
-  return ret;
-}
-
-static inline AK_ALLOC_SZ(1, 2) AK_NO_DISCARD void *xcalloc(const size_t nmem, const size_t sz) {
+static inline AK_ALLOC_SZ(1, 2) AK_NO_DISCARD void *ak__xcalloc_impl(const size_t nmem,
+                                                                     const size_t sz,
+                                                                     const char *filename,
+                                                                     const unsigned int line) {
 
   void *ret = calloc(nmem, sz);
   if (ak_unlikely(!ret && sz && nmem)) {
-    err_oom();
+    ak__err_oom(filename, line);
   }
   return ret;
 }
 
-static inline AK_ALLOC_SZ(2) AK_NO_DISCARD void *xrealloc(void *ptr, const size_t sz) {
+static inline AK_ALLOC_SZ(2) AK_NO_DISCARD void *ak__xrealloc_impl(void *ptr,
+                                                                   const size_t sz,
+                                                                   const char *filename,
+                                                                   const unsigned int line) {
 
   if (ak_unlikely(sz == 0)) {
-    __err_alloc_sz_zero(__FILE__, __LINE__);
+    ak__err_alloc_sz_zero(filename, line);
   }
   void *ret = realloc(ptr, sz);
 
-  if (ak_unlikely(!ret && sz)) {
-    err_oom();
+  if (ak_unlikely(!ret)) {
+    ak__err_oom(filename, line);
   }
   return ret;
 }
 
-#define xtcalloc(type, nmem) xcalloc(nmem, sizeof(type))
+#define xmalloc(sz) ak__xmalloc_impl((sz), __FILE__, __LINE__)
+#define xcalloc(nmem, sz) ak__xcalloc_impl((nmem), (sz), __FILE__, __LINE__)
+#define xrealloc(ptr, sz) ak__xrealloc_impl((ptr), (sz), __FILE__, __LINE__)
+#define xtcalloc(type, nmem) xcalloc((nmem), sizeof(type))
 
 /* NOLINTEND */
 
