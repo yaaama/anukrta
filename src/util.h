@@ -234,7 +234,7 @@
  * }
  * @endcode
  */
-#ifdef NDEBUG
+#ifdef AK_DEBUG
 #  if __has_attribute(always_inline)
 #    define AK_ALWAYS_INLINE inline __attribute__((always_inline))
 #  else
@@ -457,7 +457,7 @@
 #endif
 
 /**
- * @def AK_ALLOC
+ * @def AK_ALLOC_SZ
  * Informs the compiler of the allocation size based on 1 or 2 arguments.
  *
  * @param ... A single 1-based index (like malloc), or TWO 1-based indices
@@ -576,7 +576,7 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
 #define AK_AUTO(name) AK_CLEANUP(ak__auto_##name)
 
 /**
- * @def no_free_ptr
+ * @def ak_take_ptr
  * Prevent automatic cleanup of pointer.
  */
 #define ak_take_ptr(p)                   \
@@ -774,8 +774,8 @@ AK_DEFINE_AUTO(file, FILE *, if (_T) fclose(_T))
 
 /**
  * @def IN_SET
- * Instead of writing `if (x || y, || ...) ...`
- * Replace with if(IN_SET (x, y, ...))
+ * Instead of writing `if (val == x || val == y || val == z || ...)`
+ * Replace with `if (IN_SET (val, x, y, z, ...))`
  */
 #define IN_SET(x, first, ...)                                                                       \
   ({                                                                                                \
@@ -873,12 +873,12 @@ static AK_ALWAYS_INLINE AK_CONST int64_t ak_time_sec_microsec (double seconds) {
 
 /**
  * Range constraint macro to ensure value is between min and max.
- * @param _val The value to clamp
+ * @param val The value to clamp
+ * @param _min Minimum value to clamp to
  * @param _max Maximum value to clamp to
- * @param _min Mininmum value to clamp to
  * @return Clamped value
  */
-#define CLAMP_BETWEEN(_val, _min, _max) MAXIMUM(MINIMUM((_val), (_max)), (_min))
+#define CLAMP_BETWEEN(val, _min, _max) MAXIMUM(MINIMUM((val), (_max)), (_min))
 
 /** Round up 32 bit integer variable to next power of 2. */
 #define ROUNDUP_32(X) \
@@ -952,10 +952,10 @@ static AK_ALWAYS_INLINE AK_CONST int ak_char_lower (int c) {
  * Print panic message and abort the program as our code is broken.
  * @note To be used only when there is some logical issue in our code.
  */
-#define AK_PANIC(message)                                                          \
-  do {                                                                             \
+#define AK_PANIC(message)                                                   \
+  do {                                                                      \
     fprintf(stderr, "[PANIC]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
-    abort();                                                                       \
+    abort();                                                                \
   } while (0)
 
 /**
@@ -963,11 +963,10 @@ static AK_ALWAYS_INLINE AK_CONST int ak_char_lower (int c) {
  * Print message and exit as we have encountered external error.
  * @note Used when we encounter issues such as memory allocation failure.
  */
-#define AK_DIE(message)                                                            \
-  do {                                                                             \
-    (void) fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
-    (void) fflush(stderr);                                                         \
-    abort();                                                                       \
+#define AK_DIE(message)                                                     \
+  do {                                                                      \
+    fprintf(stderr, "[FATAL]: %s:%d: %s\n", __FILE__, __LINE__, (message)); \
+    exit(EXIT_FAILURE);                                                     \
   } while (0)
 
 #define AK_HANDLE_OOM(x) \
