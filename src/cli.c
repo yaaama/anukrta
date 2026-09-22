@@ -122,7 +122,6 @@ void ak_cli_print_config (ak_config *config) {
   u32 v_level = ak_get_verbosity(rtflags);
   PRINT_CONFIG_ZU("Verbosity", (size_t) v_level);
 
-  /* clang-format off */
   PRINT_CONFIG_STR("Dry Run", FLAG_VAL(rtflags, RT_DRY_RUN));
   PRINT_CONFIG_STR("Scan Current Directory", FLAG_VAL(rtflags, RT_SCAN_CURR_DIR));
   PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, RT_CACHE));
@@ -463,9 +462,9 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
         }
 
       /* --cache */
+      /* --cache defaults to true if no '=val' is provided */
       case FLAG_CACHE:
         {
-          /* --cache defaults to true if no '=val' is provided */
           if (handle_bool_flag(&config->runtime_flags, RT_CACHE, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
@@ -475,7 +474,6 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
       /* --progress */
       case FLAG_PROGRESS_BAR:
         {
-          /* --cache defaults to true if no '=val' is provided */
           if (handle_bool_flag(&config->runtime_flags, RT_PROGRESS_BAR, true, arg_invoked, optarg) != 0) {
             goto exit_error;
           }
@@ -502,7 +500,8 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
         /* -s | --segments */
       case ARG_SEGMENTS:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, 50, &config->segments) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, AK_MAX_VIDEO_SEGMENTS, &config->segments) !=
+              0) {
             goto exit_error;
           }
           break;
@@ -585,7 +584,7 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
 
   int positional_arg_count = argc - optind;
   if (positional_arg_count > 0) {
-    printf("\n--- Input Directories (%d) ---\n", positional_arg_count);
+    printf("\n--- Input Paths (%d) ---\n", positional_arg_count);
     kv_init(*paths_out);
 
     for (int i = optind; i < argc; i++) {
