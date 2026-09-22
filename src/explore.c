@@ -294,12 +294,12 @@ int ak_explore_filewalk (char *path, ak_file_v *files_out) {
 
       /* If its a directory push it to our directory stack */
       if (type == DT_DIR) {
-        char *dir_path;
+        char *dir_path = NULL;
         if (ak_unlikely(asprintf(&dir_path, "%s/%s", curr_path, name) == -1)) {
           log_error("Could not allocate memory for directory path!");
+          continue;
         }
         kv_push(dirstack, dir_path);
-        continue;
       }
 
       /*
