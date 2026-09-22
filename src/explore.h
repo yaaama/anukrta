@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <time.h>
 
 #include "config.h"
 #include "defs.h"
@@ -77,14 +75,13 @@ void ak_explore_scan_paths(ak_config *config, ak_paths *paths, ak_file_v *files_
 
 int ak_explore_filewalk(char *path, ak_file_v *files_out) AK_NONNULL_ALL;
 
-int ak_explore_ext_supported(char *path) AK_NONNULL_ALL AK_PURE;
+int ak_explore_ext_supported(const char *filename) AK_NONNULL_ALL AK_PURE;
 
-bool ak_explore_is_dir(char *path) AK_NONNULL_ALL AK_NO_DISCARD;
+bool ak_explore_is_dir(const char *path) AK_NONNULL_ALL AK_NO_DISCARD;
 
-char *ak_path_resolve(char *path) AK_NONNULL_ALL AK_MALLOC AK_NO_DISCARD;
+char *ak_path_resolve(const char *path) AK_NONNULL_ALL AK_MALLOC AK_NO_DISCARD;
 
-char *ak_path_basename(char *path) AK_NONNULL_ALL AK_NO_DISCARD AK_PURE;
+const char *ak_path_basename(const char *path) AK_NONNULL_ALL AK_NO_DISCARD AK_PURE;
 
-char *ak_path_basename_stem(char *restrict path, char *restrict out, size_t out_size) AK_NONNULL_ARG(1, 2)
-AK_PURE;
+char *ak_path_basename_stem(const char *path) AK_NONNULL_ALL AK_MALLOC AK_NO_DISCARD;
 #endif  // AK_EXPLORE_H

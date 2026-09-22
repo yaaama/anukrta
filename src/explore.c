@@ -48,7 +48,7 @@ static AK_ALWAYS_INLINE int anu_cmp_str_lexicographic (const void *restrict a, c
 /**
  * Calls `stat()` to determine if a path is a valid directory or not.
  */
-bool ak_explore_is_dir (char *path) {
+bool ak_explore_is_dir (const char *path) {
   struct stat statb;
   return (stat(path, &statb) == 0 && S_ISDIR(statb.st_mode)) != 0;
 };
@@ -71,22 +71,22 @@ void ak_file_v_destroy (ak_file_v *v) {
 }
 
 /* Check extension of filename */
-int ak_explore_ext_supported (char *path) {
-  assert(path);
-  char *dot = strrchr(path, '.');
+int ak_explore_ext_supported (const char *filename) {
+  assert(filename);
+  const char *dot = strrchr(filename, '.');
 
   /* Check for '.' */
-  if (!dot || dot == path) {
+  if (!dot || dot == filename) {
     return 0;
   }
 
   /* Skip over the dot... */
-  char *extension = dot + 1;
+  const char *extension = dot + 1;
 
   uint8_t bytes[4] = {' ', ' ', ' ', ' '};
 
   int i = 0;
-  for (; i < 5; i++) {
+  for (; i < (AK_VIDEO_EXT_MAX_LEN + 1); i++) {
     char c = extension[i];
     /* Break if null terminator */
     if (c == '\0') {
@@ -116,7 +116,7 @@ int ak_explore_ext_supported (char *path) {
  * @param path[in] Path to resolve.
  * @return Alloced string holding resolved path, NULL on failure.
  **/
-char *ak_path_resolve (char *path) {
+char *ak_path_resolve (const char *path) {
   errno = 0;
   char *p = realpath(path, NULL);
   if (p == NULL) {
@@ -126,24 +126,24 @@ char *ak_path_resolve (char *path) {
 }
 
 /**
- * Get a file name (extension included) from path.
+ * Get pointer of the filename (extension incl) from `path`.
  *
  * @return Pointer to start of filename or `path` on failure.
  **/
-char *ak_path_basename (char *path) {
-  char *start = strrchr(path, '/');
-  return start ? (start + 1) : path;
+const char *ak_path_basename (const char *path) {
+  const char *start = strrchr(path, '/');
+  return (start != NULL ? (start + 1) : path);
 }
 
 /**
- * Get filename, excluding the extension.
+ * Returns allocated str with filename stripped of any extension.
  **/
-char *ak_path_basename_stem (char *restrict path, char *restrict out, size_t out_size) {
-  assert(out_size > 0);
+char *ak_path_basename_stem (const char *path) {
+  assert(path);
 
   /* Get files name */
-  char *start = ak_path_basename(path);
-  char *last_dot = strrchr(start, '.');
+  const char *start = ak_path_basename(path);
+  const char *last_dot = strrchr(start, '.');
 
   size_t len;
 
@@ -156,15 +156,11 @@ char *ak_path_basename_stem (char *restrict path, char *restrict out, size_t out
     len = (size_t) (last_dot - start);
   }
 
-  /* Don't overflow the 'out' buffer */
-  if (len >= out_size) {
-    len = out_size - 1;
-  }
+  char *buf = xmalloc(sizeof(*buf) * (len + 1));
+  memcpy(buf, start, len);
+  buf[len] = '\0';
 
-  memcpy(out, start, len);
-  out[len] = '\0';
-
-  return out;
+  return buf;
 }
 
 /**
@@ -172,7 +168,7 @@ char *ak_path_basename_stem (char *restrict path, char *restrict out, size_t out
  *
  * Adds the file pointed to by 'path' to the 'files_out' struct.
  **/
-static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file (char *path, ak_file_v *files_out) {
+static AK_NONNULL_ALL int handle_path_pointing_to_file (char *path, ak_file_v *files_out) {
 
   struct stat statb = {0};
   int stat_return = 0;
@@ -182,14 +178,15 @@ static AK_NONNULL_ARG(1, 2) int handle_path_pointing_to_file (char *path, ak_fil
     return -1;
   }
 
-  char *base_ptr = ak_path_basename(path);
+  const char *base_ptr = ak_path_basename(path);
   if (base_ptr == path) {
-    log_error("(%s): Could not determine basename", path);
-    return 1;
+    log_error("Failed finding base filename for '%s'", path);
   }
 
   ak_file file = {.ctime = statb.st_ctime,
                   .mtime = statb.st_mtime,
+                  .dev = statb.st_dev,
+                  .ino = statb.st_ino,
                   .size = (usize) statb.st_size,
                   .path = strdup(path),
                   .name_offset = (u32) (base_ptr - path)};
@@ -380,7 +377,7 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
   kv_init(real_paths);
 
   /* Resolve all paths before the path cleanup */
-  for (size_t i = 0; i < paths->size; i++) {
+  for (size_t i = 0; i < kv_size(*paths); i++) {
     char *path = kv_A(*paths, i);
     char *resolved = realpath(kv_A(*paths, i), NULL);
 
