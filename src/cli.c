@@ -488,7 +488,7 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
           break;
         }
 
-      case REPORT_PRINT_UNIQUE_FILES:
+      case FLAG_REPORT_PRINT_UNIQUE:
         {
 
           /* --print-unique defaults to true if no '=val' is provided */
