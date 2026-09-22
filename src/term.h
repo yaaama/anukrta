@@ -77,7 +77,7 @@ int ak_term_ctx_init(ak_term_ctx *ctx) AK_NONNULL_ARG(1);
  */
 void ak_term_ctx_destroy(ak_term_ctx *ctx);
 
-AK_DEFINE_AUTO(term_ctx, ak_term_ctx *, if (_T) ak_term_ctx_destroy(_T))
+AK_DEFINE_AUTO(term_ctx, ak_term_ctx *, if (ak__obj) ak_term_ctx_destroy(*ak__obj))
 
 /**
  * Update terminal context.

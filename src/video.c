@@ -99,7 +99,7 @@ static void vreader_close (ak_vreader *vreader) {
 /**
  * Auto-cleanup helper for vreader.
  */
-AK_DEFINE_AUTO(vreader_close, ak_vreader, vreader_close(&_T))
+AK_DEFINE_AUTO(vreader_close, ak_vreader, vreader_close(ak__obj))
 
 /**
  * Helper function to retreive video stream from an initialised vreader.

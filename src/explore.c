@@ -32,7 +32,7 @@ static void cleanup_alloced_paths (ak_paths *v) {
   }
   kv_destroy(*v);
 }
-AK_DEFINE_AUTO(anu_paths_alloc, ak_paths, cleanup_alloced_paths(&_T))
+AK_DEFINE_AUTO(anu_paths_alloc, ak_paths, cleanup_alloced_paths(ak__obj))
 
 /**
  * @brief Compare strings lexicographically.

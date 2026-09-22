@@ -23,7 +23,7 @@ anu_cache_ctx *cache_open_db(const char *db_path);
 int cache_close_db(anu_cache_ctx *ctx);
 int cache_ctx_destroy(anu_cache_ctx **ctx);
 
-AK_DEFINE_AUTO(cache_ctx, anu_cache_ctx *, if (_T) cache_ctx_destroy(&_T))
+AK_DEFINE_AUTO(cache_ctx, anu_cache_ctx *, if (*ak__obj) cache_ctx_destroy(ak__obj))
 
 /**
  * @name Database Transaction Helpers

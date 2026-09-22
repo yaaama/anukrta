@@ -36,7 +36,7 @@ int ak_ui_ctx_init(const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui);
  */
 void ak_ui_destroy(ak_ui_ctx *ctx);
 
-AK_DEFINE_AUTO(ui_ctx, ak_ui_ctx *, if (_T) ak_ui_destroy(_T))
+AK_DEFINE_AUTO(ui_ctx, ak_ui_ctx *, if (ak__obj) ak_ui_destroy(*ak__obj))
 
 /**
  * Start the progress bar monitor thread.

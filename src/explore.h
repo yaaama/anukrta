@@ -64,7 +64,7 @@ typedef kvec_t(ak_file) ak_file_v;
 /** Destructor for ak_file_vec */
 void ak_file_v_destroy(ak_file_v *v);
 
-AK_DEFINE_AUTO(file_v, ak_file_v, ak_file_v_destroy(&_T))
+AK_DEFINE_AUTO(file_v, ak_file_v, if (ak__obj) ak_file_v_destroy(ak__obj))
 
 /**
  * Vector type of paths.

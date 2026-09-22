@@ -8,12 +8,13 @@
 
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h> /* IWYU pragma: keep */
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h>  /* IWYU pragma: keep */
+#include <stdlib.h> /* IWYU pragma: keep */
 #include <string.h> /* IWYU pragma: keep */
 #include <unistd.h>
 
@@ -559,14 +560,15 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
  * @def AK_DEFINE_AUTO
  * Creates the wrapper function the compiler actually calls.
  *
- * @param Name  The short name to use in AK_AUTO (e.g., free, fd, file).
- * @param type  The type of the object (e.g., void*, int, FILE*).
- * @param logic The statement to free the object.
+ * @param Name The short name to use in AK_AUTO (e.g., free, fd, file).
+ * @param type The type of the object (e.g., void*, int, FILE*).
+ * @param ... The statement to free the object.
  */
-#define AK_DEFINE_AUTO(name, type, logic)                 \
+#define AK_DEFINE_AUTO(name, type, ...)                 \
   static AK_ALWAYS_INLINE void ak__auto_##name(void *p) { \
-    type _T = *(type *) p;                                \
-    logic;                                                \
+    type *const ak__obj = (type *) p;                       \
+    (void) ak__obj;                                         \
+    __VA_ARGS__;                                             \
   }
 
 /**
@@ -594,28 +596,37 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
 #define ak_return_ptr(p) return ak_take_ptr(p)
 
 /**
+ * Dummy function to ensure we check the fd after taking ownership of it.
+ * (int twin of ak__ptr_must_check — fds aren't pointers.)
+ */
+static AK_ALWAYS_INLINE AK_NO_DISCARD int ak__fd_must_check (const int fd) {
+  return fd;
+}
+
+/**
  * @def ak_take_fd
  * Prevent automatic cleanup of a file descriptor (taking ownership).
  * Because FDs are integers, we invalidate them with -1, not NULL.
  */
-#define ak_take_fd(fd)           \
-  ({                             \
-    __typeof__(fd) __val = (fd); \
-    (fd) = -1;                   \
-    __val;                       \
-  })
+#define ak_take_fd(fd)                    \
+  (ak__fd_must_check(({                   \
+    __typeof__(fd) ak__val = (fd);        \
+    (fd) = -1;                            \
+    ak__val;                              \
+  })))
+
 
 /** Free an allocated pointer (e.g., malloc, calloc) */
-AK_DEFINE_AUTO(free, void *, if (_T) free(_T))
+AK_DEFINE_AUTO(free, void *, if (*ak__obj) free(*ak__obj))
 
 /** Close a UNIX file descriptor */
-AK_DEFINE_AUTO(fd, int, if (_T >= 0) close(_T))
+AK_DEFINE_AUTO(fd, int, if (*ak__obj >= 0) close(*ak__obj))
 
 /** Close a DIR* stream */
-AK_DEFINE_AUTO(dir, DIR *, if (_T) closedir(_T))
+AK_DEFINE_AUTO(dir, DIR *, if (*ak__obj) closedir(*ak__obj))
 
 /** Close a FILE* stream */
-AK_DEFINE_AUTO(file, FILE *, if (_T) fclose(_T))
+AK_DEFINE_AUTO(file, FILE *, if (*ak__obj) fclose(*ak__obj))
 
 /** @} */  // end cleanup macros
 
