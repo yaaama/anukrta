@@ -6,6 +6,7 @@
 #ifndef AK_UTIL_H
 #define AK_UTIL_H
 
+#include <assert.h>
 #include <dirent.h>
 #include <math.h>
 #include <stdbool.h>
@@ -13,6 +14,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h> /* IWYU pragma: keep */
 #include <unistd.h>
 
 #define AK_TOSTRING(s) #s
