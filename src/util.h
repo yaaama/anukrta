@@ -1010,14 +1010,14 @@ static AK_ALWAYS_INLINE AK_CONST int ak_char_lower (int c) {
 /* ------------------------------------------------------------------------ */
 #else
 /* Optimise AK_unreachable code away when in release builds. */
-#  define AK_UNREACHABLE(message) __builtin_unreachable()
+#  define AK_UNREACHABLE(...) __builtin_unreachable()
 
 /* Tell compiler our assumptions are TRUE and optimise out anything contrary. */
-#  define AK_ASSUME(cond) \
-    do {                  \
-      if (!(cond)) {      \
-        AK_UNREACHABLE(); \
-      }                   \
+#  define AK_ASSUME(cond)                                         \
+    do {                                                          \
+      if (!(cond)) {                                              \
+        AK_UNREACHABLE("assumption failed: " AK_STRINGIFY(cond)); \
+      }                                                           \
     } while (0)
 
 #endif  // AK_UNREACHABLE
