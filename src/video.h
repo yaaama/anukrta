@@ -16,8 +16,6 @@
 #include "signals.h"
 #include "util.h"
 
-/* Maximum number of video segments to process */
-#define AK_MAX_VIDEO_SEGMENTS 20
 
 typedef struct ak_vreader {
   /* File (container/AV file) context
