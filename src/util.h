@@ -95,6 +95,8 @@
  */
 #if __has_attribute(unused)
 #  define AK_UNUSED __attribute__((unused))
+#else
+#  define AK_UNUSED
 #endif
 
 /**
