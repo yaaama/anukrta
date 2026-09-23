@@ -375,8 +375,8 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
 
   int ret = 0;
 
-  size_t available_threads = (size_t) get_available_threads();
   u32 verbosity_level = 0;
+  size_t threads = 0;
   bool explicit_thread_count = false;
 
   for (;;) {
@@ -524,18 +524,10 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
         /* --threads */
       case ARG_THREADS:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 1, LONG_MAX, &config->thread_count) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, LONG_MAX, &threads) != 0) {
             goto exit_error;
           }
           explicit_thread_count = true;
-          if (config->thread_count > available_threads) {
-            fprintf(stderr,
-                    "%s: Ignoring option for threads (%zu) since only %zu "
-                    "cores are available.\n",
-                    CLI_NAME, config->thread_count, available_threads);
-            config->thread_count = available_threads;
-          }
-
           break;
         }
       case ARG_SKIP_DURATION: /* --skip-duration */
@@ -606,10 +598,25 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
     config->runtime_flags |= RT_SCAN_CURR_DIR;
   }
 
+  size_t available_threads = (size_t) get_available_threads();
+
   /* If thread is not explicitly stated, then assign default value (use all available threads) */
   if (!explicit_thread_count) {
-    config->thread_count = (size_t) get_available_threads();
+    threads = available_threads;
   }
+  /* If thread is specified:
+   * but it is more than the number of available cores */
+  if (explicit_thread_count) {
+    if ((threads > available_threads)) {
+      fprintf(stderr, "%s: Capping --threads=%zu to the %zu available cores.\n", CLI_NAME, threads,
+              available_threads);
+      threads = available_threads;
+    }
+    if (threads == 0) {
+      threads = available_threads;
+    }
+  }
+  config->thread_count = threads;
 
   return ret;
 
