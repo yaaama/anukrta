@@ -71,7 +71,7 @@ CheckOptions:
     value: glibc
     # Do not auto-insert these headers
   - key: misc-include-cleaner.IgnoreHeaders
-    value: "bits/.*;asm/.*;asm-generic/.*;criterion/.*;errno.h;getopt.h;"
+    value: "bits/getopt.*;bits/.*;asm/.*;asm-generic/.*;criterion/.*;errno.h;getopt.h;"
   - key: bugprone-unsafe-functions.CustomFunctions
     value: |
       ^malloc$, xmalloc,;
