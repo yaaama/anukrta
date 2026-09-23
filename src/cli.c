@@ -22,6 +22,8 @@
 #define CLI_NAME "anukrta"
 #define AK_VERSION "0.0.1"
 
+#define AK_MAX_VERBOSITY 3
+
 static long get_available_threads (void) {
   errno = 0;
   long cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -578,7 +580,7 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
   }
 
   if (verbosity_level > 0) {
-    verbosity_level = MINIMUM(verbosity_level, 3);
+    verbosity_level = MINIMUM(verbosity_level, AK_MAX_VERBOSITY);
     ak_set_verbosity(&config->runtime_flags, verbosity_level);
   }
 
