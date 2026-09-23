@@ -30,9 +30,9 @@ typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bit
 /* Maximum number of video segments to process */
 #define AK_MAX_VIDEO_SEGMENTS 20
 /* Maximum number of bits that can differ between two 64 bit integers. */
-#define AK_THRESHOLD_MAX 64
+#define AK_HAMMING_MAX 64
 /* Number of bits common between two 64 bit integers cannot be lower than 0. */
-#define AK_THRESHOLD_MIN 0
+#define AK_HAMMING_MIN 0
 
 typedef struct ak_hash_entry {
   u64 hash;

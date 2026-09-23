@@ -515,7 +515,8 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
       /* -t | --threshold */
       case ARG_THRESHOLD:
         {
-          if (parse_numeric_arg_sizet(arg_invoked, optarg, 0, 64, &config->threshold) != 0) {
+          if (parse_numeric_arg_sizet(arg_invoked, optarg, AK_HAMMING_MIN, AK_HAMMING_MAX,
+                                      &config->threshold) != 0) {
             goto exit_error;
           }
           break;
