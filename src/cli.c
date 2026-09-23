@@ -355,13 +355,13 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
  * FLAGS
  */
     {"dry-run",            no_argument,          NULL,  FLAG_DRY_RUN},               // --dry-run
-    {"print-hashes",       no_argument,          NULL,  FLAG_REPORT_PRINT_HASHES},   // --print-hashes
-    {"print-unique",       no_argument,          NULL,  FLAG_REPORT_PRINT_UNIQUE},   // --print-unique
+    {"print-hashes",       optional_argument,    NULL,  FLAG_REPORT_PRINT_HASHES},   // --print-hashes
+    {"print-unique",       optional_argument,    NULL,  FLAG_REPORT_PRINT_UNIQUE},   // --print-unique
     {"detect-black",       optional_argument,    NULL,  FLAG_DETECT_BLACK_FRAME},    // --detect-black
     {"detect-rotation",    optional_argument,    NULL,  FLAG_DETECT_ROTATION},       // --detect-rotation
     {"detect-bars",        optional_argument,    NULL,  FLAG_DETECT_BARS},           // --detect-bars
     {"cache",              optional_argument,    NULL,  FLAG_CACHE},                 // --cache
-    {"progress-bar",       optional_argument,    NULL,  FLAG_PROGRESS_BAR},          // --progress
+    {"progress-bar",       optional_argument,    NULL,  FLAG_PROGRESS_BAR},          // --progress-bar
 
     {0,                    0,                    0,     0         }};                // END
   /* clang-format on */
@@ -488,13 +488,16 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
       /* --print-hashes */
       case FLAG_REPORT_PRINT_HASHES:
         {
-          config->report_flags |= REPORT_PRINT_HASHES;
+          /* --print-hashes defaults to true if no '=val' is provided */
+          if (handle_bool_flag(&config->report_flags, REPORT_PRINT_HASHES, true, arg_invoked, optarg) !=
+              0) {
+            goto exit_error;
+          }
           break;
         }
 
       case FLAG_REPORT_PRINT_UNIQUE:
         {
-
           /* --print-unique defaults to true if no '=val' is provided */
           if (handle_bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES, true, arg_invoked,
                                optarg) != 0) {
