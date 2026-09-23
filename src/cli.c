@@ -307,7 +307,7 @@ static inline int handle_bool_flag (flags32 *flag_var,
 
 int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths_out) {
 
-  const char *program_name = CLI_NAME;
+  const char *program_name = argv[0];
 
   enum anu_options {  // NOLINT (*enum-initial-value)
     AUTO_HANDLE = 0,
