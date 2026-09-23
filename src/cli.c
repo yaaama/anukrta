@@ -590,12 +590,16 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
 
   int positional_arg_count = argc - optind;
   if (positional_arg_count > 0) {
-    printf("\n--- Input Paths (%d) ---\n", positional_arg_count);
+    if (verbosity_level) {
+      printf("\n--- Input Paths (%d) ---\n", positional_arg_count);
+    }
     kv_init(*paths_out);
 
     for (int i = optind; i < argc; i++) {
       kv_push(*paths_out, argv[i]);
-      printf("%s\n", argv[i]);
+      if (verbosity_level) {
+        printf("%s\n", argv[i]);
+      }
     }
 
   } else {
