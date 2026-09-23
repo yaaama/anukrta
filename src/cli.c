@@ -616,7 +616,7 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
 exit_error:
   {
     config->runtime_flags |= RT_EXIT_EARLY;
-    ret = EINVAL;
+    ret = EXIT_FAILURE;
     return ret;
   }
 }
