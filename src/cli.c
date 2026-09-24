@@ -32,7 +32,7 @@ static long get_available_threads (void) {
     if (errno != 0) {
       perror("Failed to retrieve core-count: ");
     } else {
-      fprintf(stderr, "Could not determine core-count.\n");
+      fprintf(stderr, "[%s] Could not determine core-count.\n", CLI_NAME);
     }
   }
   return MAXIMUM(cores, 1);
@@ -209,6 +209,13 @@ static int parse_numeric_arg_sizet (const char *arg_name,
                                     size_t min,
                                     size_t max,
                                     size_t *out) {
+  assert(arg_name && out);
+
+  if (!arg_str) {
+    fprintf(stderr, "[%s] Error: %s requires an argument.\n", CLI_NAME, arg_name);
+    return -1;
+  }
+
   if (!arg_name || !arg_str || !out) {
     return -1;
   }
@@ -420,7 +427,8 @@ int ak_cli_parse_args (ak_config *config, int argc, char **argv, ak_paths *paths
 
           } else {
             /* optopt is sometimes 0 for unrecognized long options in certain libc implementations */
-            fprintf(stderr, "%s: Unrecognized option.\n", program_name);
+            const char *bad = (optind > 0) ? argv[optind - 1] : "?";
+            fprintf(stderr, "%s: Unrecognized option '%s'.\n", program_name, bad);
           }
           fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
           goto exit_error;
