@@ -58,13 +58,18 @@ static void log_lock_callback (bool lock, void *udata) {
  */
 static void ak_logging_init (u32 ak_log_level, pthread_mutex_t *logging_mutex) {
 
-  static const int ak_map[] = {LOG_ERROR, LOG_INFO, LOG_DEBUG, LOG_TRACE};
-  static const int libav_map[] = {AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_VERBOSE, AV_LOG_DEBUG};
+  static const int ak_map[] = {0, LOG_ERROR, LOG_INFO, LOG_DEBUG, LOG_TRACE};
+  static const int libav_map[] = {AV_LOG_QUIET, AV_LOG_ERROR, AV_LOG_INFO, AV_LOG_VERBOSE, AV_LOG_DEBUG};
 
-  u32 safe_lvl = (ak_log_level > 0 && ak_log_level <= 3) ? ak_log_level : 0;
+  u32 safe_lvl = (ak_log_level >= 0 && ak_log_level <= AK_ARRAY_SIZE(ak_map)) ? ak_log_level : 0;
 
   av_log_set_level(libav_map[safe_lvl]);
-  log_set_level(ak_map[safe_lvl]);
+
+  if (safe_lvl == 0) {
+    log_set_quiet(true);
+  } else {
+    log_set_level(ak_map[safe_lvl]);
+  }
   log_set_lock(log_lock_callback, logging_mutex);
 }
 
@@ -473,6 +478,8 @@ static int setup_locales (void) {
   /* NOLINTEND */
 }
 
+AK_DEFINE_AUTO(argv_paths, ak_paths, kv_destroy(*ak__obj))
+
 /**
  * @brief Application entry point.
  *
@@ -498,25 +505,35 @@ int main (int argc, char *argv[]) {
   /* Retrieve default configuration */
   ak_config config = anukrta_default_config();
 
-  ak_paths paths = KV_INITIAL_VALUE;
-  /* Return code after parsing CLI options */
-  int parsing_return = ak_cli_parse_args(&config, argc, argv, &paths);
+  /*
+   * Parsing occurs in 2 phases:
+   * Phase 1: Tokenise argv into a list of option events (no side effects).
+   * Phase 2: apply the events to the config and find out what to do next using
+   * the return value of ak_cli_tokenize.
+   */
+  ak_cli_events events AK_AUTO(cli_events) = KV_INITIAL_VALUE; /**< Event vector parsed from argv. */
+  ak_paths paths AK_AUTO(argv_paths) = KV_INITIAL_VALUE;       /**< Paths from argv (if any). */
+  ak_cli_action action = AK_CLI_RUN;                           /**< What we should do after parsing argv. */
 
-  /* Exit if non zero return value OR
-   * if config has exit_early flag set */
-  if (parsing_return || (ak_flag_has(config.runtime_flags, RT_EXIT_EARLY))) {
-    return parsing_return;
+  if (ak_cli_tokenize(argc, argv, &events, stderr) != 0) {
+    /* We've run into an error, we should exit with failure code. */
+    return EXIT_FAILURE;
+  }
+  action = ak_cli_apply(&config, &events, argv[0], &paths);
+
+  /* If we're told to exit by CLI parser... */
+  if (action != AK_CLI_RUN) {
+    return (action == AK_CLI_EXIT_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
   }
 
   /* Logging Setup */
   pthread_mutex_t log_mutex;
   pthread_mutex_init(&log_mutex, NULL);
 
-  u32 logging_level = ak_get_verbosity(config.runtime_flags);
-  if (logging_level > 0) {
-    ak_cli_print_config(&config);
+  if (config.verbosity > 0) {
+    ak_cli_print_config(stdout, &config);
   }
-  ak_logging_init(logging_level, &log_mutex);
+  ak_logging_init(config.verbosity, &log_mutex);
 
   /* Start of program */
   log_debug("%s now running...", argv[0]);

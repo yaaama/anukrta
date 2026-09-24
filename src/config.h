@@ -100,21 +100,38 @@ typedef struct anu_config {
   /** Strategy for determining the 'best' file out of a group of duplicates.
    * @see `best_file_strat`. */
   best_file_strat best_file_strategy;
-  byte padding[4];
+  /**
+   * Verbosity ranging from 0 to 3
+   * level 0: No logging output (default).
+   * level 1: Errors/informational logging.
+   * level 2: Warnings + Debugging logging.
+   * level 3: Trace logging.
+   */
+  u8 verbosity;
+  byte padding[3];
 } ak_config;
+
+#define AK_CFG_DEFAULT_SEGMENTS 3
+#define AK_CFG_DEFAULT_THRESHOLD 8
+#define AK_CFG_DEFAULT_SKIP_DURATION 3
+#define AK_CFG_DEFAULT_VERBOSITY 0
+#define AK_CFG_DEFAULT_BEST_FILE_STRAT_E BEST_FILE_LONGEST
+#define AK_CFG_DEFAULT_BEST_FILE_STRAT_STR BEST_FILE_STRAT_STRINGS[AK_CFG_DEFAULT_BEST_FILE_STRAT_STR]
+#define AK_CFG_DEFAULT_THREAD_COUNT 0
 
 static AK_ALWAYS_INLINE AK_CONST ak_config anukrta_default_config (void) {
 
   ak_config config = {
-    .segments = 3,
-    .threshold = 8,
+    .segments = AK_CFG_DEFAULT_SEGMENTS,
+    .threshold = AK_CFG_DEFAULT_THRESHOLD,
     .hash_algorithm = AK_HASH_ALGO_DCT,
-    .skip_duration = 3,
-    .thread_count = 1,
+    .skip_duration = AK_CFG_DEFAULT_SKIP_DURATION,
+    .thread_count = AK_CFG_DEFAULT_THREAD_COUNT,
     .runtime_flags = 0,
     .detect_flags = 0,
     .report_flags = 0,
-    .best_file_strategy = BEST_FILE_LONGEST,
+    .best_file_strategy = AK_CFG_DEFAULT_BEST_FILE_STRAT_E,
+    .verbosity = AK_CFG_DEFAULT_VERBOSITY,
   };
 
   config.detect_flags |= DETECT_ROTATION;

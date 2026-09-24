@@ -22,6 +22,7 @@
 #include "fourcc.h"
 #include "kvec.h"
 #include "log.h"
+#include "mem.h"
 #include "util.h"
 
 /* Wrapper to clean up a kvec containing allocated paths */
@@ -32,7 +33,7 @@ static void cleanup_alloced_paths (ak_paths *v) {
   }
   kv_destroy(*v);
 }
-AK_DEFINE_AUTO(anu_paths_alloc, ak_paths, cleanup_alloced_paths(ak__obj))
+AK_DEFINE_AUTO(ak_paths_alloced, ak_paths, cleanup_alloced_paths(ak__obj))
 
 /**
  * @brief Compare strings lexicographically.
@@ -360,6 +361,7 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
     char *resolved AK_AUTO(free) = NULL;
     resolved = realpath(".", NULL);
     if (ak_unlikely(!resolved)) {
+      // NOLINTNEXTLINE (concurrency-mt-unsafe)
       AK_DIE("Could not resolve current path???");
     }
     log_info("Scanning current directory: '%s'", resolved);
@@ -373,7 +375,7 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
   assert(kv_size(*paths));
 
   /* Array to hold resolved paths */
-  ak_paths real_paths AK_AUTO(anu_paths_alloc);
+  ak_paths real_paths AK_AUTO(ak_paths_alloced);
   kv_init(real_paths);
 
   /* Resolve all paths before the path cleanup */
