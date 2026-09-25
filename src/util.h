@@ -810,21 +810,22 @@ static inline bool is_power_of_two (unsigned int x) {
  * Instead of writing `if (val == x || val == y || val == z || ...)`
  * Replace with `if (IN_SET (val, x, y, z, ...))`
  */
-#define IN_SET(x, first, ...)                                                                       \
-  ({                                                                                                \
-    bool _found = false;                                                                            \
-    /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
-     * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
-    static const typeof(+x) ak__assert_in_set[] AK_UNUSED = {first, __VA_ARGS__};                   \
-    static_assert(AK_ARRAY_SIZE(ak__assert_in_set) <= 22,                                           \
-                  "IN_SET() supports at most 22 values; extend the CASE_F_* macros for more");      \
-    switch (x) {                                                                                    \
-      FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                                                        \
-      _found = true;                                                                                \
-      break;                                                                                        \
-      default:;                                                                                     \
-    }                                                                                               \
-    _found;                                                                                         \
+#define IN_SET(x, first, ...)                                                                  \
+  ({                                                                                           \
+    bool _found = false;                                                                       \
+    /* If the build breaks in the line below, you need to extend the case macros.              \
+       We use typeof(+x)  here to widen the type of x if it is a bit-field                     \
+       as this would otherwise be illegal. */                                                  \
+    static const typeof(+x) ak__assert_in_set[] AK_UNUSED = {first, __VA_ARGS__};              \
+    static_assert(AK_ARRAY_SIZE(ak__assert_in_set) <= 22,                                      \
+                  "IN_SET() supports at most 22 values; extend the CASE_F_* macros for more"); \
+    switch (x) {                                                                               \
+      FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                                                   \
+      _found = true;                                                                           \
+      break;                                                                                   \
+      default:;                                                                                \
+    }                                                                                          \
+    _found;                                                                                    \
   })
 /** @} */  // Conditionals
 
