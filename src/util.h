@@ -71,6 +71,10 @@
 #define AK_DISABLE_WARNING_STRICT_ALIASING AK_WARNING_IGNORE("-Wstrict-aliasing")
 #define AK_DISABLE_WARNING_FALLTHROUGH AK_WARNING_IGNORE("-Wimplicit-fallthrough")
 #define AK_DISABLE_WARNING_PADDED AK_WARNING_IGNORE("-Wpadded")
+#define AK_DISABLE_WARNING_CAST_ALIGN AK_WARNING_IGNORE("-Wcast-align")
+#define AK_DISABLE_WARNING_CAST_QUAL AK_WARNING_IGNORE("-Wcast-qual")
+#define AK_DISABLE_WARNING_CAST_FUNCTION_TYPE AK_WARNING_IGNORE("-Wcast-function-type") /* GCC */
+#define AK_DISABLE_WARNING_USELESS_CAST AK_WARNING_IGNORE("-Wuseless-cast")             /* GCC */
 
 /** @} */  // END COMPILER WARNING CONTROLS
 
@@ -635,6 +639,24 @@ AK_DEFINE_AUTO(file, FILE *, if (*ak__obj) fclose(*ak__obj))
  * @{
  */
 
+/** @brief Unsigned integer with bit position @p */
+#define BIT(n) (1UL << (n))
+
+/** @brief 64-bit unsigned integer with bit position @p _n set. */
+#define BIT64(_n) (1ULL << (_n))
+
+/** @brief Check if a @p x is a power of two */
+#define IS_POWER_OF_TWO(x) (((x) != 0U) && (((x) & ((x) - 1U)) == 0U))
+
+/**
+ * @brief Is @p x a power of two?
+ * @param x value to check
+ * @return true if @p x is a power of two, false otherwise
+ */
+static inline bool is_power_of_two (unsigned int x) {
+  return IS_POWER_OF_TWO(x);
+}
+
 /**
  * @def ak_updated_flag
  * Returns a NEW mask with flag(s) conditionally set or cleared based on 'cond'.
@@ -884,6 +906,20 @@ static AK_ALWAYS_INLINE AK_CONST int64_t ak_time_sec_microsec (double seconds) {
 #define DIFF(X, Y) ((X) > (Y) ? (X) - (Y) : (Y) - (X))
 
 /**
+ * @brief Checks if a value is within range.
+ *
+ * @note @p val is evaluated twice.
+ *
+ * @param val Value to be checked.
+ * @param min Lower bound (inclusive).
+ * @param max Upper bound (inclusive).
+ *
+ * @retval true If value is within range
+ * @retval false If the value is not within range
+ */
+#define IN_RANGE(val, min, max) ((val) >= (min) && (val) <= (max))
+
+/**
  * Range constraint macro to ensure value is between min and max.
  * @param val The value to clamp
  * @param _min Minimum value to clamp to
@@ -985,7 +1021,6 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak_handle_oom (void *p) {
   if (p == NULL) {
     abort();
   }
-
   return p;
 }
 
