@@ -316,7 +316,7 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
    */
 
   /* NOTE: Set thread count to prevent CACHE THRASHING */
-  /* codec_ctx->thread_count = 1; */
+  codec_ctx->thread_count = 1;
 
   /* Disable applying filter to speed up decoding */
   vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
