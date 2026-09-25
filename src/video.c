@@ -209,6 +209,12 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
    * This step will check if file is existent, can be opened, etc.
    */
   vreader->fmt_ctx = avformat_alloc_context();
+
+  if (ak_unlikely(vreader->fmt_ctx == NULL)) {
+    log_error("Could not allocate format context.");
+    return AK_OOM;
+  }
+
   vreader->fmt_ctx->interrupt_callback = (AVIOInterruptCB){.callback = av_interrupt_cb, .opaque = signals};
   /* Opens input file and guesses format of file */
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
@@ -276,9 +282,11 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
     return AK_OOM;
   }
 
+  vreader->codec_ctx = codec_ctx;
+
   /* Get codec parameters required for video stream */
   AVCodecParameters *codec_params = vid_stream->codecpar;
-  errcode = avcodec_parameters_to_context(codec_ctx, codec_params);
+  errcode = avcodec_parameters_to_context(vreader->codec_ctx, codec_params);
   if (errcode < 0) {
     log_error("[%s] Could not initialise codec with supplied parameters (%s)", f_path, av_err2str(errcode));
     return AK_LIBAV_FAIL;
@@ -293,30 +301,29 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
   /* codec_ctx->thread_count = 1; */
 
   /* Disable applying filter to speed up decoding */
-  codec_ctx->skip_loop_filter = AVDISCARD_ALL;
+  vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
 
   /* Decode videos in grayscale
      TODO: Apply grayscale decoding flag based on whether the ffmpeg build supports it or not:
 
     if (HAS_FLAG(vreader->av_build, AK_LAV_SUPPS_DEC_GRAY)) {
-    codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
+    vreader->codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     }
     ...
   */
 
   /* Enable speedup tricks whilst decoding the video */
-  codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
+  vreader->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
   /* Skip frames that are not reference frames */
-  codec_ctx->skip_frame = AVDISCARD_NONREF;
+  vreader->codec_ctx->skip_frame = AVDISCARD_NONREF;
 
   /* Initialise the codec context for use with our codec */
-  errcode = avcodec_open2(codec_ctx, codec, NULL);
+  errcode = avcodec_open2(vreader->codec_ctx, codec, NULL);
   if (errcode < 0) {
     log_error("[%s] Failed to initialise codec context %s (%s)", f_path, codec->long_name,
               av_err2str(errcode));
     return AK_LIBAV_FAIL;
   }
-  vreader->codec_ctx = codec_ctx;
 
   /* Alloc Buffers */
   vreader->frame = av_frame_alloc();
