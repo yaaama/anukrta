@@ -1149,7 +1149,11 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     }
   }
 
-  log_trace("[%s] DONE. Processed %d frames.", vr_fname, frames_decoded);
+  if (frames_decoded == 0) {
+    log_debug("[%s] Failed to hash a single frame.", vr_fname);
+    return AK_IO_FAIL;
+  }
 
+  log_trace("[%s] DONE. Processed %d frames.", vr_fname, frames_decoded);
   return AK_OK;
 }
