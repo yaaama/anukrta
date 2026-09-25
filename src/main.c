@@ -164,7 +164,11 @@ static void poison_hash_queue (int signo, void *userdata) {
 static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *args) {
   /* Number of pending files to process */
   size_t file_count = args->pending_count;
+
   /* NOTE: Thread count should not exceed file count */
+  if (config->thread_count == 0) {
+    config->thread_count = 1;
+  }
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
   log_info("Utilising [%zu/%zu] threads.", final_thread_count, config->thread_count);
   config->thread_count = final_thread_count;
