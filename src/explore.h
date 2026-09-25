@@ -77,6 +77,13 @@ int ak_explore_filewalk(char *path, ak_file_v *files_out) AK_NONNULL_ALL;
 
 int ak_explore_ext_supported(const char *filename) AK_NONNULL_ALL AK_PURE;
 
+static inline int ak_explore_is_relative_path (const char *path) {
+  if (!path || *path == '/') {
+    return 0;
+  }
+  return 1;
+}
+
 bool ak_explore_is_dir(const char *path) AK_NONNULL_ALL AK_NO_DISCARD;
 
 char *ak_path_resolve(const char *path) AK_NONNULL_ALL AK_MALLOC AK_NO_DISCARD;
