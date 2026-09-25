@@ -13,48 +13,57 @@
 #endif
 
 static AK_NEVER_INLINE AK_COLD_FUNC AK_NO_RETURN void ak__err_oom (const char *file, unsigned int line) {
-  fprintf(stderr, "%s:%d Out of memory! Cannot continue.\n", file, line);
+  fprintf(stderr, "%s:%u Out of memory! Cannot continue.\n", file, line);
   exit(XALLOC_EXIT_CODE);  // NOLINT (concurrency-mt-unsafe)
 }
 
 static AK_NEVER_INLINE AK_COLD_FUNC AK_NO_RETURN void ak__err_alloc_sz_zero (const char *file,
                                                                              unsigned int line) {
-  fprintf(stderr, "%s:%d Attempting to make allocation with size 0!\n", file, line);
+  fprintf(stderr, "%s:%u Attempting to make allocation with size 0!\n", file, line);
   exit(XALLOC_EXIT_CODE);  // NOLINT (concurrency-mt-unsafe)
 }
 
-static inline AK_ALLOC_SZ(1)
+static AK_ALWAYS_INLINE AK_ALLOC_SZ (1)
     AK_NO_DISCARD void *ak__xmalloc_impl(const size_t sz, const char *filename, const unsigned int line) {
+
+  if (ak_unlikely(sz == 0)) {
+    ak__err_alloc_sz_zero(filename, line);
+  }
+
   void *ret = malloc(sz);
+
   if (ak_unlikely(!ret && sz)) {
     ak__err_oom(filename, line);
   }
   return ret;
 }
 
-static inline AK_ALLOC_SZ(1, 2) AK_NO_DISCARD void *ak__xcalloc_impl(const size_t nmem,
-                                                                     const size_t sz,
-                                                                     const char *filename,
-                                                                     const unsigned int line) {
+static AK_ALWAYS_INLINE AK_ALLOC_SZ (1, 2) AK_NO_DISCARD void *ak__xcalloc_impl(const size_t nmem,
+                                                                                const size_t sz,
+                                                                                const char *filename,
+                                                                                const unsigned int line) {
 
   void *ret = calloc(nmem, sz);
+
   if (ak_unlikely(!ret && sz && nmem)) {
     ak__err_oom(filename, line);
   }
+
   return ret;
 }
 
-static inline AK_ALLOC_SZ(2) AK_NO_DISCARD void *ak__xrealloc_impl(void *ptr,
-                                                                   const size_t sz,
-                                                                   const char *filename,
-                                                                   const unsigned int line) {
+static AK_ALWAYS_INLINE AK_ALLOC_SZ (2) AK_NO_DISCARD void *ak__xrealloc_impl(void *ptr,
+                                                                              const size_t sz,
+                                                                              const char *filename,
+                                                                              const unsigned int line) {
 
   if (ak_unlikely(sz == 0)) {
     ak__err_alloc_sz_zero(filename, line);
   }
+
   void *ret = realloc(ptr, sz);
 
-  if (ak_unlikely(!ret)) {
+  if (ak_unlikely(!ret && sz)) {
     ak__err_oom(filename, line);
   }
   return ret;
