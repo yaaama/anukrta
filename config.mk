@@ -10,7 +10,7 @@ DEV_FLAGS := -O0 -g3 \
 -Wformat=2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -Wnull-dereference \
 -Wstack-protector -fstack-protector-strong -fstack-clash-protection -fcf-protection \
 -Wmisleading-indentation -fstrict-aliasing -Wstrict-aliasing -Wstrict-overflow \
--Wparentheses -Warray-parameter -Wunused -Wimplicit-fallthrough -Walloc-size
+-Wparentheses -Warray-parameter -Wunused -Wimplicit-fallthrough -Walloc-size -Wmissing-field-initializers
 
 # Release Build
 RELEASE_FLAGS := -O3 -ffast-math
@@ -28,7 +28,7 @@ TEST_COMPILER_CFLAGS :=
 # Clang
 ifeq ($(COMPILER_ID), clang)
 	DEV_FLAGS += -fextend-variable-liveness -Wthread-safety \
-	-Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter
+	-Wcast-qual -Warray-bounds-pointer-arithmetic -Wassign-enum -Warray-parameter -Wpedantic-macros
 	CLANG_EXTRA_SANS := -fsanitize=integer,implicit-conversion,local-bounds
 	TEST_COMPILER_CFLAGS += -fmacro-backtrace-limit=1
 endif
