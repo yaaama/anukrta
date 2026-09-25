@@ -161,7 +161,9 @@ static void poison_hash_queue (int signo, void *userdata) {
  * @param args Pointer to the thread context/arguments containing pending files, status tracking, and shared
  * counters.
  */
-static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *args) {
+static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *args) {
+
+  int ret = 0;
   /* Number of pending files to process */
   size_t file_count = args->pending_count;
 
@@ -177,8 +179,8 @@ static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *
 
   pthread_t *threads AK_AUTO(free) = xcalloc(final_thread_count, sizeof(*threads));
 
-  AK_AUTO(term_ctx) ak_term_ctx *term = xcalloc(1, sizeof(*term));
-  AK_AUTO(ui_ctx) ak_ui_ctx *ui = xcalloc(1, sizeof(*ui));
+  ak_term_ctx *term AK_AUTO(term_ctx) = xcalloc(1, sizeof(*term));
+  ak_ui_ctx *ui AK_AUTO(ui_ctx) = xcalloc(1, sizeof(*ui));
 
   if (ak_term_ctx_init(term)) {
     log_error("Failed to initialise terminal context.");
@@ -189,9 +191,10 @@ static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *
   ak_ui_progress_start(ui, &args->completed_count, args->pending_count, progress_label_str,
                        STRLEN("HASHING"));
 
-  /* Spawn hashing worker threads */
   int threads_made = 0;
+  int threads_joined = 0;
 
+  /* Spawn hashing worker threads */
   for (size_t i = 0; i < final_thread_count; i++) {
     int success = (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
     threads_made += success;
@@ -201,10 +204,15 @@ static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *
     }
   }
 
+  if (threads_made == 0) {
+    log_warn("Failed to create a single thread, exiting.");
+    ret = -1;
+    goto cleanup;
+  }
+
   log_info("Spawned '%d' worker threads.", threads_made);
 
   /* Wait for all threads to finish */
-  int threads_joined = 0;
   for (int i = 0; i < threads_made; i++) {
     int success = (pthread_join(threads[i], NULL) == 0);
     threads_joined += success;
@@ -213,9 +221,21 @@ static void execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *
     }
   }
 
-  /* Stop progress bar and clear it up */
-  ak_ui_progress_stop(ui);
+  if (threads_joined == 0) {
+    log_warn("Failed to join a single thread, exiting.");
+    ret = -1;
+    goto cleanup;
+  }
+
   log_debug("Joined '%d' threads.", threads_joined);
+
+cleanup:
+  {
+    /* Stop progress bar and clear it up */
+    ak_ui_progress_stop(ui);
+  }
+
+  return ret;
 }
 
 /* Tries to load a single file from cache. */
@@ -368,7 +388,10 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
     return ak_shutdown_exit_code(signals);
   }
   if (pending_count > 0) {
-    execute_hash_worker_threads(config, &thread_ctx);
+    if (execute_hash_worker_threads(config, &thread_ctx) != 0) {
+      /* Some error happened here: probably some threads were not created/joined
+       * TODO Handle it? */
+    }
   } else {
     log_info("All %zu files already exist in cache, Skipping hashing phase.", file_count);
   }
