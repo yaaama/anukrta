@@ -9,21 +9,19 @@
  * Shorthand fixed-width integer and primitive type definitions used throughout the codebase.
  * @{
  */
-/* clang-format off */
-typedef uint8_t   u8;       /**< 8-bit unsigned integer */
-typedef int32_t   i32;      /**< 32-bit signed integer */
-typedef int64_t   i64;      /**< 64-bit signed integer */
-typedef uint32_t  u32;      /**< 32-bit unsigned integer */
-typedef uint64_t  u64;      /**< 64-bit unsigned integer */
-typedef float     f32;      /**< 32-bit floating-point number (single precision) */
-typedef double    f64;      /**< 64-bit floating-point number (double precision) */
+typedef uint8_t u8;   /**< 8-bit unsigned integer */
+typedef int32_t i32;  /**< 32-bit signed integer */
+typedef int64_t i64;  /**< 64-bit signed integer */
+typedef uint32_t u32; /**< 32-bit unsigned integer */
+typedef uint64_t u64; /**< 64-bit unsigned integer */
+typedef float f32;    /**< 32-bit floating-point number (single precision) */
+typedef double f64;   /**< 64-bit floating-point number (double precision) */
 
-typedef uint8_t   byte;     /**< Raw byte representation (alias for u8/uint8_t) */
-typedef uintptr_t uptr;     /**< Unsigned integer capable of holding a pointer securely */
-typedef ptrdiff_t size;     /**< Signed integer for pointer arithmetic or negative sizes */
-typedef size_t    usize;    /**< Unsigned integer for object sizes, memory sizing, and array indexing */
-typedef uint32_t  flags32;  /**< 32-bit unsigned integer explicitly used for bitwise flags/masks */
-/* clang-format on */
+typedef uint8_t byte;     /**< Raw byte representation (alias for u8/uint8_t) */
+typedef uintptr_t uptr;   /**< Unsigned integer capable of holding a pointer securely */
+typedef ptrdiff_t size;   /**< Signed integer for pointer arithmetic or negative sizes */
+typedef size_t usize;     /**< Unsigned integer for object sizes, memory sizing, and array indexing */
+typedef uint32_t flags32; /**< 32-bit unsigned integer explicitly used for bitwise flags/masks */
 
 /** @} */  // END Type Definitions
 
