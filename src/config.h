@@ -7,8 +7,8 @@
 #include "util.h"
 
 typedef enum ak_hash_type {
-  AK_HASH_ALGO_AVERAGE = 0,
-  AK_HASH_ALGO_DCT = 1,
+  AK_HASH_ALGO_AVERAGE = 0, /**< TODO Implement an average hash. */
+  AK_HASH_ALGO_DCT,         /**< Standard DCT hashing. */
 } ak_hash_type;
 
 typedef enum detect_flags : uint32_t {
