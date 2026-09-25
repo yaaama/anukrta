@@ -172,7 +172,8 @@ static void elect_best_file (u64_vec *group, ak_file_v *files, ak_config *config
   const best_file_strat strat = config->best_file_strategy;
 
   usize best_index = 0;
-  ak_file *best_file = &kv_A(*files, (kv_A(*group, 0)));
+  u64 idx = kv_A(*group, 0);
+  ak_file *best_file = &kv_A(*files, idx);
   bool better = false;
 
   for (usize i = 1; i < group_count; i++) {
