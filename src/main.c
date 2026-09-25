@@ -268,11 +268,11 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
   ak_explore_scan_paths(config, paths, &files);
 
   /* Exit early if we do not find any files */
-  const usize file_count = kv_size(files);
-  if (file_count == 0) {
+  if (kv_size(files) == 0) {
     log_warn("No video files found!");
     return -1;
   }
+  const usize file_count = kv_size(files);
   log_info("Found `%zu` files", file_count);
 
   /* The total number of segments to hash = number of files * number of segments */
@@ -280,7 +280,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
   log_info("Total segments to process: (%zu * %zu) = `%zu`", file_count, config->segments, segments_count);
 
   /* List of hash entries (each segment has a hash entry) */
-  ak_hash_entry *hash_entries AK_AUTO(free) = xmalloc(segments_count * sizeof(*hash_entries));
+  ak_hash_entry *hash_entries AK_AUTO(free) = xcalloc(segments_count, sizeof(*hash_entries));
 
   /* Status of each file */
   enum AK_STATUS *file_statuses AK_AUTO(free) = xmalloc(file_count * sizeof(*file_statuses));
