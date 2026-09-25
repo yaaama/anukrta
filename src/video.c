@@ -38,6 +38,24 @@
 #include "signals.h"
 #include "util.h"
 
+typedef struct ak_vreader {
+  /* File (container/AV file) context
+   * AVFormatContext holds the header information stored in file (container) */
+  AVFormatContext *fmt_ctx;
+  /* Video encoding context.
+     Codec is used to decode the video stream */
+  AVCodecContext *codec_ctx;
+  /* Scaling context (cached for performance) */
+  SwsContext *sws_ctx;
+  /* Packet (compressed frame of audio/video) */
+  AVPacket *packet;
+  /* Decoded packet */
+  AVFrame *frame;
+  char *fname;
+  /* Index of video stream inside container */
+  int video_stream_idx;
+} ak_vreader;
+
 typedef struct cropping {
   int x;
   int y;
