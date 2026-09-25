@@ -336,9 +336,6 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
     pending_count = file_count;
   }
 
-  atomic_size_t current_file_idx = 0;
-  atomic_size_t completed_count = 0;
-
   /* Package the arguments */
   hashing_thread_ctx thread_ctx = {
     .files = &files,
@@ -348,11 +345,9 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
     .signals = signals,
     .pending_count = pending_count,
     .pending_indices = pending_indices,
-    .current_idx = current_file_idx,
-    .completed_count = completed_count,
+    .current_idx = 0,
+    .completed_count = 0,
   };
-  atomic_init(&thread_ctx.current_idx, 0);
-  atomic_init(&thread_ctx.completed_count, 0);
 
   /* Register the shutdown callback BEFORE the pre-spawn check below.
    * Ordering matters:
