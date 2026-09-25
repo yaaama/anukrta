@@ -936,6 +936,7 @@ end:
   avfilter_inout_free(&outputs);
   if (ret < 0 && fctx->filter_graph) {
     avfilter_graph_free(&fctx->filter_graph);
+    fctx->filter_graph = NULL;
   }
   return ret;
 }
