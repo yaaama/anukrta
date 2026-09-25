@@ -540,7 +540,6 @@ int main (int argc, char *argv[]) {
 
   int driver_ret = anukrta_driver(&config, &paths, &signals);
   pthread_mutex_destroy(&log_mutex);
-  kv_destroy(paths);
 
   return driver_ret;
 }
