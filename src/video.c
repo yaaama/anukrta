@@ -56,12 +56,12 @@ typedef struct ak_vreader {
   int video_stream_idx;
 } ak_vreader;
 
-typedef struct cropping {
-  int x;
-  int y;
-  int w;
-  int h;
-} cropping;
+typedef struct crop_region {
+  int left;
+  int top;
+  int right;
+  int bottom;
+} crop_region;
 
 typedef struct filter_ctx {
   AVFilterContext *buffersink_ctx;
@@ -522,12 +522,13 @@ static int vreader_seek_decode_to_target (ak_vreader *vreader,
  * @param width Width of row (e.g. length of row array).
  * @param threshold Pixel value must be above this threshold to return true.
  *
- * @return bool Whether there is a pixel in that row that has a pixel value above the threshold.
+ * @return bool True if row contains pixel above threshold, false otherwise.
  */
 static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint8_t *const restrict row,
                                                                       const int width,
                                                                       const int threshold) {
-  AK_ASSUME(width >= 0 && threshold > 0);
+  AK_ASSUME(width >= 0);
+  AK_ASSUME(threshold >= 0);
 
   for (int i = 0; i < width; i++) {
     if (row[i] > threshold) {
@@ -540,7 +541,7 @@ static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint
 /* Detects the bounding box of non-black pixels
  * TODO Replace this with an libav function later
  */
-static bool detect_black_borders (AVFrame *frame, const int threshold, cropping *crop_out) {
+static bool detect_black_borders (AVFrame *frame, const int threshold, crop_region *crop_out) {
 
   const int w = frame->width;
   const int h = frame->height;
@@ -554,7 +555,7 @@ static bool detect_black_borders (AVFrame *frame, const int threshold, cropping 
 
   while ((top < h) /* Top bound */
          && !(row_has_video(row_ptr, w, threshold))) {
-    ++top;
+    top++;
     row_ptr += linesize;
   }
 
@@ -567,7 +568,7 @@ static bool detect_black_borders (AVFrame *frame, const int threshold, cropping 
 
   /* Find bottom bound */
   while ((bottom > top) && !(row_has_video(bottom_ptr, w, threshold))) {
-    --bottom;
+    bottom--;
     bottom_ptr -= linesize;
   }
 
@@ -575,7 +576,7 @@ static bool detect_black_borders (AVFrame *frame, const int threshold, cropping 
   int right = 0;
 
   /* Reset row pointer */
-  row_ptr = y_plane + (top * linesize);
+  row_ptr = (y_plane + (top * linesize));
 
   for (int y = top; y <= bottom; y++, row_ptr += linesize) {
 
@@ -603,12 +604,12 @@ static bool detect_black_borders (AVFrame *frame, const int threshold, cropping 
     }
   }
 
-  crop_out->x = left;
-  crop_out->y = top;
+  crop_out->left = left;
+  crop_out->top = top;
   AK_ASSUME(((right - left) + 1) > 0);
-  crop_out->w = (right - left) + 1;
+  crop_out->right = (right - left) + 1;
   AK_ASSUME(((bottom - top) + 1) > 0);
-  crop_out->h = (bottom - top) + 1;
+  crop_out->bottom = (bottom - top) + 1;
   return true;
 }
 
@@ -732,7 +733,7 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
 
   AVFrame *src = vr->frame;
   AVStream *stream = vreader_video_stream(vr);
-  cropping crop = {.x = 0, .y = 0, .w = src->width, .h = src->height};
+  crop_region crop = {.left = 0, .top = 0, .right = src->width, .bottom = src->height};
 
   const int threshold = threshold_black ? threshold_black : 24;
   /* 24 is usually a safe threshold for limited-range YUV "black" */
@@ -744,15 +745,15 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
     return AK_SKIP_FRAME_BLACK;
   }
 
-  const int c_left = crop.x;
-  const int c_top = crop.y;
-  const int c_right = (src->width - crop.w - crop.x);
-  const int c_bottom = (src->height - crop.h - crop.y);
+  const int c_left = crop.left;
+  const int c_top = crop.top;
+  const int c_right = (src->width - crop.right - crop.left);
+  const int c_bottom = (src->height - crop.bottom - crop.top);
 
   if (c_left || c_top || c_right || c_bottom) {
     log_debug("[%s]: Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", vr->fname,
               pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
-              src->height, crop.x, crop.w, crop.y, crop.h);
+              src->height, crop.left, crop.right, crop.top, crop.bottom);
   }
 
   src->crop_left = (size_t) c_left;
@@ -760,9 +761,9 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
   src->crop_right = (size_t) c_right;
   src->crop_bottom = (size_t) c_bottom;
 
-  /*
-   * NOTE: The only flag currently is AV_FRAME_CROP_UNALIGNED and we want ALIGNED cropping
-   */
+  /* NOTE: The only flag recognised by `av_frame_apply_cropping`
+   * is `AV_FRAME_CROP_UNALIGNED` and we want to ensure ALIGNED cropping.
+   * Therefore we assign 0 to the flag variable below. */
   const int crop_flags = 0;
 
   int ret = av_frame_apply_cropping(src, crop_flags);
