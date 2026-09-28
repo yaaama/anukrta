@@ -30,7 +30,7 @@
 /**
  * @brief Identifiers for every CLI option.
  * Values match what getopt_long() returns: short option characters for
- * options that have one, 256+ for long-only options.
+ * options that have one, 256+ (outside int value of ascii characters) for long-only options.
  */
 typedef enum ak_cli_opt_id {  // NOLINT (*enum-initial-value)
   AK_OPT_HELP = 'h',
@@ -55,17 +55,6 @@ typedef enum ak_cli_opt_id {  // NOLINT (*enum-initial-value)
   AK_CLI_OPT_POSITIONAL = 512,
 } ak_cli_opt_id;
 
-enum {
-  METAVAR_NONE = 0,
-  METAVAR_USIZE,
-  METAVAR_BOOL,
-  __METAVAR_END
-};
-
-static const char *metavars[__METAVAR_END] = {[METAVAR_NONE] = "",
-                                              [METAVAR_USIZE] = "int",
-                                              [METAVAR_BOOL] = "bool"};
-
 /*
  * A row with `name == NULL` is a section-heading row: it holds a section
  * title in `help`, groups the options that follow it, and is skipped by
@@ -76,7 +65,7 @@ typedef struct ak_cli_opt_def {
   const char *help; /**< One-line description, or the section title on heading rows. */
   int val;          /**< Unique id: the short char, or 256+ for long-only. */
   int has_arg;      /**< no_argument / required_argument / optional_argument. */
-  int metavar;      /**< Argument placeholder shown in help, or 0. */
+  char *metavar;    /**< Argument placeholder shown in help, or 0. */
   char short_name;  /**< Short option name, or '\0'. */
 } ak_cli_opt_def;
 
@@ -84,7 +73,7 @@ typedef struct ak_cli_opt_def {
  * directly above their options - an option's section is defined by where
  * it sits in the table, so the two can never drift apart. */
 #define CLI_HEADING(text) \
-  {.val = 0, .name = NULL, .short_name = '\0', .has_arg = no_argument, .metavar = 0, .help = (text)}
+  {.val = 0, .name = NULL, .short_name = 0, .has_arg = no_argument, .metavar = 0, .help = (text)}
 
 static const ak_cli_opt_def cli_opt_defs[] = {
   CLI_HEADING("General Options"),
@@ -93,15 +82,15 @@ static const ak_cli_opt_def cli_opt_defs[] = {
    .name = "help",
    .short_name = 'h',
    .has_arg = no_argument,
-   .metavar = METAVAR_NONE,
+   .metavar = "",
    .help = "Show this help message and exit."},
 
   /* --version */
   {.val = AK_OPT_VERSION,
    .name = "version",
-   .short_name = '\0',
+   .short_name = 0,
    .has_arg = no_argument,
-   .metavar = METAVAR_NONE,
+   .metavar = "",
    .help = "Print version and exit."},
 
   /* --verbose -vvvv*/
@@ -109,15 +98,15 @@ static const ak_cli_opt_def cli_opt_defs[] = {
    .name = "verbose",
    .short_name = 'v',
    .has_arg = optional_argument,
-   .metavar = METAVAR_USIZE,
+   .metavar = "int",
    .help = "Increase verbosity (repeatable, e.g. -vvvv, or set a level with --verbose=N, where N=[0-4]."},
 
   /* --dry-run */
   {.val = AK_OPT_DRY_RUN,
    .name = "dry-run",
-   .short_name = '\0',
+   .short_name = 0,
    .has_arg = no_argument,
-   .metavar = METAVAR_NONE,
+   .metavar = "",
    .help = "Simulate the run without making changes."},
 
   CLI_HEADING("Algorithm & Tuning"),
@@ -126,7 +115,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
    .name = "segments",
    .short_name = 's',
    .has_arg = required_argument,
-   .metavar = METAVAR_USIZE,
+   .metavar = "int",
    .help =
        "Number of segments to hash for each video (default: " AK_STRINGIFY(AK_CFG_DEFAULT_SEGMENTS) ")."},
 
@@ -135,15 +124,15 @@ static const ak_cli_opt_def cli_opt_defs[] = {
     .name = "threshold",
     .short_name = 't',
     .has_arg = required_argument,
-    .metavar = METAVAR_USIZE,
+    .metavar = "int",
     .help = "Maximum distance threshold, 0 being the most similar (default: " AK_STRINGIFY(AK_CFG_DEFAULT_THRESHOLD) ", range: 0-64)."},
 
     /* --skip-duration */
     {.val = AK_OPT_SKIP_DURATION,
      .name = "skip-duration",
-     .short_name = '\0',
+     .short_name = 0,
      .has_arg = required_argument,
-     .metavar = METAVAR_USIZE,
+     .metavar = "int",
      .help =
          "Skip videos shorter than N seconds (default: " AK_STRINGIFY(AK_CFG_DEFAULT_SKIP_DURATION) " )."},
 
@@ -152,25 +141,25 @@ static const ak_cli_opt_def cli_opt_defs[] = {
      /* --detect-black */
      {.val = AK_OPT_DETECT_BLACK_FRAME,
       .name = "detect-black",
-      .short_name = '\0',
+      .short_name = 0,
       .has_arg = optional_argument,
-      .metavar = METAVAR_BOOL,
+      .metavar = "bool",
       .help = "Detect black frames and skip over them (default: true)."},
 
      /* --detect-bars */
      {.val = AK_OPT_DETECT_BARS,
       .name = "detect-bars",
-      .short_name = '\0',
+      .short_name = 0,
       .has_arg = optional_argument,
-      .metavar = METAVAR_BOOL,
+      .metavar = "bool",
       .help = "Detect bars around video, e.g. letterboxing (default: true)."},
 
      /* --detect-rotation */
      {.val = AK_OPT_DETECT_ROTATION,
       .name = "detect-rotation",
-      .short_name = '\0',
+      .short_name = 0,
       .has_arg = optional_argument,
-      .metavar = METAVAR_BOOL,
+      .metavar = "bool",
       .help = "Detect rotated videos (default: true)."},
 
      CLI_HEADING("Report"),
@@ -178,17 +167,17 @@ static const ak_cli_opt_def cli_opt_defs[] = {
      /* --print-hashes */
      {.val = AK_OPT_PRINT_HASHES,
       .name = "print-hashes",
-      .short_name = '\0',
+      .short_name = 0,
       .has_arg = optional_argument,
-      .metavar = METAVAR_BOOL,
+      .metavar = "bool",
       .help = "Print hashes for files in final report (default: false)."},
 
      /* --print-unique */
      {.val = AK_OPT_PRINT_UNIQUE,
       .name = "print-unique",
-      .short_name = '\0',
+      .short_name = 0,
       .has_arg = optional_argument,
-      .metavar = METAVAR_BOOL,
+      .metavar = "bool",
       .help = "Include unique files in final report (default: true)."},
 
      CLI_HEADING("Execution & Storage"),
@@ -196,25 +185,25 @@ static const ak_cli_opt_def cli_opt_defs[] = {
      /* --threads */
      {.val = AK_OPT_THREADS,
       .name = "threads",
-      .short_name = '\0',
+      .short_name = 0,
       .has_arg = required_argument,
-      .metavar = METAVAR_USIZE,
+      .metavar = "int",
       .help = "Number of threads to use (default: " AK_STRINGIFY(AK_CFG_DEFAULT_THREAD_COUNT) " all available)."},
 
       /* --cache */
       {.val = AK_OPT_CACHE,
        .name = "cache",
-       .short_name = '\0',
+       .short_name = 0,
        .has_arg = optional_argument,
-       .metavar = METAVAR_BOOL,
+       .metavar = "bool",
        .help = "Use the database cache (default: true)."},
 
       /* --progress-bar */
       {.val = AK_OPT_PROGRESS_BAR,
        .name = "progress-bar",
-       .short_name = '\0',
+       .short_name = 0,
        .has_arg = optional_argument,
-       .metavar = METAVAR_BOOL,
+       .metavar = "bool",
        .help = "Display a visual progress bar (default: true)."},
 };
 #undef CLI_HEADING
@@ -252,12 +241,6 @@ static long get_available_threads (void) {
     }
   }
   return MAXIMUM(cores, 1);
-}
-
-/* Helper to reverse-lookup metavar strings */
-static AK_PURE const char *get_metavar_str (int val) {
-  assert(val >= 0 && val < __METAVAR_END);
-  return metavars[val];
 }
 
 /** Parses a string to a size_t within [min, max], storing it in @p *out. */
@@ -403,120 +386,57 @@ static void report_unknown_opt (FILE *err, const char *program_name, char **argv
 
   const char *token = (optind > 0) ? argv[optind - 1] : "?";
 
-  if (token[0] == '-' && token[1] == '-') {
-    const char *name = token + 2;
-    size_t len = strcspn(name, "=");
-
-    const ak_cli_opt_def *first = NULL;
-    const ak_cli_opt_def *hits[CLI_DEF_COUNT];
-
-    size_t match_count = 0;
-
-    if (len > 0) {
-      for (size_t i = 0; i < CLI_DEF_COUNT; i++) {
-        const ak_cli_opt_def *def = &cli_opt_defs[i];
-        if (def->name && strncmp(def->name, name, len) == 0) {
-          hits[match_count] = def;
-          match_count++;
-        }
-      }
-    }
-
-    if (match_count > 0) {
-      first = hits[0];
-    }
-
-    if (match_count > 1) {
-      fprintf(err, "%s: Option '--%.*s' is ambiguous; it could be '--%s'", program_name, (int) len, name,
-              first->name);
-      for (size_t i = 1; i < match_count; i++) {
-        fprintf(err, ", '--%s'", hits[i]->name);
-      }
-
-      fputs(".\n", err);
-
-    } else if (match_count == 1 && len == strlen(first->name)) {
-      /* An exact spelling only fails this way when given an argument it does not take. */
-      fprintf(err, "%s: Option '--%s' doesn't allow an argument.\n", program_name, first->name);
+  if (token[0] != '-' || token[1] != '-') {
+    if (optopt != 0) {
+      fprintf(err, "%s: Unrecognized option '-%c'.\n", program_name, optopt);
     } else {
       fprintf(err, "%s: Unrecognized option '%s'.\n", program_name, token);
     }
-  } else if (optopt != 0) {
-    fprintf(err, "%s: Unrecognized option '-%c'.\n", program_name, optopt);
-  } else {
-    fprintf(err, "%s: Unrecognized option '%s'.\n", program_name, token);
+    goto hint;
   }
-  fprintf(err, "Try '%s --help' for more information.\n", program_name);
-}
 
-/**
- * Tokenise CLI arguments passed in.
- * @warn Caller must destroy @p events_out regardless of return value.
- */
-int ak_cli_tokenize (int argc, char **argv, ak_cli_events *events_out, FILE *err) {
-  assert(argv && events_out && err);
+  const char *name = token + 2;
+  size_t len = strcspn(name, "=");
+  size_t match_count = 0;
 
-  optind = 0; /* reset global state this makes repeated calls safe */
-  opterr = 0; /* all error reporting is ours */
+  const ak_cli_opt_def *hits[CLI_DEF_COUNT];
 
-  struct option long_opts[CLI_DEF_COUNT + 1];
-  /* getopt optstring, filled by build_getopt_tables().
-   * Worst case is ':' (1) + 2 bytes per def (short char + ':' for required_argument)
-   * + NUL terminator (1).
-   * CLI_DEF_COUNT over-counts - heading rows and long-only
-   * options emit nothing - so this is a conservative upper bound that
-   * holds no matter how many options are added. */
-  char short_opts[(2 * CLI_DEF_COUNT) + 2];
-  build_getopt_tables(long_opts, short_opts, AK_ARRAY_SIZE(short_opts));
-
-  kv_init(*events_out);
-
-  for (;;) {
-    // NOLINTNEXTLINE (concurrency-mt-unsafe)
-    int opt = getopt_long(argc, argv, short_opts, long_opts, NULL);
-
-    if (opt == -1) {
-      break;
-    }
-    if (opt == ':') {
-      report_missing_arg(err, argv[0], argv);
-      return -1;
-    }
-    if (opt == '?') {
-      report_unknown_opt(err, argv[0], argv);
-      return -1;
-    }
-
-    const ak_cli_opt_def *def = find_def(opt);
-    if (!def) {
-      AK_UNREACHABLE(CLI_NAME ": getopt returned an unknown option id");
-    }
-    /* getopt_long() accepts unambiguous prefixes (e.g. "--he" for "--help");
-     * we require long options to be spelled out in full. The token getopt
-     * just processed sits at argv[optind - 1]. */
-    // NOLINTNEXTLINE (concurrency-mt-unsafe)
-    const char *token = (optind > 0) ? argv[optind - 1] : "?";
-    if (token[0] == '-' && token[1] == '-') {
-      const char *typed = token + 2;
-      size_t typed_len = strcspn(typed, "=");
-      if (typed_len != strlen(def->name) || strncmp(typed, def->name, typed_len) != 0) {
-        report_abbreviation(err, argv[0], typed, typed_len, def);
-        return -1;
+  if (len > 0) {
+    for (size_t i = 0; i < CLI_DEF_COUNT; i++) {
+      const ak_cli_opt_def *def = &cli_opt_defs[i];
+      if (def->name && strncmp(def->name, name, len) == 0) {
+        hits[match_count] = def;
+        match_count++;
       }
     }
-
-    ak_cli_event event = {.opt_id = opt, .arg = optarg, .def_index = opt};
-    kv_push(*events_out, event);
   }
 
-  /* Everything after the options is treated as a path. */
-  // NOLINTNEXTLINE (concurrency-mt-unsafe)
-  for (int i = optind; i < argc; i++) {
-    ak_cli_event event = {.opt_id = AK_CLI_OPT_POSITIONAL, .arg = argv[i]};
-    kv_push(*events_out, event);
+  if (match_count == 0) {
+    goto unknown;
   }
 
-  return 0;
+  if (match_count > 1) {
+    fprintf(err, "%s: Option '--%.*s' is ambiguous; it could be '--%s'", program_name, (int) len, name,
+            hits[0]->name);
+    for (size_t i = 1; i < match_count; i++) {
+      fprintf(err, ", '--%s'", hits[i]->name);
+    }
+    fputs(".\n", err);
+    goto hint;
+  }
+
+  if (len == strlen(hits[0]->name)) {
+    /* An exact spelling only fails this way when given an argument it does not take. */
+    fprintf(err, "%s: Option '--%s' doesn't allow an argument.\n", program_name, hits[0]->name);
+  } else {
+    /* Print that option is unrecognised */
+  unknown:
+    fprintf(err, "%s: Unrecognized option '%s'.\n", program_name, token);
+  }
+
+  /* Print hint to user */
+hint:
+  fprintf(err, "Try '%s --help' for more information.\n", program_name);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -551,8 +471,7 @@ static void print_option_help (FILE *out, const ak_cli_opt_def *def) {
   appendf(names, sizeof(names), &n, "--%s", def->name);
 
   if (def->metavar) {
-    appendf(names, sizeof(names), &n, (def->has_arg == required_argument) ? "=%s" : "[=%s]",
-            get_metavar_str(def->metavar));
+    appendf(names, sizeof(names), &n, (def->has_arg == required_argument) ? "=%s" : "[=%s]", def->metavar);
   }
   fprintf(out, "    %-*s %s\n", HELP_OPT_WIDTH, names, def->help);
 }
@@ -586,7 +505,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
 #define PRINT_CONFIG_ZU(cfg, val) fprintf(out, "   %-*s : %zu\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_U32(cfg, val) fprintf(out, "   %-*s : %" PRIu32 "\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_U8(cfg, val) fprintf(out, "   %-*s : %" PRIu8 "\n", OPT_W, cfg, val)
-#define FLAG_VAL(var, flag) (ak_flag_has((var), (flag)) ? "TRUE" : "FALSE")
+#define FLAG_VAL(var, flag) (ak_flag_has((var), (flag)) ? "true" : "false")
 
   flags32 rtflags = config->runtime_flags;
   flags32 detflags = config->detect_flags;
@@ -622,30 +541,13 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
 #undef PRINT_HEADING
 #undef PRINT_CONFIG_STR
 #undef PRINT_CONFIG_ZU
+#undef PRINT_CONFIG_U32
+#undef PRINT_CONFIG_U8
 #undef FLAG_VAL
 
   fputs("+----------------------------------------+\n", out);
   fflush(out);
 }
-
-/* -------------------------------------------------------------------------- */
-/* 6. Phase 2: applier                                                        */
-/* -------------------------------------------------------------------------- */
-
-/** Working state accumulated while applying events. */
-typedef struct cli_ctx {
-  ak_config *config;
-  u32 verbosity;         /* accumulated -v / --verbose level, clamped later */
-  size_t threads;        /* value given to --threads */
-  bool threads_explicit; /* whether --threads was given at all */
-} cli_ctx;
-
-/** Return codes for individual event application. */
-typedef enum apply_result {
-  APPLY_ERROR = -1, /**< Invalid value; abort with AK_CLI_EXIT_FAIL. */
-  APPLY_OK = 0,     /**< Event applied; continue. */
-  APPLY_STOP = 1,   /**< Early-exit command (help/version); stop, exit 0. */
-} apply_result;
 
 /** Sets or clears a flag bit; bare use of the option applies `assume`. */
 static int bool_flag (flags32 *field,
@@ -657,7 +559,7 @@ static int bool_flag (flags32 *field,
   if (arg) {
     int parsed = parse_bool_arg(def, arg);
     if (parsed < 0) {
-      return APPLY_ERROR;
+      return -1;
     }
     enable = (parsed != 0);
   }
@@ -667,155 +569,185 @@ static int bool_flag (flags32 *field,
   } else {
     *field &= ~mask;
   }
-  return APPLY_OK;
+  return 0;
 }
 
 /** Special case: -v stacks, --verbose=N sets an explicit level. */
-static int verbose_opt (cli_ctx *ctx, const ak_cli_opt_def *def, const char *arg) {
+static int verbose_opt (u32 *verbosity, const ak_cli_opt_def *def, const char *arg) {
   if (!arg) {
-    ctx->verbosity++;
-    return APPLY_OK;
+    (*verbosity)++;
+    return 0;
   }
 
   /* We allow for INT_MAX here and clamp to AK_MAX_VERBOSITY at the end. */
+  if (*arg == 'v') {
+    while (*arg == 'v') {
+      (*verbosity)++;
+      arg++;
+    }
+    return 0;
+  }
+  /* We allow for INT_MAX here and clamp to AK_MAX_VERBOSITY at the end. */
   size_t level = 0;
   if (parse_size_arg(def, arg, 0, INT_MAX, &level) != 0) {
-    return APPLY_ERROR;
+    return -1;
   }
-  ctx->verbosity = (u32) level;
-  return APPLY_OK;
+  *verbosity = (u32) level;
+  return 0;
 }
 
-/** Special case: --threads needs post-processing once parsing finishes. */
-static int threads_opt (cli_ctx *ctx, const ak_cli_opt_def *def, const char *arg) {
-  if (parse_size_arg(def, arg, 0, SIZE_MAX, &ctx->threads) != 0) {
-    return APPLY_ERROR;
-  }
-  ctx->threads_explicit = true;
-  return APPLY_OK;
-}
-
-static int apply_event (cli_ctx *ctx,
-                        const ak_cli_event *event,
-                        const char *program_name,
-                        ak_paths *paths) {
-
-  ak_config *config = ctx->config;
-  const ak_cli_opt_def *def = &cli_opt_defs[event->def_index];
-
-  switch (event->opt_id) {
-    case AK_OPT_HELP:
-      print_help(stdout);
-      return APPLY_STOP;
-
-    case AK_OPT_VERSION:
-      printf("%s - version: " AK_VERSION "\n", program_name);
-      return APPLY_STOP;
-
-    case AK_OPT_VERBOSE:
-      return verbose_opt(ctx, def, event->arg);
-
-    case AK_OPT_THREADS:
-      return threads_opt(ctx, def, event->arg);
-
-    case AK_OPT_DRY_RUN:
-      config->runtime_flags |= RT_DRY_RUN;
-      return APPLY_OK;
-
-    case AK_OPT_CACHE:
-      return bool_flag(&config->runtime_flags, RT_CACHE, true, def, event->arg);
-
-    case AK_OPT_PROGRESS_BAR:
-      return bool_flag(&config->runtime_flags, RT_PROGRESS_BAR, true, def, event->arg);
-
-    case AK_OPT_PRINT_HASHES:
-      return bool_flag(&config->report_flags, REPORT_PRINT_HASHES, true, def, event->arg);
-
-    case AK_OPT_PRINT_UNIQUE:
-      return bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES, true, def, event->arg);
-
-    case AK_OPT_DETECT_BLACK_FRAME:
-      return bool_flag(&config->detect_flags, DETECT_BLACK_FRAME, true, def, event->arg);
-
-    case AK_OPT_DETECT_BARS:
-      return bool_flag(&config->detect_flags, DETECT_BARS, true, def, event->arg);
-
-    case AK_OPT_DETECT_ROTATION:
-      return bool_flag(&config->detect_flags, DETECT_ROTATION, true, def, event->arg);
-
-    case AK_OPT_SEGMENTS:
-      return parse_size_arg(def, event->arg, 1, AK_MAX_VIDEO_SEGMENTS, &config->segments);
-
-    case AK_OPT_THRESHOLD:
-      return parse_size_arg(def, event->arg, AK_HAMMING_MIN, AK_HAMMING_MAX, &config->threshold);
-
-    case AK_OPT_SKIP_DURATION:
-      return parse_size_arg(def, event->arg, 0, INT_MAX, &config->skip_duration);
-
-    case AK_CLI_OPT_POSITIONAL:
-      kv_push(*paths, event->arg);
-      return APPLY_OK;
-
-    default:
-      AK_UNREACHABLE(CLI_NAME ": unknown option id in event stream");
-  }
-}
-
-static void finalise_verbosity (cli_ctx *ctx) {
-  if (ctx->verbosity == 0) {
-    return;
-  }
-  /* Clamp verbosity to being 4 or less. */
-  u32 clamped = MINIMUM(ctx->verbosity, AK_MAX_VERBOSITY);
-  ctx->config->verbosity = (u8) clamped;
-}
-
-/** If no paths were supplied, fall back to scanning the current directory. */
-static void finalise_paths (ak_config *config, const ak_paths *paths) {
-  if (kv_size(*paths) == 0) {
-    config->runtime_flags |= RT_SCAN_CURR_DIR;
-  }
-}
-
-static void finalise_threads (cli_ctx *ctx) {
+static void resolve_threads (ak_config *config, size_t threads, bool threads_explicit) {
   const size_t available = (size_t) get_available_threads();
-  size_t threads = ctx->threads_explicit ? ctx->threads : available;
+  size_t count = threads_explicit ? threads : available;
 
   /* If threads is specified but exceeds the number of available cores */
-  if (threads > available) {
-    fprintf(stderr, "%s: Capping --threads=%zu to the %zu available cores.\n", CLI_NAME, threads,
-            available);
-    threads = available;
+  if (count > available) {
+    fprintf(stderr, "%s: Capping --threads=%zu to the %zu available cores.\n", CLI_NAME, count, available);
+    count = available;
   }
-  if (threads == 0) {
-    threads = available;
+  if (count == 0) {
+    count = available;
   }
-  ctx->config->thread_count = threads;
+  config->thread_count = count;
 }
 
-ak_cli_action ak_cli_apply (ak_config *config,
-                            const ak_cli_events *events,
-                            const char *program_name,
-                            ak_paths *paths_out) {
-  assert(config && events && paths_out);
+ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *paths, FILE *err) {
+  assert(argv && config && paths && err);
+  optind = 0;
+  opterr = 0;
 
-  cli_ctx ctx = {.config = config};
-  kv_init(*paths_out);
+  struct option long_opts[CLI_DEF_COUNT + 1];
+  /* 'getopt' opt-string, filled by build_getopt_tables().
+   * Worst case is ':' + 2 bytes per def (short char + ':' for required_argument) + NUL terminator (1).
+   * CLI_DEF_COUNT over-counts - heading rows and long-only
+   * options emit nothing - so this is a conservative upper bound that
+   * holds no matter how many options are added. */
+  char short_opts[(2 * CLI_DEF_COUNT) + 2];
+  build_getopt_tables(long_opts, short_opts, AK_ARRAY_SIZE(short_opts));
 
-  size_t events_len = kv_size(*events);
-  for (size_t i = 0; i < events_len; i++) {
-    const ak_cli_event *event = &kv_A(*events, i);
-    apply_result rc = apply_event(&ctx, event, program_name, paths_out);
-    if (rc == APPLY_STOP) {
-      return AK_CLI_EXIT_OK;
+  kv_init(*paths);
+
+  /* Deferred state, we finalise their values at the end. */
+  u32 verbosity = 0;
+  size_t threads = 0;
+  bool threads_explicit = false;
+
+  for (;;) {
+    int long_index = -1;
+    // NOLINTNEXTLINE (concurrency-mt-unsafe)
+    int opt = getopt_long(argc, argv, short_opts, long_opts, &long_index);
+
+    /* getopt_long fails just break */
+    if (opt == -1) {
+      break;
     }
-    if (rc == APPLY_ERROR) {
+    /* If argument is not specified with option, then fail parsing. */
+    if (opt == ':') {
+      report_missing_arg(err, argv[0], argv);
+      return AK_CLI_EXIT_FAIL;
+    }
+    /* If we receive an unknown option, then fail. */
+    if (opt == '?') {
+      report_unknown_opt(err, argv[0], argv);
+      return AK_CLI_EXIT_FAIL;
+    }
+
+    /* Find definition for the option that the user specified */
+    const ak_cli_opt_def *def = find_def(opt);
+    if (!def) {
+      AK_UNREACHABLE(CLI_NAME ": getopt returned an unknown option id");
+    }
+
+    /* Reject abbreviations */
+    if (long_index >= 0) {
+      const char *token = (optarg == argv[optind - 1]) ? argv[optind - 2] : argv[optind - 1];
+      const char *typed = token + 2;
+      size_t typed_len = strcspn(typed, "=");
+      if (typed_len != strlen(def->name) || strncmp(typed, def->name, typed_len) != 0) {
+        report_abbreviation(err, argv[0], typed, typed_len, def);
+        return AK_CLI_EXIT_FAIL;
+      }
+    }
+
+    int rc = 0;
+    switch (opt) {
+      case AK_OPT_HELP:
+        print_help(stdout);
+        return AK_CLI_EXIT_OK;
+      case AK_OPT_VERSION:
+        printf("%s - version: " AK_VERSION "\n", argv[0]);
+        return AK_CLI_EXIT_OK;
+      case AK_OPT_VERBOSE:
+        rc = verbose_opt(&verbosity, def, optarg); /* now takes u32*, returns 0/-1 */
+        break;
+      case AK_OPT_THREADS:
+        rc = parse_size_arg(def, optarg, 0, SIZE_MAX, &threads);
+        threads_explicit = (rc == 0);
+        break;
+      case AK_OPT_SEGMENTS:
+        rc = parse_size_arg(def, optarg, 1, AK_MAX_VIDEO_SEGMENTS, &config->segments);
+        break;
+      case AK_OPT_CACHE:
+        rc = bool_flag(&config->runtime_flags, RT_CACHE, true, def, optarg);
+        break;
+
+      case AK_OPT_PROGRESS_BAR:
+        rc = bool_flag(&config->runtime_flags, RT_PROGRESS_BAR, true, def, optarg);
+        break;
+
+      case AK_OPT_PRINT_HASHES:
+        rc = bool_flag(&config->report_flags, REPORT_PRINT_HASHES, true, def, optarg);
+        break;
+
+      case AK_OPT_PRINT_UNIQUE:
+        rc = bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES, true, def, optarg);
+        break;
+
+      case AK_OPT_DETECT_BLACK_FRAME:
+        rc = bool_flag(&config->detect_flags, DETECT_BLACK_FRAME, true, def, optarg);
+        break;
+
+      case AK_OPT_DETECT_BARS:
+        rc = bool_flag(&config->detect_flags, DETECT_BARS, true, def, optarg);
+        break;
+
+      case AK_OPT_DETECT_ROTATION:
+        rc = bool_flag(&config->detect_flags, DETECT_ROTATION, true, def, optarg);
+        break;
+
+      case AK_OPT_THRESHOLD:
+        rc = parse_size_arg(def, optarg, AK_HAMMING_MIN, AK_HAMMING_MAX, &config->threshold);
+        break;
+
+      case AK_OPT_SKIP_DURATION:
+        rc = parse_size_arg(def, optarg, 0, INT_MAX, &config->skip_duration);
+        break;
+
+      default:
+        AK_UNREACHABLE(CLI_NAME ": unknown option id");
+        break;
+    }
+    if (rc != 0) {
       return AK_CLI_EXIT_FAIL;
     }
   }
 
-  finalise_verbosity(&ctx);
-  finalise_paths(config, paths_out);
-  finalise_threads(&ctx);
+  /* Everything after options is considered a path (our positional arguments). */
+  for (int i = optind; i < argc; i++) {
+    kv_push(*paths, argv[i]);
+  }
+
+  /* If we do not have any paths, then fall back to scanning current directory. */
+  if (kv_size(*paths) == 0) {
+    config->runtime_flags |= RT_SCAN_CURR_DIR;
+  }
+
+  /* Clamp verbosity to a valid value */
+  if (verbosity > 0) {
+    config->verbosity = (u8) MINIMUM(verbosity, AK_MAX_VERBOSITY);
+  }
+
+  /* Resolve our threads value to a valid value. */
+  resolve_threads(config, threads, threads_explicit);
   return AK_CLI_RUN;
 }

@@ -527,21 +527,10 @@ int main (int argc, char *argv[]) {
   /* Retrieve default configuration */
   ak_config config = anukrta_default_config();
 
-  /*
-   * Parsing occurs in 2 phases:
-   * Phase 1: Tokenise argv into a list of option events (no side effects).
-   * Phase 2: apply the events to the config and find out what to do next using
-   * the return value of ak_cli_tokenize.
-   */
-  ak_cli_events events AK_AUTO(cli_events) = KV_INITIAL_VALUE; /**< Event vector parsed from argv. */
-  ak_paths paths AK_AUTO(argv_paths) = KV_INITIAL_VALUE;       /**< Paths from argv (if any). */
-  ak_cli_action action = AK_CLI_RUN;                           /**< What we should do after parsing argv. */
+  ak_paths paths AK_AUTO(argv_paths) = KV_INITIAL_VALUE; /**< Paths from argv (if any). */
+  ak_cli_action action = AK_CLI_RUN;                     /**< What we should do after parsing argv. */
 
-  if (ak_cli_tokenize(argc, argv, &events, stderr) != 0) {
-    /* We've run into an error, we should exit with failure code. */
-    return EXIT_FAILURE;
-  }
-  action = ak_cli_apply(&config, &events, argv[0], &paths);
+  action = ak_cli_parse(argc, argv, &config, &paths, stderr);
 
   /* If we're told to exit by CLI parser... */
   if (action != AK_CLI_RUN) {
