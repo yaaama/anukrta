@@ -541,7 +541,7 @@ static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint
 /* Detects the bounding box of non-black pixels
  * TODO Replace this with an libav function later
  */
-static bool detect_black_borders (AVFrame *frame, const int threshold, crop_region *crop_out) {
+static bool detect_black_borders (const AVFrame *frame, const int threshold, crop_region *crop_out) {
 
   const int w = frame->width;
   const int h = frame->height;
@@ -732,15 +732,16 @@ static inline void standardise_pixel_format (const AVFrame *src,
 static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white) {
 
   AVFrame *src = vr->frame;
+
+  i64 frame_pts = get_frame_pts(src);
   AVStream *stream = vreader_video_stream(vr);
   crop_region crop = {.left = 0, .top = 0, .right = src->width, .bottom = src->height};
 
   const int threshold = threshold_black ? threshold_black : 24;
   /* 24 is usually a safe threshold for limited-range YUV "black" */
   if (!detect_black_borders(src, threshold, &crop)) {
-    i64 frame_pts = get_frame_pts(src);
 
-    log_info("[%s] Frame (%" PRId64 ") is completely black.", vr->fname,
+    log_info("[%s] Frame (#%" PRId64 ") is completely black.", vr->fname,
              pts_to_useconds(frame_pts, stream->time_base));
     return AK_SKIP_FRAME_BLACK;
   }
@@ -752,8 +753,8 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
 
   if (c_left || c_top || c_right || c_bottom) {
     log_debug("[%s]: Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", vr->fname,
-              pts_to_seconds(get_frame_pts(src), vreader_video_stream(vr)->time_base), src->width,
-              src->height, crop.left, crop.right, crop.top, crop.bottom);
+              pts_to_seconds(frame_pts, stream->time_base), src->width, src->height, crop.left, crop.right,
+              crop.top, crop.bottom);
   }
 
   src->crop_left = (size_t) c_left;
