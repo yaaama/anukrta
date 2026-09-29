@@ -38,6 +38,11 @@
 #include "signals.h"
 #include "util.h"
 
+/* 24 is usually a safe threshold for limited-range YUV "black" */
+#define AK_DEFAULT_BLACK_THRESHOLD 24
+/* (255 - 24): symmetric white cut-off. Catches limited-range "white" pixels. */
+#define AK_DEFAULT_WHITE_THRESHOLD (255 - AK_DEFAULT_BLACK_THRESHOLD)
+
 typedef struct ak_vreader {
   /* File (container/AV file) context
    * AVFormatContext holds the header information stored in file (container) */
@@ -742,9 +747,8 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
   i64 frame_pts = get_frame_pts(src);
   AVStream *stream = vreader_video_stream(vr);
   crop_region crop = {.left = 0, .top = 0, .right = src->width, .bottom = src->height};
+  const int threshold = (threshold_black > 0) ? threshold_black : AK_DEFAULT_BLACK_THRESHOLD;
 
-  const int threshold = threshold_black ? threshold_black : 24;
-  /* 24 is usually a safe threshold for limited-range YUV "black" */
   if (!detect_black_borders(src, threshold, &crop)) {
 
     log_info("[%s] Frame (#%" PRId64 ") is completely black.", vr->fname,
