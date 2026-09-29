@@ -756,21 +756,26 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
     return AK_SKIP_FRAME_BLACK;
   }
 
-  const int c_left = crop.left;
-  const int c_top = crop.top;
-  const int c_right = (src->width - crop.right - crop.left);
-  const int c_bottom = (src->height - crop.bottom - crop.top);
+  const size_t c_left = (size_t) crop.left;
+  const size_t c_top = (size_t) crop.top;
+  const size_t c_right = (size_t) (src->width - crop.right - crop.left);
+  const size_t c_bottom = (size_t) (src->height - crop.bottom - crop.top);
 
-  if (c_left || c_top || c_right || c_bottom) {
-    log_debug("[%s]: Cropping frame (%f s) from (%d,%d) to: (width=[%d-%d], height=[%d-%d])", vr->fname,
-              pts_to_seconds(frame_pts, stream->time_base), src->width, src->height, crop.left, crop.right,
-              crop.top, crop.bottom);
+  /* No borders detected -> leave the frame untouched. */
+  if (!(c_left | c_top | c_right | c_bottom)) {
+    return 0;
   }
 
-  src->crop_left = (size_t) c_left;
-  src->crop_top = (size_t) c_top;
-  src->crop_right = (size_t) c_right;
-  src->crop_bottom = (size_t) c_bottom;
+  if (c_left || c_top || c_right || c_bottom) {
+    log_debug("[%s] Cropping frame (%.3f s) from %dx%d, removing L:%zu T:%zu R:%zu B:%zu", vr->fname,
+              pts_to_seconds(frame_pts, stream->time_base), src->width, src->height, c_left, c_top, c_right,
+              c_bottom);
+  }
+
+  src->crop_left = c_left;
+  src->crop_top = c_top;
+  src->crop_right = c_right;
+  src->crop_bottom = c_bottom;
 
   /* NOTE: The only flag recognised by `av_frame_apply_cropping`
    * is `AV_FRAME_CROP_UNALIGNED` and we want to ensure ALIGNED cropping.
