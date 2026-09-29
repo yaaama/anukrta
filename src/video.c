@@ -57,6 +57,10 @@ typedef struct ak_vreader {
   /* Decoded packet */
   AVFrame *frame;
   char *fname;
+  /* cached full-res GRAY8 frame */
+  AVFrame *gray_frame;
+  /* Cached swscaler used to convert pixel fmt to GRAY8. */
+  SwsContext *gray_sws_ctx;
   /* Index of video stream inside container */
   int video_stream_idx;
 } ak_vreader;
@@ -115,7 +119,9 @@ static void vreader_close (ak_vreader *vreader) {
   }
   av_packet_free(&vreader->packet);
   sws_freeContext(vreader->sws_ctx);
+  sws_freeContext(vreader->gray_sws_ctx);
   av_frame_free(&vreader->frame);
+  av_frame_free(&vreader->gray_frame);
   avcodec_free_context(&vreader->codec_ctx);
   avformat_close_input(&vreader->fmt_ctx);
 }
@@ -206,6 +212,28 @@ static AK_NONNULL_ALL int get_video_stream_rotation (const AVStream *stream) {
 }
 
 /**
+ * Checks if detect_black_borders() can walk data[0] directly for @p fmt.
+ *
+ * True for formats such as GRAY8 and 8-bit planar/semi-planar YUV (yuv420p, nv12, yuva...).
+ * False for RGB (GBRP has G in plane 0; packed RGB is interleaved), packed
+ * YUV (YUYV/UYVY), high bit depth, palette and hardware formats.
+ */
+static bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
+  const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(fmt);
+  if (!d) {
+    return false;
+  }
+  if (d->flags &
+      (AV_PIX_FMT_FLAG_RGB | AV_PIX_FMT_FLAG_PAL | AV_PIX_FMT_FLAG_BITSTREAM | AV_PIX_FMT_FLAG_HWACCEL)) {
+    return false;
+  }
+  if (d->nb_components > 1 && !(d->flags & AV_PIX_FMT_FLAG_PLANAR)) {
+    return false; /* packed YUV: luma interleaved with chroma */
+  }
+  return (d->comp[0].depth == 8) && (d->comp[0].plane == 0);
+}
+
+/**
  * @brief Open video and initialise video struct.
  *
  * This will open a video given by the param 'filename'.
@@ -277,7 +305,6 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
     } else {
       log_error("[%s] Failed to find best stream: %s", f_path, av_err2str(vreader->video_stream_idx));
     }
-
     return AK_LIBAV_FAIL;
   }
 
@@ -765,10 +792,13 @@ static inline void standardise_pixel_format (const AVFrame *src,
 /**
  * @brief Detects black borders and applies cropping to the AVFrame.
  */
-static int apply_crop (ak_vreader *vr, const int threshold_black, const int threshold_white) {
+static int apply_crop (ak_vreader *vr,
+                       AVFrame *frame,
+                       const int threshold_black,
+                       const int threshold_white) {
 
   (void) threshold_white; /* Reserved for white-bar detection; Not yet implemented. */
-  AVFrame *const src = vr->frame;
+  AVFrame *const src = frame;
   AVStream *const stream = vreader_video_stream(vr);
   const i64 frame_pts = get_frame_pts(src);
 
@@ -819,10 +849,11 @@ static int apply_crop (ak_vreader *vr, const int threshold_black, const int thre
  * @brief Scales a frame into a flat 1D matrix buffer targeting a specific pixel format.
  */
 static int extract_scaled_matrix (ak_vreader *vr,
+                                  AVFrame *frame_in,
                                   uint8_t *matrix,
                                   int matrix_size,
                                   enum AVPixelFormat target_fmt) {
-  AVFrame *src = vr->frame;
+  AVFrame *src = frame_in;
   char *fname = vr->fname;
 
   enum AVPixelFormat src_format;
@@ -864,6 +895,77 @@ static int extract_scaled_matrix (ak_vreader *vr,
   }
 
   return 0;
+}
+
+/**
+ * Guarantee an 8-bit luma plane for bar detection.
+ *
+ * Must run AFTER rotation and BEFORE apply_crop().
+ * On success @p frame_out points at a frame whose data[0] is SAFE for detect_black_borders():
+ *   1. Either the untouched source (already 8-bit planar luma) - BORROWED,
+ *      owned_clone_out is left NULL.
+ *   2. Or a clone of the cached gray frame - OWNED by the caller via
+ *      owned_clone_out; free it when the iteration is done.
+ *
+ * Since the cached gray frame is not directly handed out, we are free to mess with the geometry of the
+ * frame (e.g. in apply_crop()) without causing corruption of the cached gray-frame.
+ *
+ * @param frame_out       The frame to process next (always set on success).
+ * @param owned_clone_out Receives the owned clone, or stays NULL if the
+ *                        result is borrowed. **Non-NULL means "you must free"**.
+ */
+static int normalise_frame_to_gray8 (ak_vreader *vr, AVFrame **frame_out, AVFrame **owned_clone_out) {
+  AVFrame *src = vr->frame;
+
+  if (luma_is_u8_plane0(src->format)) {
+    *frame_out = src; /* yuv420p and friends: plane 0 already is what we need */
+    return AK_OK;
+  }
+
+  if (!vr->gray_frame && !(vr->gray_frame = av_frame_alloc())) {
+    return AK_OOM;
+  }
+  AVFrame *dst = vr->gray_frame;
+
+  /* NOTE: The cached frame is never cropped or scaled in place.
+   * So its geometry (width, height, etc) only changes if the DECODER decides to change it.
+   * Basically, this path will only run once within a single video file. */
+  if (dst->width != src->width || dst->height != src->height) {
+    av_frame_unref(dst);
+    dst->format = AV_PIX_FMT_GRAY8;
+    dst->width = src->width;
+    dst->height = src->height;
+    if (av_frame_get_buffer(dst, 0) < 0) {
+      return AK_OOM;
+    }
+  }
+
+  enum AVPixelFormat src_fmt;
+  int src_range;
+  standardise_pixel_format(src, &src_fmt, &src_range);
+
+  vr->gray_sws_ctx = sws_getCachedContext(vr->gray_sws_ctx, src->width, src->height, src_fmt, dst->width,
+                                          dst->height, AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
+  if (!vr->gray_sws_ctx) {
+    return AK_OOM;
+  }
+
+  if (sws_scale(vr->gray_sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0, src->height,
+                dst->data, dst->linesize) <= 0) {
+    return AK_LIBAV_FAIL;
+  }
+
+  /* copy over frame properties for the `pts` and other important fields */
+  av_frame_copy_props(dst, src);
+
+  /* NOTE: Clone shares the buffer (refcount bump) but owns its crop offsets, so
+   * av_frame_apply_cropping() on the clone leaves the cached frame in `vreader` intact. */
+  *owned_clone_out = av_frame_clone(dst);
+  if (!*owned_clone_out) {
+    return AK_OOM;
+  }
+  *frame_out = *owned_clone_out;
+  return AK_OK;
 }
 
 /**
@@ -1075,6 +1177,9 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   /* Video streams timebase */
   const AVRational stream_timebase = video_stream->time_base;
 
+  /* Should we detect black bars in the video frame? */
+  bool detect_bars = ak_flag_has(config->detect_flags, DETECT_BARS);
+
   /* Filter context in case we need to run any filters on frames */
   filter_ctx fctx AK_AUTO(filterctx) = {0};
   AVFrame *filtered_frame AK_AUTO(avframe) = NULL;
@@ -1086,13 +1191,11 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     filtered_frame = av_frame_alloc();
   }
 
-  /* Should we detect black bars in the video frame? */
-  bool detect_bars = ak_flag_has(config->detect_flags, DETECT_BARS);
-
   /*
    * Main Loop
    */
   for (int i = 0; i < target_segments; i++) {
+
     /* Find frame with this timestamp */
     int64_t seek_target_us = (int64_t) ((i * frame_step_us) + seek_target_us_jump);
     /* Target timestamp in streams time base (tick) */
@@ -1101,6 +1204,10 @@ enum AK_STATUS ak_video_hash (ak_file *file,
 
     log_trace("[%s] [%d/%d] -> Seeking to PTS `%" PRId64 "` (%.1f s)", vr_fname, (i + 1), target_segments,
               seek_target_sb, seek_target_seconds);
+
+    /* Non-null iff normalise_frame_to_gray8() allocated a clone of a frame for us.
+     * Cleaned up every iteration (whether it is null or non-null). */
+    AVFrame *owned_greyscale_clone AK_AUTO(avframe) = NULL;
 
     /*
      * Seek to timestamp
@@ -1163,48 +1270,67 @@ enum AK_STATUS ak_video_hash (ak_file *file,
       av_frame_move_ref(vreader.frame, filtered_frame);
     }
 
+    /* `proc` is the 'working frame' for the rest of the iteration.
+     * Every stage that follows will operate on `proc` without care for the frame that backs it.
+     * It is a 'borrow', not an 'owner':
+     *   - Starts as an alias to the frame stored in vreader.
+     *   - `normalise_frame_to_gray8()` may re-point to a grayscale clone.
+     * Aliasing is important as it never messes with the vreaders own pointer, and
+     * downstream code doesn't need "which frame is current?" branching logic:
+     * For example:
+     *   - detect_bars off               -> proc stays `vreader.frame`
+     *   - detect_bars on, no conversion -> proc stays `vreader.frame`
+     *   - detect_bars on, converted     -> proc points at the clone (`owned_greyscale_clone`)
+     */
+    AVFrame *proc = vreader.frame;
     /*
-     *  BAR DETECTION
+     * BAR DETECTION
      */
     if (detect_bars) {
-      if ((errcode = apply_crop(&vreader, 24, 0)) != 0) {
-        log_error("[%s] Cropping failed (%.1f s): %s ", vr_fname, pts_seconds,
-                  ((errcode == AK_SKIP_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)));
+
+      /* Normalise frame to grayscale */
+      if ((errcode = normalise_frame_to_gray8(&vreader, &proc, &owned_greyscale_clone)) != AK_OK) {
+        log_error("[%s] Could not grayscale frame (%" PRIi64 " us): %s", vr_fname, pts_microseconds,
+                  ((errcode == AK_OOM) ? "Ran out of memory." : "libav failure."));
         goto segment_failed;
+      }
+      /* Apply cropping */
+      if ((errcode = apply_crop(&vreader, proc, AK_DEFAULT_BLACK_THRESHOLD, 0)) != 0) {
+        log_error("[%s] Cropping failed (%" PRIi64 " us): %s ", vr_fname, pts_microseconds,
+                  ((errcode == AK_SKIP_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)));
+        goto segment_failed; /* same handling as today */
       }
     }
 
-    /*
-     * SCALING FRAME
-     *
-     * Scale down frame to 32x32 (whilst converting to GRAY8 if necessary) and
-     * extract grayscale values from it
+    /* SCALING:
+     * Scale frame to 32x32 (whilst converting to GRAY8 if it is necessary).
+     * Extracts out the pixel buffer from the frame and places it in `matrix`.
      */
-
-    if ((errcode = extract_scaled_matrix(&vreader, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8)) !=
+    if ((errcode = extract_scaled_matrix(&vreader, proc, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8)) !=
         AK_OK) {
       log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, av_err2str(errcode), pts_seconds);
       goto segment_failed;
     }
 
     /*
-     * If everything was SUCCESSFUL
+     * HASH FRAME AND STORE DATA INTO SEGMENT
+     * - Hash the matrix
+     * - Store timestamp of frame that was hashed
      */
 
-    AK_ASSUME(pts_microseconds >= 0);
-    entries_out[i].hash = hash_decoded_frame(matrix, config->hash_algorithm);
-    entries_out[i].timestamp = pts_microseconds;
+    ak_hash_entry *segment = (entries_out + i);
+    segment->hash = hash_decoded_frame(matrix, config->hash_algorithm);
+    segment->timestamp = pts_microseconds;
+
     log_debug("[%s] [%d/%d ] -> PTS %" PRId64 " (%.1f s)  produced hash `%" PRIX64 "`", vr_fname, (i + 1),
               target_segments, pts_microseconds, pts_seconds, entries_out[i].hash);
+
     frames_decoded++;
 
     /* Skip error block */
     continue;
 
-  segment_failed:
-    /*
-     * FAILED HASHING SEGMENT
-     */
+  segment_failed: /* Failure to hash segment */
     {
       mark_segment_failed(entries_out, i);
     }
