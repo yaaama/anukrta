@@ -549,45 +549,69 @@ static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint
   return (int) brightest > threshold;
 }
 
-/* Detects the bounding box of non-black pixels
- * TODO Replace this with an libav function later
+/**
+ * Find the bounding box of non-black pixels in a frames picture.
+ *
+ * @todo Replace this with an libav function later.
+ *
+ * Reads the luma plane only, in three passes:
+ *   - Top edge    - walk rows downward until one contains video.
+ *   - Bottom edge - walk rows upward from the last row. Guaranteed to
+ *                    stop at or above `top`, since row `top` has video.
+ *   - Side edges  - only for rows between top and bottom, shrink the
+ *                    left/right margins. Each row re-scans just the
+ *                    still-unchecked margins, and the pass stops early
+ *                    once the picture touches both frame edges.
+ *
+ * @param frame     Read-only frame to inspect. Only data[0]/linesize[0] are read;
+ * @param threshold Black cut-off, see row_has_video().
+ * @param crop_out  Output rectangle (should be initialised to 0).
+ *                  On success, `left`/`top` hold the coordinates of the first content pixel and
+ *                  `width`/`height` the extent of the content area.
+ *                  Left unmodified when the frame is fully black.
+ *
+ * @return true when content was found, false for a fully black frame.
+ *
+ * @warn This function expects frame->data[0] to be the luma plane. This holds true for YUV and GRAY pixel
+ * formats, NOT RGB.
  */
-static bool detect_black_borders (const AVFrame *frame, const int threshold, crop_region *crop_out) {
+static AK_NONNULL_ARG(1, 3) bool detect_black_borders (const AVFrame *frame,
+                                                       const int threshold,
+                                                       crop_region *const restrict crop_out) {
 
   const int w = frame->width;
   const int h = frame->height;
   const ptrdiff_t linesize = frame->linesize[0];
-  const uint8_t *const y_plane = frame->data[0];
+  const uint8_t *const restrict y_plane = frame->data[0];
 
+  /* top edge.
+   * `row` walks down one scanline per iteration and ends pointing at the first content row  */
   int top = 0;
-  int bottom = h - 1;
-
   const uint8_t *row_ptr = y_plane;
-
-  while ((top < h) /* Top bound */
-         && !(row_has_video(row_ptr, w, threshold))) {
+  while ((top < h) && !(row_has_video(row_ptr, w, threshold))) {
     top++;
     row_ptr += linesize;
   }
 
-  /* Return false if frame is completely black */
+  /* Return false if every pixel in frame was black. */
   if (top == h) {
     return false;
   }
 
-  const uint8_t *bottom_ptr = y_plane + (bottom * linesize);
-
+  /* bottom edge.
+   * NOTE: We know there is a non-black pixel here somewhere (or we would have returned early).
+   * Therefore we do not need to check if bottom > top.
+   */
+  int bottom = h - 1;
+  const uint8_t *bottom_ptr = y_plane + ((ptrdiff_t) bottom * linesize);
   /* Find bottom bound */
-  while ((bottom > top) && !(row_has_video(bottom_ptr, w, threshold))) {
+  while (!row_has_video(bottom_ptr, w, threshold)) {
     bottom--;
     bottom_ptr -= linesize;
   }
 
   int left = w - 1;
   int right = 0;
-
-  /* Reset row pointer */
-  row_ptr = (y_plane + (top * linesize));
 
   for (int y = top; y <= bottom; y++, row_ptr += linesize) {
 
@@ -617,9 +641,10 @@ static bool detect_black_borders (const AVFrame *frame, const int threshold, cro
 
   crop_out->left = left;
   crop_out->top = top;
+  /* left/right/top/bottom are all INCLUSIVE -> +1 for extent. */
   AK_ASSUME(((right - left) + 1) > 0);
-  crop_out->right = (right - left) + 1;
   AK_ASSUME(((bottom - top) + 1) > 0);
+  crop_out->right = (right - left) + 1;
   crop_out->bottom = (bottom - top) + 1;
   return true;
 }
@@ -740,17 +765,18 @@ static inline void standardise_pixel_format (const AVFrame *src,
 /**
  * @brief Detects black borders and applies cropping to the AVFrame.
  */
-static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white) {
+static int apply_crop (ak_vreader *vr, const int threshold_black, const int threshold_white) {
 
-  AVFrame *src = vr->frame;
+  (void) threshold_white; /* Reserved for white-bar detection; Not yet implemented. */
+  AVFrame *const src = vr->frame;
+  AVStream *const stream = vreader_video_stream(vr);
+  const i64 frame_pts = get_frame_pts(src);
 
-  i64 frame_pts = get_frame_pts(src);
-  AVStream *stream = vreader_video_stream(vr);
-  crop_region crop = {.left = 0, .top = 0, .right = src->width, .bottom = src->height};
   const int threshold = (threshold_black > 0) ? threshold_black : AK_DEFAULT_BLACK_THRESHOLD;
+  crop_region crop = {0};
 
+  /* Detect black border around video pixels */
   if (!detect_black_borders(src, threshold, &crop)) {
-
     log_info("[%s] Frame (#%" PRId64 ") is completely black.", vr->fname,
              pts_to_useconds(frame_pts, stream->time_base));
     return AK_SKIP_FRAME_BLACK;
@@ -779,10 +805,9 @@ static int apply_crop (ak_vreader *vr, int threshold_black, int threshold_white)
 
   /* NOTE: The only flag recognised by `av_frame_apply_cropping`
    * is `AV_FRAME_CROP_UNALIGNED` and we want to ensure ALIGNED cropping.
-   * Therefore we assign 0 to the flag variable below. */
-  const int crop_flags = 0;
+   * so flags value is 0. */
+  int ret = av_frame_apply_cropping(src, 0);
 
-  int ret = av_frame_apply_cropping(src, crop_flags);
   if (ret < 0) {
     log_warn("[%s]: Failed to apply cropping: %s", vr->fname, av_err2str(ret));
     return AK_LIBAV_FAIL;
