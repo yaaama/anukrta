@@ -115,10 +115,10 @@ static void *hash_worker_thread (void *arg) {
 
   for (;;) {
     /* Get index of next file in queue */
-    size_t q_idx = atomic_fetch_add(&targs->current_idx, 1);
+    size_t q_idx = atomic_fetch_add_explicit(&targs->current_idx, 1, memory_order_relaxed);
 
     /* Check if next index exceeds file count */
-    if (q_idx >= targs->pending_count) {
+    if (q_idx >= atomic_load_explicit(&targs->pending_count, memory_order_relaxed)) {
       break;
     }
 
@@ -130,7 +130,7 @@ static void *hash_worker_thread (void *arg) {
     /* Do the hashing and store return code */
     results[file_idx] =
         ak_video_hash(&files[file_idx], targs->config, targs->signals, (hash_entries + entry_offset));
-    atomic_fetch_add(&targs->completed_count, 1);
+    atomic_fetch_add_explicit(&targs->completed_count, 1, memory_order_relaxed);
   }
 
   return NULL;
@@ -523,6 +523,7 @@ int main (int argc, char *argv[]) {
     fprintf(stderr, "Failed to install signal handling\n");
     return -1;
   }
+  assert(atomic_is_lock_free(signals.on_shutdown));
 
   /* Retrieve default configuration */
   ak_config config = anukrta_default_config();

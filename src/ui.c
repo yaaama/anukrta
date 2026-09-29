@@ -96,8 +96,8 @@ static void *progress_monitor_thread (void *arg) {
   size_t last_completed = SIZE_MAX;
   i64 last_elapsed_sec = -1;
 
-  while (atomic_load(&ctx->is_active)) {
-    size_t completed = atomic_load(ctx->completed_count);
+  while (atomic_load_explicit(&ctx->is_active, memory_order_relaxed)) {
+    size_t completed = atomic_load_explicit(ctx->completed_count, memory_order_relaxed);
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
