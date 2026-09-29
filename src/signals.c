@@ -45,19 +45,20 @@ static void *signal_watch_thread (void *arg) {
   }
 
   /* Second press = hard kill. Restore the default behaviour (dying) */
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
+  struct sigaction sa = {0};
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
-  sigaction(signo, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
 
-  /* Unblock the signal in THIS thread only. The signal mask is
+  /* Unblock both SIGINT/SIGTERM signal in THIS thread only. The signal mask is
    * per-thread, so the next process-directed signal is delivered here and
    * kills the process immediately */
-  sigset_t one;
-  sigemptyset(&one);
-  sigaddset(&one, signo);
-  pthread_sigmask(SIG_UNBLOCK, &one, NULL);
+  sigset_t both;
+  sigemptyset(&both);
+  sigaddset(&both, SIGINT);
+  sigaddset(&both, SIGTERM);
+  pthread_sigmask(SIG_UNBLOCK, &both, NULL);
 
   return NULL;
 }
