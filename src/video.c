@@ -56,11 +56,12 @@ typedef struct ak_vreader {
   AVPacket *packet;
   /* Decoded packet */
   AVFrame *frame;
+  /* Filename (used for debugging messages) */
   char *fname;
   /* cached full-res GRAY8 frame */
-  AVFrame *gray_frame;
+  AVFrame *grey_frame;
   /* Cached swscaler used to convert pixel fmt to GRAY8. */
-  SwsContext *gray_sws_ctx;
+  SwsContext *grey_sws_ctx;
   /* Index of video stream inside container */
   int video_stream_idx;
 } ak_vreader;
@@ -119,9 +120,9 @@ static void vreader_close (ak_vreader *vreader) {
   }
   av_packet_free(&vreader->packet);
   sws_freeContext(vreader->sws_ctx);
-  sws_freeContext(vreader->gray_sws_ctx);
+  sws_freeContext(vreader->grey_sws_ctx);
   av_frame_free(&vreader->frame);
-  av_frame_free(&vreader->gray_frame);
+  av_frame_free(&vreader->grey_frame);
   avcodec_free_context(&vreader->codec_ctx);
   avformat_close_input(&vreader->fmt_ctx);
 }
@@ -353,8 +354,8 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
   /* Disable applying filter to speed up decoding */
   vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
 
-  /* Decode videos in grayscale
-     TODO: Apply grayscale decoding flag based on whether the ffmpeg build supports it or not:
+  /* Decode videos in greyscale
+     TODO: Apply greyscale decoding flag based on whether the ffmpeg build supports it or not:
 
     if (HAS_FLAG(vreader->av_build, AK_LAV_SUPPS_DEC_GRAY)) {
     vreader->codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
@@ -740,7 +741,7 @@ static int normalise_sws_colourspace (SwsContext *context, int src_range) {
 }
 
 /**
- * @brief Checks if an AVPixelFormat is Grayscale or RGB.
+ * Checks if an AVPixelFormat is Greyscale or RGB.
  */
 static inline AK_PURE bool is_color_matrix_applicable (enum AVPixelFormat const fmt) {
   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(fmt);
@@ -790,7 +791,7 @@ static inline void standardise_pixel_format (const AVFrame *src,
 }
 
 /**
- * @brief Detects black borders and applies cropping to the AVFrame.
+ * Detects black borders and applies cropping to the AVFrame.
  */
 static int apply_crop (ak_vreader *vr,
                        AVFrame *frame,
@@ -904,17 +905,17 @@ static int extract_scaled_matrix (ak_vreader *vr,
  * On success @p frame_out points at a frame whose data[0] is SAFE for detect_black_borders():
  *   1. Either the untouched source (already 8-bit planar luma) - BORROWED,
  *      owned_clone_out is left NULL.
- *   2. Or a clone of the cached gray frame - OWNED by the caller via
+ *   2. Or a clone of the cached grey frame - OWNED by the caller via
  *      owned_clone_out; free it when the iteration is done.
  *
- * Since the cached gray frame is not directly handed out, we are free to mess with the geometry of the
- * frame (e.g. in apply_crop()) without causing corruption of the cached gray-frame.
+ * Since the cached grey frame is not directly handed out, we are free to mess with the geometry of the
+ * frame (e.g. in apply_crop()) without causing corruption of the cached grey-frame.
  *
  * @param frame_out       The frame to process next (always set on success).
  * @param owned_clone_out Receives the owned clone, or stays NULL if the
  *                        result is borrowed. **Non-NULL means "you must free"**.
  */
-static int normalise_frame_to_gray8 (ak_vreader *vr, AVFrame **frame_out, AVFrame **owned_clone_out) {
+static int normalise_frame_to_grey8 (ak_vreader *vr, AVFrame **frame_out, AVFrame **owned_clone_out) {
   AVFrame *src = vr->frame;
 
   if (luma_is_u8_plane0(src->format)) {
@@ -922,10 +923,10 @@ static int normalise_frame_to_gray8 (ak_vreader *vr, AVFrame **frame_out, AVFram
     return AK_OK;
   }
 
-  if (!vr->gray_frame && !(vr->gray_frame = av_frame_alloc())) {
+  if (!vr->grey_frame && !(vr->grey_frame = av_frame_alloc())) {
     return AK_OOM;
   }
-  AVFrame *dst = vr->gray_frame;
+  AVFrame *dst = vr->grey_frame;
 
   /* NOTE: The cached frame is never cropped or scaled in place.
    * So its geometry (width, height, etc) only changes if the DECODER decides to change it.
@@ -944,13 +945,13 @@ static int normalise_frame_to_gray8 (ak_vreader *vr, AVFrame **frame_out, AVFram
   int src_range;
   standardise_pixel_format(src, &src_fmt, &src_range);
 
-  vr->gray_sws_ctx = sws_getCachedContext(vr->gray_sws_ctx, src->width, src->height, src_fmt, dst->width,
+  vr->grey_sws_ctx = sws_getCachedContext(vr->grey_sws_ctx, src->width, src->height, src_fmt, dst->width,
                                           dst->height, AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
-  if (!vr->gray_sws_ctx) {
+  if (!vr->grey_sws_ctx) {
     return AK_OOM;
   }
 
-  if (sws_scale(vr->gray_sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0, src->height,
+  if (sws_scale(vr->grey_sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0, src->height,
                 dst->data, dst->linesize) <= 0) {
     return AK_LIBAV_FAIL;
   }
@@ -1205,7 +1206,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     log_trace("[%s] [%d/%d] -> Seeking to PTS `%" PRId64 "` (%.1f s)", vr_fname, (i + 1), target_segments,
               seek_target_sb, seek_target_seconds);
 
-    /* Non-null iff normalise_frame_to_gray8() allocated a clone of a frame for us.
+    /* Non-null iff normalise_frame_to_grey8() allocated a clone of a frame for us.
      * Cleaned up every iteration (whether it is null or non-null). */
     AVFrame *owned_greyscale_clone AK_AUTO(avframe) = NULL;
 
@@ -1274,7 +1275,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
      * Every stage that follows will operate on `proc` without care for the frame that backs it.
      * It is a 'borrow', not an 'owner':
      *   - Starts as an alias to the frame stored in vreader.
-     *   - `normalise_frame_to_gray8()` may re-point to a grayscale clone.
+     *   - `normalise_frame_to_grey8()` may re-point to a greyscale clone.
      * Aliasing is important as it never messes with the vreaders own pointer, and
      * downstream code doesn't need "which frame is current?" branching logic:
      * For example:
@@ -1288,9 +1289,9 @@ enum AK_STATUS ak_video_hash (ak_file *file,
      */
     if (detect_bars) {
 
-      /* Normalise frame to grayscale */
-      if ((errcode = normalise_frame_to_gray8(&vreader, &proc, &owned_greyscale_clone)) != AK_OK) {
-        log_error("[%s] Could not grayscale frame (%" PRIi64 " us): %s", vr_fname, pts_microseconds,
+      /* Normalise frame to greyscale */
+      if ((errcode = normalise_frame_to_grey8(&vreader, &proc, &owned_greyscale_clone)) != AK_OK) {
+        log_error("[%s] Could not greyscale frame (%" PRIi64 " us): %s", vr_fname, pts_microseconds,
                   ((errcode == AK_OOM) ? "Ran out of memory." : "libav failure."));
         goto segment_failed;
       }
