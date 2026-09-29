@@ -73,6 +73,9 @@ int ak_signals_install (ak_signals_ctx *ctx) {
   sigemptyset(&set);
   sigaddset(&set, SIGINT);
   sigaddset(&set, SIGTERM);
+
+  /* SIGWINCH is blocked defensively;
+   * we don't actually handle it but we poll for it in `ak_term_ctx_update()`. */
   sigaddset(&set, SIGWINCH);
 
   if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
