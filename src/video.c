@@ -517,12 +517,15 @@ static int vreader_seek_decode_to_target (ak_vreader *vreader,
 }
 
 /**
- * Helper to check if a row contains non-black pixels.
- * @param row An array of pixels in the row.
- * @param width Width of row (e.g. length of row array).
- * @param threshold Pixel value must be above this threshold to return true.
+ * Check whether a scanline contains any non-black pixels.
  *
- * @return bool True if row contains pixel above threshold, false otherwise.
+ * @param row First pixel in our row (luma plane).
+ * @param width Number of pixels in row (must be >= 0).
+ * @param threshold Black cut-off.
+ *                  A threshold >= 255 makes ALL rows report as being 'black' (false);
+ *                  0 means 'any non-zero pixel'.
+ *
+ * @return true if at least one pixel exceeds @p threshold.
  */
 static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint8_t *const restrict row,
                                                                       const int width,
@@ -530,12 +533,15 @@ static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint
   AK_ASSUME(width >= 0);
   AK_ASSUME(threshold >= 0);
 
+  /* Stores brightest value we encounter */
+  uint8_t brightest = 0;
+
   for (int i = 0; i < width; i++) {
-    if (row[i] > threshold) {
-      return true;
-    }
+    /* Store brightest pixel we encounter. */
+    brightest = (row[i] > brightest) ? row[i] : brightest;
   }
-  return false;
+
+  return (int) brightest > threshold;
 }
 
 /* Detects the bounding box of non-black pixels
