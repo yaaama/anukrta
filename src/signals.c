@@ -17,17 +17,17 @@
 static void *signal_watch_thread (void *arg) {
   ak_signals_ctx *sig = arg;
 
-  /* The set we wait on. Must match what ak_signals_install() blocked. */
-  sigset_t set;
-  sigemptyset(&set);
-  sigaddset(&set, SIGINT);
-  sigaddset(&set, SIGTERM);
+  /* kill signals we wait on. Must match what ak_signals_install() blocked. */
+  sigset_t kill_set;
+  sigemptyset(&kill_set);
+  sigaddset(&kill_set, SIGINT);
+  sigaddset(&kill_set, SIGTERM);
 
   int signo = 0;
 
   /* Sleep until a shutdown signal arrives. The signals are blocked in every
    * thread, so instead of killing the process they'll hang around until consumed here. */
-  if (sigwait(&set, &signo) != 0) {
+  if (sigwait(&kill_set, &signo) != 0) {
     log_error("sigwait() failed; shutdown signals will not be handled.");
     return NULL;
   }
@@ -35,30 +35,29 @@ static void *signal_watch_thread (void *arg) {
   /* Record the signal FIRST, so ak_shutdown_requested() reports true even
    * if the callback below is slow. */
   atomic_store_explicit(&sig->received, signo, memory_order_release);
+
+  /* Second press = hard kill. Restore the default behaviour (dying).
+   * Do this before the callback as the callback may take time. */
+  struct sigaction sa = {0};
+  sa.sa_handler = SIG_DFL;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  /* Unblock both SIGINT/SIGTERM signal in THIS thread only.
+   * The signal mask is per-thread, so the next process-directed signal is delivered here and
+   * kills the process immediately */
+  pthread_sigmask(SIG_UNBLOCK, &kill_set, NULL);
+
   /* Let the user know we are exiting... */
-  fprintf(stderr, "\n\n[anukrta] Interrupted (ctl+c), shutting down...\n");
+  fprintf(stderr, "\n\n[anukrta] Interrupted (%s), shutting down...\n",
+          signo == SIGINT ? "ctrl+c" : "SIGTERM");
+
   /* Notify whoever registered (e.g. poison the hashing work queue).
    * NOTE: NULL is possible: a signal may arrive before any phase registered. */
   ak_signal_callback_fn cb = atomic_load_explicit(&sig->on_shutdown, memory_order_acquire);
   if (cb) {
     cb(signo, sig->on_shutdown_data);
   }
-
-  /* Second press = hard kill. Restore the default behaviour (dying) */
-  struct sigaction sa = {0};
-  sa.sa_handler = SIG_DFL;
-  sigemptyset(&sa.sa_mask);
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
-
-  /* Unblock both SIGINT/SIGTERM signal in THIS thread only. The signal mask is
-   * per-thread, so the next process-directed signal is delivered here and
-   * kills the process immediately */
-  sigset_t both;
-  sigemptyset(&both);
-  sigaddset(&both, SIGINT);
-  sigaddset(&both, SIGTERM);
-  pthread_sigmask(SIG_UNBLOCK, &both, NULL);
 
   return NULL;
 }
