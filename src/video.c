@@ -43,7 +43,7 @@
 /* (255 - 24): symmetric white cut-off. Catches limited-range "white" pixels. */
 #define AK_DEFAULT_WHITE_THRESHOLD (255 - AK_DEFAULT_BLACK_THRESHOLD)
 
-typedef struct ak_vreader {
+typedef struct vreader {
   /* File (container/AV file) context
    * AVFormatContext holds the header information stored in file (container) */
   AVFormatContext *fmt_ctx;
@@ -64,7 +64,7 @@ typedef struct ak_vreader {
   SwsContext *grey_sws_ctx;
   /* Index of video stream inside container */
   int video_stream_idx;
-} ak_vreader;
+} vreader;
 
 typedef struct crop_region {
   int left;
@@ -93,28 +93,12 @@ static int av_interrupt_cb (void *opaque) {
   return (signals && ak_shutdown_requested(signals)) ? 1 : 0;
 }
 
-u32 ak_libav_supports (void) {
-
-  flags32 av_supports = 0;
-
-  const char *av_config = avcodec_configuration();
-  if (!av_config) {
-    return 0;
-  }
-
-  if (strstr(av_config, "--enable-gray")) {
-    av_supports |= AK_LAV_SUPPS_DEC_GRAY;
-  }
-
-  return av_supports;
-}
-
 /**
  * Destructor for vreader.
  *
  * @param [in] vreader vreader to destroy.
  */
-static void vreader_close (ak_vreader *vreader) {
+static void vreader_close (vreader *vreader) {
   if (!vreader) {
     return;
   }
@@ -130,14 +114,14 @@ static void vreader_close (ak_vreader *vreader) {
 /**
  * Auto-cleanup helper for vreader.
  */
-AK_DEFINE_AUTO(vreader_close, ak_vreader, vreader_close(ak__obj))
+AK_DEFINE_AUTO(vreader_close, vreader, vreader_close(ak__obj))
 
 /**
  * Helper function to retreive video stream from an initialised vreader.
  *
  * @return Pointer to video stream (AVStream).
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (ak_vreader *vreader) {
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreader *vreader) {
   return vreader->fmt_ctx->streams[vreader->video_stream_idx];
 }
 
@@ -146,7 +130,7 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (ak_vre
  *
  * @return The URL of the file as a char pointer.
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (ak_vreader *vreader) {
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (vreader *vreader) {
   return vreader->fmt_ctx->url;
 }
 
@@ -249,7 +233,7 @@ static bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
  */
 static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
                                                        ak_signals_ctx *signals,
-                                                       ak_vreader *vreader) {
+                                                       vreader *vreader) {
 
   /* Assign video stream index to an invalid index by default */
   vreader->video_stream_idx = -1;
@@ -348,25 +332,10 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
    * NOTE: This must come AFTER `avcodec_parameters_to_context` so that our overrides aren't overriden
    */
 
-  /* NOTE: Set thread count to prevent CACHE THRASHING */
-  codec_ctx->thread_count = 1;
-
-  /* Disable applying filter to speed up decoding */
-  vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL;
-
-  /* Decode videos in greyscale
-     TODO: Apply greyscale decoding flag based on whether the ffmpeg build supports it or not:
-
-    if (HAS_FLAG(vreader->av_build, AK_LAV_SUPPS_DEC_GRAY)) {
-    vreader->codec_ctx->flags |= AV_CODEC_FLAG_GRAY;
-    }
-    ...
-  */
-
-  /* Enable speedup tricks whilst decoding the video */
-  vreader->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
-  /* Skip frames that are not reference frames */
-  vreader->codec_ctx->skip_frame = AVDISCARD_NONREF;
+  codec_ctx->thread_count = 1; /* NOTE: Set thread count to prevent CACHE THRASHING */
+  vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL; /* Disable applying filter to speed up decoding */
+  vreader->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST; /* Enable speedup tricks whilst decoding the video */
+  vreader->codec_ctx->skip_frame = AVDISCARD_NONREF; /* Skip frames that are not reference frames */
 
   /* Initialise the codec context for use with our codec */
   errcode = avcodec_open2(vreader->codec_ctx, codec, NULL);
@@ -396,7 +365,7 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
  * @return Duration of video in microseconds.
  *
  */
-static inline AK_NONNULL_ALL i64 vreader_get_duration (ak_vreader *vreader) {
+static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vreader) {
 
   AVStream *vid_stream = vreader_video_stream(vreader);
 
@@ -429,7 +398,7 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (ak_vreader *vreader) {
  * @param target_pts_streambase Target time stamp (in streams own time base).
  * @return 0 on success, libav's error code on on failure.
  */
-static int vreader_seek_pts (ak_vreader *vreader, int64_t target_pts_streambase) {
+static int vreader_seek_pts (vreader *vreader, int64_t target_pts_streambase) {
 
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
@@ -459,7 +428,7 @@ static int vreader_seek_pts (ak_vreader *vreader, int64_t target_pts_streambase)
  * @retval -11 Error, please try again.
  * @retval Anything else is an unknown error.
  */
-static int vreader_decode_frame (ak_vreader *vreader) {
+static int vreader_decode_frame (vreader *vreader) {
   int ret;
   AVCodecContext *codec_ctx = vreader->codec_ctx;
 
@@ -524,7 +493,7 @@ static int vreader_decode_frame (ak_vreader *vreader) {
  * @return AK_OK if success, AV_ERR on failure.
  *
  */
-static int vreader_seek_decode_to_target (ak_vreader *vreader,
+static int vreader_seek_decode_to_target (vreader *vreader,
                                           int64_t target_pts_streambase,
                                           int64_t min_pts_streambase) {
 
@@ -793,10 +762,7 @@ static inline void standardise_pixel_format (const AVFrame *src,
 /**
  * Detects black borders and applies cropping to the AVFrame.
  */
-static int apply_crop (ak_vreader *vr,
-                       AVFrame *frame,
-                       const int threshold_black,
-                       const int threshold_white) {
+static int apply_crop (vreader *vr, AVFrame *frame, const int threshold_black, const int threshold_white) {
 
   (void) threshold_white; /* Reserved for white-bar detection; Not yet implemented. */
   AVFrame *const src = frame;
@@ -849,7 +815,7 @@ static int apply_crop (ak_vreader *vr,
 /**
  * @brief Scales a frame into a flat 1D matrix buffer targeting a specific pixel format.
  */
-static int extract_scaled_matrix (ak_vreader *vr,
+static int extract_scaled_matrix (vreader *vr,
                                   AVFrame *frame_in,
                                   uint8_t *matrix,
                                   int matrix_size,
@@ -915,7 +881,7 @@ static int extract_scaled_matrix (ak_vreader *vr,
  * @param owned_clone_out Receives the owned clone, or stays NULL if the
  *                        result is borrowed. **Non-NULL means "you must free"**.
  */
-static int normalise_frame_to_grey8 (ak_vreader *vr, AVFrame **frame_out, AVFrame **owned_clone_out) {
+static int normalise_frame_to_grey8 (vreader *vr, AVFrame **frame_out, AVFrame **owned_clone_out) {
   AVFrame *src = vr->frame;
 
   if (luma_is_u8_plane0(src->format)) {
@@ -1118,7 +1084,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   int target_segments = (int) config->segments;
   int errcode = AK_OK;
 
-  ak_vreader vreader AK_AUTO(vreader_close) = {0};
+  vreader vreader AK_AUTO(vreader_close) = {0};
 
   /* Setup video reader */
   if ((errcode = vreader_init(file->path, signals, &vreader)) != AK_OK) {

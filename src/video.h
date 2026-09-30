@@ -9,12 +9,6 @@
 #include "explore.h"
 #include "signals.h"
 
-typedef struct ak_vreader ak_vreader;
-
-enum : u32 {
-  AK_LAV_SUPPS_DEC_GRAY = (1 << 0)
-};
-
 /**
  * Checks if the linked libavcodec was compiled with certain features.
  *
