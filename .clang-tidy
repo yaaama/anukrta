@@ -44,7 +44,7 @@ Checks: >
   -bugprone-inc-dec-in-conditions,
   -bugprone-reserved-identifier,
   -bugprone-swapped-arguments,
-  -bugprone-assignment-in-if-condition,
+  bugprone-assignment-in-if-condition,
   -llvm-header-guard, We use #AK_...,
   -llvmlibc-restrict-system-libc-headers,
   -cppcoreguidelines-macro-to-enum,
