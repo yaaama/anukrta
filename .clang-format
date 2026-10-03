@@ -58,7 +58,7 @@ ContinuationIndentWidth: 4
 # We can add some macro definitions here if we want...
 AttributeMacros:
   - AK_AUTO
-  - AK_UNUSED
+  - AK_MAYBE_UNUSED
   - AK_ALWAYS_INLINE
   - AK_HOT_FUNC
   - AK_COLD_FUNC

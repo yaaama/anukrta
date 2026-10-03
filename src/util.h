@@ -85,7 +85,7 @@
  */
 
 /**
- * @def AK_UNUSED
+ * @def AK_MAYBE_UNUSED
  * Suppresses compiler warnings about unused variables, parameters, or functions.
  *
  * Useful when a variable is only used in certain build configurations (e.g., `#ifdef DEBUG`)
@@ -93,15 +93,15 @@
  *
  * @par Example Usage:
  * @code
- * void event_handler(int event_id, void* AK_UNUSED context) {
+ * void event_handler(int event_id, void* AK_MAYBE_UNUSED context) {
  *    printf("Event: %d\n", event_id);
  * }
  * @endcode
  */
 #if __has_attribute(unused)
-#  define AK_UNUSED __attribute__((unused))
+#  define AK_MAYBE_UNUSED __attribute__((unused))
 #else
-#  define AK_UNUSED
+#  define AK_MAYBE_UNUSED
 #endif
 
 /**
@@ -816,7 +816,7 @@ static inline bool is_power_of_two (unsigned int x) {
     /* If the build breaks in the line below, you need to extend the case macros.              \
        We use typeof(+x)  here to widen the type of x if it is a bit-field                     \
        as this would otherwise be illegal. */                                                  \
-    static const typeof(+x) ak__assert_in_set[] AK_UNUSED = {first, __VA_ARGS__};              \
+    static const typeof(+x) ak__assert_in_set[] AK_MAYBE_UNUSED = {first, __VA_ARGS__};        \
     static_assert(AK_ARRAY_SIZE(ak__assert_in_set) <= 22,                                      \
                   "IN_SET() supports at most 22 values; extend the CASE_F_* macros for more"); \
     switch (x) {                                                                               \

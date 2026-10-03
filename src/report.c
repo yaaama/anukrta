@@ -62,7 +62,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
     bytes /= 1024.0; /* Equivalent to: bytes / 1024 */
     ++unit_index;
   }
-  AK_UNUSED int c;
+  AK_MAYBE_UNUSED int c;
 
   if (unit_index == 0) {
     c = snprintf(buf, buf_size, "%.0f %s", bytes, units_iec[unit_index]);
@@ -198,7 +198,7 @@ static void elect_best_file (u64_vec *group, ak_file_v *files, ak_config *config
 
 static void print_file_item (const ak_config *config,
                              const ak_file_v *files,
-                             const AK_STATUS AK_UNUSED result,
+                             const AK_STATUS AK_MAYBE_UNUSED result,
                              const ak_hash_entry *entries,
                              usize file_id,
                              const char *tag) {
