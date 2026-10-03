@@ -264,9 +264,9 @@ static bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
  * @return AK_OK if success, anything else is an error.
  *
  */
-static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
-                                                       ak_signals_ctx *signals,
-                                                       vreader *vreader) {
+static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
+                                                 ak_signals_ctx *signals,
+                                                 vreader *vreader) {
 
   /* Assign video stream index to an invalid index by default */
   vreader->video_stream_idx = -1;
@@ -277,20 +277,15 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
    * Initialise FORMAT CONTEXT.
    * This step will check if file is existent, can be opened, etc.
    */
-  vreader->fmt_ctx = avformat_alloc_context();
-
-  if (ak_unlikely(vreader->fmt_ctx == NULL)) {
-    log_error("Could not allocate format context.");
-    return AK_OOM;
-  }
+  vreader->fmt_ctx = AK_OOM(avformat_alloc_context());
 
   vreader->fmt_ctx->interrupt_callback = (AVIOInterruptCB){.callback = av_interrupt_cb, .opaque = signals};
   /* Opens input file and guesses format of file */
   errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
 
   if (errcode != 0) {
-    log_error("[%s] Could not open file. (%s)", f_path, av_err2str(errcode));
-    return AK_LIBAV_FAIL;
+    log_error("[%s] Could not open file: (%s)", f_path, ak_err2str(errcode));
+    return errcode;
   }
 
   /*
@@ -300,8 +295,8 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
    */
   errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
   if (errcode < 0) {
-    log_error("[%s] Failed to read both file header and stream info. (%s)", f_path, av_err2str(errcode));
-    return AK_LIBAV_FAIL;
+    log_error("[%s] Failed to read both file header and stream info. (%s)", f_path, ak_err2str(errcode));
+    return errcode;
   }
 
   /*
@@ -321,14 +316,15 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
     } else if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
       log_error("[%s] No video stream found.", f_path);
     } else {
-      log_error("[%s] Failed to find best stream: %s", f_path, av_err2str(vreader->video_stream_idx));
+      log_error("[%s] Failed to find best stream: %s", f_path, ak_err2str(vreader->video_stream_idx));
     }
-    return AK_LIBAV_FAIL;
+    return errcode;
   }
 
+  /* Check for whether the codec was set by `av_find_best_stream()` */
   if (!codec) {
     log_error("[%s] No codec found for stream.", f_path);
-    return AK_LIBAV_FAIL;
+    return AVERROR_DECODER_NOT_FOUND;
   }
 
   AVStream *vid_stream = vreader_video_stream(vreader);
@@ -343,12 +339,7 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
   }
 
   /* Allocate Codec Context */
-  AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
-
-  if (codec_ctx == NULL) {
-    log_error("[%s] Failed to allocate memory for codec context.", f_path);
-    return AK_OOM;
-  }
+  AVCodecContext *codec_ctx = AK_OOM(avcodec_alloc_context3(codec));
 
   vreader->codec_ctx = codec_ctx;
 
@@ -356,8 +347,8 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
   AVCodecParameters *codec_params = vid_stream->codecpar;
   errcode = avcodec_parameters_to_context(vreader->codec_ctx, codec_params);
   if (errcode < 0) {
-    log_error("[%s] Could not initialise codec with supplied parameters (%s)", f_path, av_err2str(errcode));
-    return AK_LIBAV_FAIL;
+    log_error("[%s] Could not initialise codec with supplied parameters (%s)", f_path, ak_err2str(errcode));
+    return errcode;
   }
 
   /*
@@ -374,20 +365,15 @@ static AK_NONNULL_ARG(1, 2, 3) AK_STATUS vreader_init (const char *f_path,
   errcode = avcodec_open2(vreader->codec_ctx, codec, NULL);
   if (errcode < 0) {
     log_error("[%s] Failed to initialise codec context %s (%s)", f_path, codec->long_name,
-              av_err2str(errcode));
-    return AK_LIBAV_FAIL;
+              ak_err2str(errcode));
+    return errcode;
   }
 
   /* Alloc Buffers */
-  vreader->frame = av_frame_alloc();
-  vreader->packet = av_packet_alloc();
+  vreader->frame = AK_OOM(av_frame_alloc());
+  vreader->packet = AK_OOM(av_packet_alloc());
 
-  if (!vreader->frame || !vreader->packet) {
-    log_error("[%s] Failed to allocate memory for frame/packet.", f_path);
-    return AK_OOM;
-  }
-
-  return AK_OK;
+  return 0;
 }
 
 /**
@@ -438,11 +424,11 @@ static int vreader_seek_pts (vreader *vreader, int64_t target_pts_streambase) {
    jump to the nearest keyframe BEFORE this timestamp.
    *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
    * frame number (rarely works well), so we stick to TimeStamp seeking. */
-  int seek_ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts_streambase,
-                               AVSEEK_FLAG_BACKWARD);
+  int ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts_streambase,
+                          AVSEEK_FLAG_BACKWARD);
 
-  if (seek_ret < 0) {
-    return seek_ret;
+  if (ret < 0) {
+    return ret;
   }
 
   /* Flush the decoder buffers after a SUCCESSFUL seek.
@@ -456,13 +442,13 @@ static int vreader_seek_pts (vreader *vreader, int64_t target_pts_streambase) {
  * @brief Get a video frame.
  * @param [in] vreader An instance of a vreader.
  * @return Integer.
- * @retval AK_OK Successfully decoded packet.
+ * @retval 0 When successfully decoding packet.
  * @retval -1 End of file.
  * @retval -11 Error, please try again.
  * @retval Anything else is an unknown error.
  */
 static int vreader_decode_frame (vreader *vreader) {
-  int ret;
+  int ret = 0;
   AVCodecContext *codec_ctx = vreader->codec_ctx;
 
   for (;;) {
@@ -471,7 +457,7 @@ static int vreader_decode_frame (vreader *vreader) {
 
     if (ret >= 0) {
       /* Success: We have a frame */
-      return AK_OK;
+      return 0;
     }
     if (ret == AVERROR_EOF) {
       /* EOF reached */
@@ -479,7 +465,7 @@ static int vreader_decode_frame (vreader *vreader) {
     }
     if (ret != AVERROR(EAGAIN)) {
       /* Fatal decoding error */
-      log_error("[%s] Error receiving frame: %s", vreader->fname, av_err2str(ret));
+      log_error("[%s] Error receiving frame: %s", vreader->fname, ak_err2str(ret));
       return ret;
     }
 
@@ -487,7 +473,12 @@ static int vreader_decode_frame (vreader *vreader) {
     ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
     if (ret == AVERROR_EOF) {
       /* Flush the decoder and loop back to receive the remaining frames */
-      avcodec_send_packet(codec_ctx, NULL);
+      ret = avcodec_send_packet(codec_ctx, NULL);
+
+      if (ret == AVERROR(ENOMEM)) {
+        return ret;
+      };
+
       continue;
     }
 
@@ -496,20 +487,21 @@ static int vreader_decode_frame (vreader *vreader) {
     }
 
     if (ret < 0) {
-      log_warn("[%s] Error reading packet: %s", vreader->fname, av_err2str(ret));
+      log_warn("[%s] Decoding error: %s", vreader->fname, ak_err2str(ret));
       return ret;
     }
 
     /* Send the correct video packet to the decoder */
     ret = avcodec_send_packet(codec_ctx, vreader->packet);
+
     av_packet_unref(vreader->packet);
 
-    if (ret == AVERROR_EXIT) {
+    if (ret == AVERROR(ENOMEM) || ret == AVERROR_EXIT) {
       return ret;
     }
 
     if (ret < 0) {
-      log_warn("%s Decoding error: %s", vreader->fname, av_err2str(ret));
+      log_warn("[%s] Decoding error: %s", vreader->fname, ak_err2str(ret));
       return ret;
     }
 
@@ -523,7 +515,7 @@ static int vreader_decode_frame (vreader *vreader) {
  * @param vreader Video reader.
  * @param target_pts_streambase Target pts to reach.
  * @param min_pts_streambase Minimum value of PTS to reach before returning.
- * @return AK_OK if success, AV_ERR on failure.
+ * @return 0 if success, AV_ERR_ on failure.
  *
  */
 static int vreader_seek_decode_to_target (vreader *vreader,
@@ -538,7 +530,7 @@ static int vreader_seek_decode_to_target (vreader *vreader,
 
   for (;;) {
     ret = vreader_decode_frame(vreader);
-    if (ret != AK_OK) {
+    if (ret != 0) {
       return ret; /* EOF or decoding error */
     }
 
@@ -546,7 +538,7 @@ static int vreader_seek_decode_to_target (vreader *vreader,
 
     /* Check if we reach desired target pts OR we reach a frame higher than minimum pts */
     if ((current_pts_sb >= target_pts_streambase) && (current_pts_sb > min_pts_streambase)) {
-      return AK_OK;
+      return 0;
     }
   }
 }
@@ -705,7 +697,7 @@ static AK_PURE uint64_t hash_decoded_frame (const uint8_t *restrict matrix, cons
  *
  * @return int
  * @retval 0 Success.
- * @retval -1 Failure to get or set the software scaler's colourspace.
+ * @retval AV_ERROR_* when failure to get or set the software scaler's colourspace.
  */
 static int normalise_sws_colourspace (SwsContext *context, int src_range) {
 
@@ -721,11 +713,12 @@ static int normalise_sws_colourspace (SwsContext *context, int src_range) {
   int contrast;
   int saturation;
 
+  int ret = 0;
+  ret = sws_getColorspaceDetails(context, &inv_table, &curr_src, &table, &curr_dst, &brightness, &contrast,
+                                 &saturation);
   /* Get default values */
-  if (sws_getColorspaceDetails(context, &inv_table, &curr_src, &table, &curr_dst, &brightness, &contrast,
-                               &saturation) < 0) {
-    log_error("Failed to get colorspace details.");
-    return -1;
+  if (ret < 0) {
+    return ret;
   }
 
   /* Return early if source and dest ranges are the same */
@@ -734,10 +727,10 @@ static int normalise_sws_colourspace (SwsContext *context, int src_range) {
   }
 
   /* Apply explicit ranges. */
-  if (sws_setColorspaceDetails(context, inv_table, src_range, table, dst_range, brightness, contrast,
-                               saturation) < 0) {
-    log_error("Failed to set colourspace.");
-    return -1;
+  ret = sws_setColorspaceDetails(context, inv_table, src_range, table, dst_range, brightness, contrast,
+                                 saturation);
+  if (ret < 0) {
+    return ret;
   }
   return 0;
 }
@@ -809,7 +802,7 @@ static int apply_crop (vreader *vr, AVFrame *frame, const int threshold_black, c
   if (!detect_black_borders(src, threshold, &crop)) {
     log_info("[%s] Frame (#%" PRId64 ") is completely black.", vr->fname,
              pts_to_useconds(frame_pts, stream->time_base));
-    return AK_SKIP_FRAME_BLACK;
+    return AK_ERR_FRAME_BLACK;
   }
 
   const size_t c_left = (size_t) crop.left;
@@ -839,8 +832,7 @@ static int apply_crop (vreader *vr, AVFrame *frame, const int threshold_black, c
   int ret = av_frame_apply_cropping(src, 0);
 
   if (ret < 0) {
-    log_warn("[%s]: Failed to apply cropping: %s", vr->fname, av_err2str(ret));
-    return AK_LIBAV_FAIL;
+    return ret;
   }
   return 0;
 }
@@ -853,6 +845,7 @@ static int extract_scaled_matrix (vreader *vr,
                                   uint8_t *matrix,
                                   int matrix_size,
                                   enum AVPixelFormat target_fmt) {
+
   AVFrame *src = frame_in;
   char *fname = vr->fname;
 
@@ -867,18 +860,20 @@ static int extract_scaled_matrix (vreader *vr,
                                      matrix_size, target_fmt, SWS_AREA, NULL, NULL, NULL);
 
   if (!vr->sws_ctx) {
-    log_error("%s: Failed to create scaling context.", fname);
-    return AK_LIBAV_FAIL;
+    log_error("%s: Failed to allocate SwsContext.", fname);
+    return AVERROR(ENOMEM);
   }
 
   /* Only normalise colourspaces if the pixel format actually uses a YUV matrix */
   bool requires_color_matrix =
       (is_color_matrix_applicable(src_format) && is_color_matrix_applicable(target_fmt)) != 0;
 
+  int ret = 0;
+  ret = normalise_sws_colourspace(vr->sws_ctx, src_range);
   if (prev_ctx != vr->sws_ctx && requires_color_matrix) {
-    if (normalise_sws_colourspace(vr->sws_ctx, src_range)) {
-      log_error("[%s]: Colourspace normalisation failed.", fname);
-      return AK_LIBAV_FAIL;
+    if (ret != 0) {
+      log_error("[%s]: Colourspace normalisation failed: %s", fname, ak_err2str(ret));
+      return ret;
     }
   }
 
@@ -886,14 +881,13 @@ static int extract_scaled_matrix (vreader *vr,
   uint8_t *dst_slices[4] = {matrix, NULL, NULL, NULL};
   int dst_linesizes[4] = {matrix_size, 0, 0, 0};
 
-  int scaling_ret = sws_scale(vr->sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0,
-                              src->height, dst_slices, dst_linesizes);
+  ret = sws_scale(vr->sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0, src->height,
+                  dst_slices, dst_linesizes);
 
-  if (scaling_ret <= 0) {
-    log_error("%s: Scaling FAILED: `%s`", fname, av_err2str(scaling_ret));
-    return AK_LIBAV_FAIL;
+  if (ret <= 0) {
+    log_error("[%s]: Scaling FAILED: `%s`", fname, ak_err2str(ret));
+    return ret < 0 ? ret : AVERROR(EINVAL);
   }
-
   return 0;
 }
 
@@ -915,15 +909,17 @@ static int extract_scaled_matrix (vreader *vr,
  *                        result is borrowed. **Non-NULL means "you must free"**.
  */
 static int normalise_frame_to_grey8 (vreader *vr, AVFrame **frame_out, AVFrame **owned_clone_out) {
+
   AVFrame *src = vr->frame;
 
   if (luma_is_u8_plane0(src->format)) {
     *frame_out = src; /* yuv420p and friends: plane 0 already is what we need */
-    return AK_OK;
+    return 0;
   }
 
-  if (!vr->grey_frame && !(vr->grey_frame = av_frame_alloc())) {
-    return AK_OOM;
+  /* If we don't have a grey frame yet then allocate one */
+  if (!vr->grey_frame) {
+    vr->grey_frame = AK_OOM(av_frame_alloc());
   }
   AVFrame *dst = vr->grey_frame;
 
@@ -936,7 +932,7 @@ static int normalise_frame_to_grey8 (vreader *vr, AVFrame **frame_out, AVFrame *
     dst->width = src->width;
     dst->height = src->height;
     if (av_frame_get_buffer(dst, 0) < 0) {
-      return AK_OOM;
+      return AVERROR(ENOMEM);
     }
   }
 
@@ -947,25 +943,31 @@ static int normalise_frame_to_grey8 (vreader *vr, AVFrame **frame_out, AVFrame *
   vr->grey_sws_ctx = sws_getCachedContext(vr->grey_sws_ctx, src->width, src->height, src_fmt, dst->width,
                                           dst->height, AV_PIX_FMT_GRAY8, SWS_AREA, NULL, NULL, NULL);
   if (!vr->grey_sws_ctx) {
-    return AK_OOM;
+    return AVERROR(ENOMEM);
   }
 
-  if (sws_scale(vr->grey_sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0, src->height,
-                dst->data, dst->linesize) <= 0) {
-    return AK_LIBAV_FAIL;
+  int ret = 0;
+  ret = sws_scale(vr->grey_sws_ctx, (const uint8_t *const *) src->data, src->linesize, 0, src->height,
+                  dst->data, dst->linesize);
+  if (ret <= 0) {
+    return ret;
   }
 
   /* copy over frame properties for the `pts` and other important fields */
-  av_frame_copy_props(dst, src);
+  ret = av_frame_copy_props(dst, src);
+  if (ret != 0) {
+    log_warn("[%s] Failed copying frame properties.", vr->fname);
+    return AVERROR(ENOMEM);
+  }
 
   /* NOTE: Clone shares the buffer (refcount bump) but owns its crop offsets, so
    * av_frame_apply_cropping() on the clone leaves the cached frame in `vreader` intact. */
   *owned_clone_out = av_frame_clone(dst);
   if (!*owned_clone_out) {
-    return AK_OOM;
+    return AVERROR(ENOMEM);
   }
   *frame_out = *owned_clone_out;
-  return AK_OK;
+  return 0;
 }
 
 /**
@@ -976,7 +978,7 @@ static int normalise_frame_to_grey8 (vreader *vr, AVFrame **frame_out, AVFrame *
  * @param time_base Stream timebase.
  * @param rotation_normalised Normalised rotation, valid values: [90,180,270].
  *
- * @return AK_OK on success, AV_ERROR on failure.
+ * @return 0 on success, AV_ERROR on failure.
  */
 static AK_NONNULL_ARG(1, 2) int init_rotation_filter_graph (filter_ctx *fctx,
                                                             AVFrame *frame,
@@ -1019,14 +1021,10 @@ static AK_NONNULL_ARG(1, 2) int init_rotation_filter_graph (filter_ctx *fctx,
 
   const AVFilter *buffersrc = avfilter_get_by_name("buffer");
   const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-  AVFilterInOut *outputs = avfilter_inout_alloc();
-  AVFilterInOut *inputs = avfilter_inout_alloc();
+  AVFilterInOut *outputs = AK_OOM(avfilter_inout_alloc());
+  AVFilterInOut *inputs = AK_OOM(avfilter_inout_alloc());
 
-  fctx->filter_graph = avfilter_graph_alloc();
-  if (!outputs || !inputs || !fctx->filter_graph) {
-    ret = AVERROR(ENOMEM);
-    goto end;
-  }
+  fctx->filter_graph = AK_OOM(avfilter_graph_alloc());
 
   /* Format filter string */
   snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
@@ -1038,36 +1036,35 @@ static AK_NONNULL_ARG(1, 2) int init_rotation_filter_graph (filter_ctx *fctx,
     goto end;
   }
 
-  AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
-  if (par) {
-    par->format = frame->format;
-    par->time_base = time_base;
-    par->width = frame->width;
-    par->height = frame->height;
-    par->sample_aspect_ratio = frame->sample_aspect_ratio;
-    par->color_space = frame->colorspace;
-    par->color_range = frame->color_range;
+  AVBufferSrcParameters *par = AK_OOM(av_buffersrc_parameters_alloc());
 
-    av_buffersrc_parameters_set(fctx->buffersrc_ctx, par);
-    av_freep((void *) &par); /* Free the allocated struct */
+  par->format = frame->format;
+  par->time_base = time_base;
+  par->width = frame->width;
+  par->height = frame->height;
+  par->sample_aspect_ratio = frame->sample_aspect_ratio;
+  par->color_space = frame->colorspace;
+  par->color_range = frame->color_range;
+  ret = av_buffersrc_parameters_set(fctx->buffersrc_ctx, par);
+  av_freep((void *) &par); /* Free the allocated struct */
+  if (ret != 0) {
+    goto end;
   }
-
   ret = avfilter_graph_create_filter(&fctx->buffersink_ctx, buffersink, "out", NULL, NULL,
                                      fctx->filter_graph);
-  if (ret < 0) {
+  if (ret != 0) {
     goto end;
   }
 
-  outputs->name = av_strdup("in");
+  outputs->name = AK_OOM(av_strdup("in"));
   outputs->filter_ctx = fctx->buffersrc_ctx;
   outputs->pad_idx = 0;
   outputs->next = NULL;
 
-  inputs->name = av_strdup("out");
+  inputs->name = AK_OOM(av_strdup("out"));
   inputs->filter_ctx = fctx->buffersink_ctx;
   inputs->pad_idx = 0;
   inputs->next = NULL;
-
   ret = avfilter_graph_parse_ptr(fctx->filter_graph, filter_desc, &inputs, &outputs, NULL);
   if (ret < 0) {
     goto end;
@@ -1115,13 +1112,14 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   AK_ASSUME(config->segments < INT_MAX);
 
   int target_segments = (int) config->segments;
-  int errcode = AK_OK;
+  int ret = AK_OK;
 
   vreader vreader AK_AUTO(vreader_close) = {0};
 
   /* Setup video reader */
-  if ((errcode = vreader_init(file->path, signals, &vreader)) != AK_OK) {
-    return errcode;
+  ret = vreader_init(file->path, signals, &vreader);
+  if (ret != 0) {
+    return (ret == AVERROR(ENOMEM)) ? AK_OOM : AK_IO_FAIL;
   }
   vreader.fname = ak_file_name(file);
   const char *vr_fname = vreader.fname;
@@ -1130,7 +1128,6 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   double duration_s = ak_time_microsec_sec(file->duration_us);
 
   /* As long as this is true we won't break anything when we cast for libav */
-  assert(file->duration_us < INT64_MAX);
   AK_ASSUME(file->duration_us < INT64_MAX);
 
   /*
@@ -1139,7 +1136,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   int64_t min_duration_us = ak_time_sec_microsec((double) config->skip_duration);
   /* Return early if duration is 0 */
   if (file->duration_us == 0) {
-    log_info("[%s] SKIPPING: Video duration is zero (%zu)", vr_fname, file->duration_us);
+    log_info("[%s] SKIPPING: Video duration is zero (%" PRId64 ")", vr_fname, file->duration_us);
     return AK_SKIP_SHORT_DURATION;
   }
   if (file->duration_us <= min_duration_us) {
@@ -1188,7 +1185,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   int rotation_normalised = normalise_angle_360(get_video_stream_rotation(video_stream));
   if (rotation_normalised) {
     log_info("[%s] Detected rotation: %d degrees (normalised)\n", vr_fname, rotation_normalised);
-    filtered_frame = av_frame_alloc();
+    filtered_frame = AK_OOM(av_frame_alloc());
   }
 
   /*
@@ -1212,15 +1209,17 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     /*
      * Seek to timestamp
      */
-    errcode = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
-    if (errcode != AK_OK) {
-      if (errcode == AVERROR_EXIT) {
+    ret = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
+    if (ret != AK_OK) {
+      if (ret == AVERROR_EXIT) {
         log_warn("[%s] Hashing interrupted by shutdown request.\n", vr_fname);
         return AK_IO_FAIL;
       }
-
-      log_warn("[%s] [%d/%d] Failed seeking PTS `% " PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
-               target_segments, seek_target_sb, seek_target_seconds, av_err2str(errcode));
+      if (ret == AVERROR(ENOMEM)) {
+        return AK_OOM;
+      }
+      log_warn("[%s] [%d/%d] Failed seeking PTS `%" PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
+               target_segments, seek_target_sb, seek_target_seconds, ak_err2str(ret));
       goto segment_failed;
     }
 
@@ -1239,29 +1238,36 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     /*
      * ROTATION HANDLING
      * Set up filter context and filters frames to rotate it
+     * TODO: Instead of failing the segment when rotation fails,
+     * just try to continue without using the rotation filter graph
      */
     if (rotation_normalised) {
 
       /* If filter context not initialised, lets initialise it now */
       if (!fctx.init) {
-        if ((errcode = init_rotation_filter_graph(&fctx, vreader.frame, stream_timebase,
-                                                  rotation_normalised)) < 0) {
-          log_error("[%s] Failed to init filter graph: %s", vr_fname, av_err2str(errcode));
+        ret = init_rotation_filter_graph(&fctx, vreader.frame, stream_timebase, rotation_normalised);
+        if (ret < 0) {
+          log_error("[%s] Failed to init filter graph: %s", vr_fname, ak_err2str(ret));
+
+          if (ret == AVERROR(ENOMEM)) {
+            return AK_OOM;
+          }
           goto segment_failed;
         }
         fctx.init = 1;
       }
 
       /* Add frame to filter */
-      if ((errcode = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame,
-                                                  AV_BUFFERSRC_FLAG_KEEP_REF)) < 0) {
-        log_error("[%s] Failed add frame to filter graph: %s", vr_fname, av_err2str(errcode));
+      ret = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame, AV_BUFFERSRC_FLAG_KEEP_REF);
+      if (ret < 0) {
+        log_error("[%s] Failed add frame to filter graph: %s", vr_fname, ak_err2str(ret));
         goto segment_failed;
       }
 
       /* Retrieve filtered frame */
-      if ((errcode = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame)) < 0) {
-        log_error("[%s] Failed retrieve frame from filter graph: %s", vr_fname, av_err2str(errcode));
+      ret = av_buffersink_get_frame(fctx.buffersink_ctx, filtered_frame);
+      if (ret < 0) {
+        log_error("[%s] Failed retrieve frame from filter graph: %s", vr_fname, ak_err2str(ret));
         goto segment_failed;
       }
 
@@ -1289,16 +1295,29 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     if (detect_bars) {
 
       /* Normalise frame to greyscale */
-      if ((errcode = normalise_frame_to_grey8(&vreader, &proc, &owned_greyscale_clone)) != AK_OK) {
+      ret = normalise_frame_to_grey8(&vreader, &proc, &owned_greyscale_clone);
+
+      if (ret != 0) {
         log_error("[%s] Could not greyscale frame (%" PRIi64 " us): %s", vr_fname, pts_microseconds,
-                  ((errcode == AK_OOM) ? "Ran out of memory." : "libav failure."));
+                  ak_err2str(ret));
+        if (ret == AVERROR(ENOMEM)) {
+          return AK_OOM;
+        }
+
         goto segment_failed;
       }
-      /* Apply cropping */
-      if ((errcode = apply_crop(&vreader, proc, AK_DEFAULT_BLACK_THRESHOLD, 0)) != 0) {
-        log_error("[%s] Cropping failed (%" PRIi64 " us): %s ", vr_fname, pts_microseconds,
-                  ((errcode == AK_SKIP_FRAME_BLACK) ? "Frame was TOO DARK." : av_err2str(errcode)));
-        goto segment_failed; /* same handling as today */
+      /* Apply cropping:
+       * TODO If frame is too dark, we should try to decode another frame
+       * If all frames are dark (we can set some limit to the # of black frames),
+       * then we should fail for the file and signal this to our caller.
+       */
+      ret = apply_crop(&vreader, proc, AK_DEFAULT_BLACK_THRESHOLD, 0);
+      if (ret < 0) {
+        log_error("[%s] Cropping failed (%" PRIi64 " us): %s", vr_fname, pts_microseconds, ak_err2str(ret));
+        if (ret == AVERROR(ENOMEM)) {
+          return AK_OOM;
+        }
+        goto segment_failed;
       }
     }
 
@@ -1306,9 +1325,12 @@ enum AK_STATUS ak_video_hash (ak_file *file,
      * Scale frame to 32x32 (whilst converting to GRAY8 if it is necessary).
      * Extracts out the pixel buffer from the frame and places it in `matrix`.
      */
-    if ((errcode = extract_scaled_matrix(&vreader, proc, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8)) !=
-        AK_OK) {
-      log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, av_err2str(errcode), pts_seconds);
+    ret = extract_scaled_matrix(&vreader, proc, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
+    if (ret) {
+      log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, ak_err2str(ret), pts_seconds);
+      if (ret == AVERROR(ENOMEM)) {
+        return AK_OOM;
+      }
       goto segment_failed;
     }
 
@@ -1322,7 +1344,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     segment->hash = hash_decoded_frame(matrix, config->hash_algorithm);
     segment->timestamp = pts_microseconds;
 
-    log_debug("[%s] [%d/%d ] -> PTS %" PRId64 " (%.1f s)  produced hash `%" PRIX64 "`", vr_fname, (i + 1),
+    log_trace("[%s] [%d/%d] -> PTS %" PRId64 " (%.1f s)  produced hash `%" PRIX64 "`", vr_fname, (i + 1),
               target_segments, pts_microseconds, pts_seconds, entries_out[i].hash);
 
     frames_decoded++;
