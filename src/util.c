@@ -1,8 +1,26 @@
 #include "util.h"
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+static AK_NEVER_INLINE AK_COLD_FUNC AK_PRINTF(4, 0) AK_MAYBE_UNUSED AK_NO_RETURN void
+ak_vfatal (const char *tag, const char *file, int line, const char *fmt, va_list ap) {
+  fprintf(stderr, "anukrta: [%s]: %s:%d: ", tag, file, line);
+  vfprintf(stderr, fmt, ap);
+  fputc('\n', stderr);
+  fflush(stderr); /* abort() doesn't guarantee flushing */
+  abort();
+}
+
+void ak_fatal_at (char *tag, const char *file, int line, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  ak_vfatal(tag, file, line, fmt, ap);
+  va_end(ap); /* unreachable */
+}
 
 /* Helper to visualise matrix */
 void ak_matrix_fprint_float (FILE *fp, const float *matrix, const int rows, const int cols) {

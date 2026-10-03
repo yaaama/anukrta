@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <errno.h> /* IWYU pragma: keep */
 #include <math.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -996,67 +997,60 @@ static AK_ALWAYS_INLINE AK_CONST int ak_char_lower (int c) {
   return (('A' <= c) && (c <= 'Z')) ? (c + ('a' - 'A')) : c;
 }
 
-static AK_ALWAYS_INLINE AK_NO_RETURN void ak_panic_at (const char *file, int line, const char *message) {
-  fprintf(stderr, "[PANIC]: %s:%d: %s\n", file, line, message);
-  abort();
-}
+/* Prints a message to standard error and then aborts execution. */
+AK_NEVER_INLINE AK_COLD_FUNC AK_PRINTF(4, 5) AK_MAYBE_UNUSED AK_NO_RETURN void ak_fatal_at(char *tag,
+                                                                                           const char *file,
+                                                                                           int line,
+                                                                                           const char *fmt,
+                                                                                           ...);
 
-static AK_ALWAYS_INLINE AK_NO_RETURN void ak_die_at (const char *file, int line, const char *message) {
-  fprintf(stderr, "[FATAL]: %s:%d: %s\n", file, line, message);
-  // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  exit(EXIT_FAILURE);
-}
+/* PANIC because of INTERNAL inconsistency (assertion, unreachable code path, not implemented code path
+ * etc). */
+#define AK_PANIC(...) ak_fatal_at("PANIC", __FILE__, __LINE__, __VA_ARGS__)
+/* DIE because of external factor (OOM, signal, etc). */
+#define AK_DIE(...) ak_fatal_at("FATAL", __FILE__, __LINE__, __VA_ARGS__)
+#define AK_TODO(...) ak_fatal_at("TODO", __FILE__, __LINE__, __VA_ARGS__)
 
-static AK_ALWAYS_INLINE AK_NO_RETURN void ak_todo_at (const char *file, int line, const char *message) {
-  fprintf(stderr, "%s:%d: TODO: %s\n", file, line, message);
-  fflush(stderr); /* abort() does not flush stdio, unlike exit() */
-  abort();
-}
+/* Always enabled assertion of some invariant/condition.
+ * DO NOT use any expression that produces a side effect. */
+#define AK_CHECK(expr)                                                      \
+  do {                                                                      \
+    if (ak_unlikely(!(expr)))                                               \
+      ak_fatal_at("PANIC", __FILE__, __LINE__, " check failed: %s", #expr); \
+  } while (0)
 
-/* Macros to use the functions defined above */
-#define AK_PANIC(message) ak_panic_at(__FILE__, __LINE__, (message))
-#define AK_DIE(message) ak_die_at(__FILE__, __LINE__, (message))
-#define AK_TODO(message) ak_todo_at(__FILE__, __LINE__, (message))
-
-static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak_handle_oom (void *p) {
-  if (p == NULL) {
-    abort();
+/* Allocation guard; returns `p`, so it wraps allocation calls:
+ * Use this for allocations that have known sizes at compile time.
+ *     struct foo *f = AK_OOM (malloc (sizeof (*f)));
+ */
+static AK_ALWAYS_INLINE AK_MAYBE_UNUSED AK_NO_DISCARD AK_RET_NONNULL void *
+ak_oom_or_die (void *p, const char *file, int line, const char *expr) {
+  if (ak_unlikely(p == NULL)) {
+    ak_fatal_at("OOM", file, line, "out of memory: %s", expr);
   }
   return p;
 }
 
+#define AK_OOM(p) ak_oom_or_die((p), __FILE__, __LINE__, #p)
+
 #ifdef AK_DEBUG
 
-static AK_ALWAYS_INLINE
-AK_NO_RETURN void ak_unreachable_at (const char *file, int line, const char *message) {
-  fprintf(stderr, "[PANIC] AK_UNREACHABLE CODE REACHED AT %s:%d: %s\n", file, line, message);
-  abort();
-}
+#  define AK_UNREACHABLE(msg) \
+    ak_fatal_at("PANIC", __FILE__, __LINE__, "unreachable code reached: %s", "" msg)
 
-static AK_ALWAYS_INLINE AK_NO_RETURN void ak_assume_failed (const char *expression,
-                                                            const char *file,
-                                                            int line) {
-  fprintf(stderr, "[PANIC] Assertion %s failed at %s:%d\n", expression, file, line);
-  abort();
-}
+#  define AK_ASSUME(expr) \
+    ((expr) ? (void) 0 : ak_fatal_at("PANIC", __FILE__, __LINE__, "assumption failed: %s", #expr))
 
-#  define AK_UNREACHABLE(message) ak_unreachable_at(__FILE__, __LINE__, (message))
-#  define AK_ASSUME(cond) ((cond) ? (void) 0 : ak_assume_failed(AK_STRINGIFY(cond), __FILE__, __LINE__))
+#else /* Release build: */
 
-#else /* Release build */
+/* UNREACHABLE */
+#  define AK_UNREACHABLE(msg) ((void) sizeof("" msg), __builtin_unreachable())
 
-#  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
-#    include <stddef.h> /* C23: unreachable() — expands to __builtin_unreachable() */
-#    define AK_UNREACHABLE(...) unreachable()
-#  else
-#    define AK_UNREACHABLE(...) __builtin_unreachable()
-#  endif
-
-/* __builtin_assume: Clang (recent), GCC 13+ */
+/* ASSUME */
 #  if defined(__clang__) || (defined(__GNUC__) && __GNUC__ >= 13)
 #    define AK_ASSUME(cond) __builtin_assume(cond)
 #  else
-#    define AK_ASSUME(cond) ((cond) ? (void) 0 : __builtin_unreachable())
+#    define AK_ASSUME(cond) ((cond) ? (void) 0 : AK_UNREACHABLE())
 #  endif
 
 #endif /* AK_DEBUG */
