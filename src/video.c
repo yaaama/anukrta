@@ -13,6 +13,7 @@
 #include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
+#include <libavutil/avstring.h>
 #include <libavutil/avutil.h>
 #include <libavutil/display.h>
 #include <libavutil/error.h>
@@ -42,6 +43,38 @@
 #define AK_DEFAULT_BLACK_THRESHOLD 24
 /* (255 - 24): symmetric white cut-off. Catches limited-range "white" pixels. */
 #define AK_DEFAULT_WHITE_THRESHOLD (255 - AK_DEFAULT_BLACK_THRESHOLD)
+
+/* video.c private error domain. Must go through ak_errstr() to print. */
+#define AK_ERR_FRAME_BLACK FFERRTAG('B', 'L', 'K', 'F') /* Completely black frame */
+
+/* Wrapper for av_strerror with our own custom errors */
+static const char *ak_errstr (int err, char *buf, size_t buflen) {
+  switch (err) {
+    case AK_ERR_FRAME_BLACK:
+      return "frame contains no content";
+    default:
+      return av_strerror(err, buf, buflen) < 0 ? "unknown error" : buf;
+  }
+}
+
+/* writes error string into caller-provided storage */
+static inline char *ak_errstr_r (int err, char *buf, size_t buflen) {
+  switch (err) {
+    case AK_ERR_FRAME_BLACK:
+      av_strlcpy(buf, "frame contains no content", buflen);
+      break;
+    /* future AK_ERR_* tags: add a case here */
+    default:
+      if (av_strerror(err, buf, buflen) < 0) {
+        av_strlcpy(buf, "unknown error", buflen);
+      }
+      break;
+  }
+  return buf;
+}
+
+/* ak_err2str-style wrapper */
+#define ak_err2str(err) ak_errstr_r((err), (char[AV_ERROR_MAX_STRING_SIZE]){0}, AV_ERROR_MAX_STRING_SIZE)
 
 typedef struct vreader {
   /* File (container/AV file) context
