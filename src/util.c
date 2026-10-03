@@ -9,7 +9,7 @@
 static AK_NEVER_INLINE AK_COLD_FUNC AK_PRINTF(4, 0) AK_MAYBE_UNUSED AK_NO_RETURN void
 ak_vfatal (const char *tag, const char *file, int line, const char *fmt, va_list ap) {
   fprintf(stderr, "anukrta: [%s]: %s:%d: ", tag, file, line);
-  vfprintf(stderr, fmt, ap);
+  vfprintf(stderr, fmt, ap); /* NOLINT(clang-analyzer-security.VAList) */
   fputc('\n', stderr);
   fflush(stderr); /* abort() doesn't guarantee flushing */
   abort();
