@@ -110,7 +110,7 @@ typedef struct filter_ctx {
   AVFilterContext *buffersink_ctx;
   AVFilterContext *buffersrc_ctx;
   AVFilterGraph *filter_graph;
-  int init;
+  bool init;
 } filter_ctx;
 
 /**
