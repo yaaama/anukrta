@@ -49,7 +49,7 @@
 
 /* Wrapper for av_strerror with our own custom errors */
 static const char *ak_errstr (int err, char *buf, size_t buflen) {
-  switch (err) {
+  switch (err) { /* NOLINT */
     case AK_ERR_FRAME_BLACK:
       return "frame contains no content";
     default:
@@ -59,7 +59,7 @@ static const char *ak_errstr (int err, char *buf, size_t buflen) {
 
 /* writes error string into caller-provided storage */
 static inline char *ak_errstr_r (int err, char *buf, size_t buflen) {
-  switch (err) {
+  switch (err) { /* NOLINT */
     case AK_ERR_FRAME_BLACK:
       av_strlcpy(buf, "frame contains no content", buflen);
       break;
@@ -337,6 +337,8 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
       vreader->fmt_ctx->streams[i]->discard = AVDISCARD_ALL;
     }
   }
+  log_trace("discarded %u non-video stream(s), keeping #%d", vreader->fmt_ctx->nb_streams - 1,
+            vreader->video_stream_idx);
 
   /* Allocate Codec Context */
   AVCodecContext *codec_ctx = AK_OOM(avcodec_alloc_context3(codec));
@@ -396,7 +398,7 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vreader) {
   if (duration == AV_NOPTS_VALUE) {
 
     /* NOTE: Container durations are in microseconds (AV_TIME_BASE) */
-    duration = (vreader->fmt_ctx->duration) > 0 ? vreader->fmt_ctx->duration : 0;
+    duration = vreader->fmt_ctx->duration > 0 ? vreader->fmt_ctx->duration : 0;
     log_info(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
@@ -610,7 +612,7 @@ static AK_NONNULL_ARG(1, 3) bool detect_black_borders (const AVFrame *frame,
    * `row` walks down one scanline per iteration and ends pointing at the first content row  */
   int top = 0;
   const uint8_t *row_ptr = y_plane;
-  while ((top < h) && !(row_has_video(row_ptr, w, threshold))) {
+  while ((top < h) && !row_has_video(row_ptr, w, threshold)) {
     top++;
     row_ptr += linesize;
   }
@@ -870,11 +872,9 @@ static int extract_scaled_matrix (vreader *vr,
 
   int ret = 0;
   ret = normalise_sws_colourspace(vr->sws_ctx, src_range);
-  if (prev_ctx != vr->sws_ctx && requires_color_matrix) {
-    if (ret != 0) {
-      log_error("[%s]: Colourspace normalisation failed: %s", fname, ak_err2str(ret));
-      return ret;
-    }
+  if (prev_ctx != vr->sws_ctx && requires_color_matrix && ret != 0) {
+    log_error("[%s]: Colourspace normalisation failed: %s", fname, ak_err2str(ret));
+    return ret;
   }
 
   /* Setup destination pointers to write DIRECTLY into flat matrix */
