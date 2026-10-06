@@ -354,8 +354,9 @@ ak_report ak_report_build (ak_file_v *files,
   const usize segment_count = config->segments;
 
   for (usize i = 0; i < file_count; i++) {
+    AK_STATUS status = results[i];
     /* File was SKIPPED */
-    if ((results[i] != AK_OK) && (results[i] != AK_STATUS_FILE_CACHED)) {
+    if (status != AK_OK && status != AK_STATUS_FILE_CACHED) {
       kv_push(report.skipped, (u64) i);
       continue;
     }
@@ -388,8 +389,8 @@ ak_report ak_report_build (ak_file_v *files,
 
   /* Every bucket is their own parent in the beginning */
   for (u64 i = 0; i < file_count; i++) {
-
-    if (results[i] != AK_OK && results[i] != AK_STATUS_FILE_CACHED) {
+    AK_STATUS result = results[i];
+    if (result != AK_OK && result != AK_STATUS_FILE_CACHED) {
       continue;
     }
 
@@ -424,12 +425,14 @@ ak_report ak_report_build (ak_file_v *files,
     if (group_size == 1) {
       kv_push(report.unique, pairs[group_start].file_id);
     }
+
     /* Valid group with multiple duplicate files */
     else if (group_size > 1) {
       u64_vec group;
       kv_init(group);
       /* Preallocate vector since we know the group size already */
       kv_ensure_space(group, group_size);
+      log_trace("Group size: %zu. Allocated %zu slots.", group_size, group.capacity);
 
       /* Populate the group vector with the file ids */
       for (usize j = group_start; j < current_idx; j++) {
