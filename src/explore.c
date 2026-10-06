@@ -423,16 +423,14 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
 
     bool is_subset = false;
 
-    /* Check if 'current' starts with 'prev' */
-    if (strncmp(prev, current, prev_len) == 0) {
-
-      /* Ensure it's an exact match or an actual subdirectory,
-       * avoiding similar names (e.g. prev="/dir", curr="/dir-2")
-       * Also handle cases where path is '/'
-       */
-      if ((current[prev_len] == '\0') || (current[prev_len] == '/') || (prev_len == 1 && prev[0] == '/')) {
-        is_subset = true;
-      }
+    /* Check if 'current' starts with 'prev'
+     * Ensure it's an exact match or an actual subdirectory,
+     * avoiding similar names (e.g. prev="/dir", curr="/dir-2")
+     * Also handle cases where path is '/'
+     */
+    if ((strncmp(prev, current, prev_len) == 0) &&
+        ((current[prev_len] == '\0') || (current[prev_len] == '/') || (prev_len == 1 && prev[0] == '/'))) {
+      is_subset = true;
     }
 
     /* If we found a redundant path */
