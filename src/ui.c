@@ -166,8 +166,7 @@ int ak_ui_ctx_init (const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui_ct
 int ak_ui_progress_start (ak_ui_ctx *ctx,
                           atomic_size_t *completed_count,
                           size_t total_count,
-                          const char *label,
-                          int label_len) {
+                          const char *label) {
 
   if (!ctx || !completed_count || total_count == 0) {
     return -1;

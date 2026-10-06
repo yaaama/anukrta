@@ -188,8 +188,7 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
 
   ak_ui_ctx_init(config, term, ui);
   char *progress_label_str = "HASHING";
-  ak_ui_progress_start(ui, &args->completed_count, args->pending_count, progress_label_str,
-                       STRLEN("HASHING"));
+  ak_ui_progress_start(ui, &args->completed_count, args->pending_count, progress_label_str);
 
   int threads_made = 0;
   int threads_joined = 0;

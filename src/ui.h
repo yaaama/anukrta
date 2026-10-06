@@ -50,8 +50,7 @@ AK_DEFINE_AUTO(ui_ctx, ak_ui_ctx *, if (ak__obj) ak_ui_destroy(*ak__obj))
 int ak_ui_progress_start(ak_ui_ctx *ctx,
                          atomic_size_t *completed_count,
                          size_t total_count,
-                         const char *label,
-                         int label_len);
+                         const char *label);
 
 /**
  * Stop the progress monitor thread and clear the progress bar from terminal.
