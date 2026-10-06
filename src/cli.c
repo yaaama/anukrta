@@ -205,7 +205,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
        .has_arg = optional_argument,
        .metavar = "bool",
        .help = "Display a visual progress bar (default: true)."},
-};
+    };
 #undef CLI_HEADING
 
 #define CLI_DEF_COUNT AK_ARRAY_SIZE(cli_opt_defs)
@@ -657,6 +657,8 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
     if (!def) {
       AK_UNREACHABLE(CLI_NAME ": getopt returned an unknown option id");
     }
+
+    AK_CHECK(def->name != NULL);
 
     /* Reject abbreviations */
     if (long_index >= 0) {
