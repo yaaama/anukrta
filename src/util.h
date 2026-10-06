@@ -958,10 +958,6 @@ static AK_ALWAYS_INLINE AK_CONST int64_t ak_time_sec_microsec (double seconds) {
 #define TEBIBYTE(X) (GIBIBYTE(X) * 1024ULL)  ///< TiB to Bytes (IEC)
 /** @} */
 
-static_assert(sizeof(unsigned long long) >= 8,
-              "Unsigned long longs must be at least 64 bits for our hamming distance "
-              "implementation to work.");
-
 /**
  * Calculate hamming distance between two **unsigned** 64-bit integers.
  * Makes use of `__builtin_popcountll() (if available).`.
@@ -971,6 +967,11 @@ static_assert(sizeof(unsigned long long) >= 8,
  * @retval k `X` and `Y` differ by `k` number of bits.
  */
 static AK_ALWAYS_INLINE AK_CONST unsigned int hamming_distance (const uint64_t a, const uint64_t b) {
+
+  static_assert(sizeof(unsigned long long) >= 8,
+                "Unsigned long longs must be at least 64 bits for our hamming distance "
+                "implementation to work.");
+
   uint64_t x = a ^ b;
 
   /* Use popcountll if builtin */
