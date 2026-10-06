@@ -566,8 +566,8 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
  * @def AK_DEFINE_AUTO
  * Creates the wrapper function the compiler actually calls.
  *
- * @param Name The short name to use in AK_AUTO (e.g., free, fd, file).
- * @param type The type of the object (e.g., void*, int, FILE*).
+ * @param Name The short name to use with `AK_AUTO` (e.g., free, fd, file).
+ * @param type The type of the object (e.g., `void*`, `int`, `FILE*`).
  * @param ... The statement to free the object.
  */
 #define AK_DEFINE_AUTO(name, type, ...)                   \
@@ -603,7 +603,7 @@ static AK_ALWAYS_INLINE AK_NO_DISCARD void *ak__ptr_must_check (void *p) {
 
 /**
  * Dummy function to ensure we check the fd after taking ownership of it.
- * (int twin of ak__ptr_must_check — fds aren't pointers.)
+ * (`int` twin of ak__ptr_must_check - fds aren't pointers.)
  */
 static AK_ALWAYS_INLINE AK_NO_DISCARD int ak__fd_must_check (const int fd) {
   return fd;
