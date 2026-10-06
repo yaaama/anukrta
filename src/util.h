@@ -641,66 +641,66 @@ AK_DEFINE_AUTO(file, FILE *, if (*ak__obj) fclose(*ak__obj))
  * @{
  */
 
-/** @brief Unsigned integer with bit position @p */
-#define BIT(n) (1UL << (n))
+/** @brief Unsigned integer with bit position @p n. */
+#define AK_BIT(n) (1UL << (n))
 
 /** @brief 64-bit unsigned integer with bit position @p _n set. */
-#define BIT64(_n) (1ULL << (_n))
+#define AK_BIT64(_n) (1ULL << (_n))
 
 /** @brief Check if a @p x is a power of two */
-#define IS_POWER_OF_TWO(x) (((x) != 0U) && (((x) & ((x) - 1U)) == 0U))
+#define AK_IS_POWER_OF_TWO(x) (((x) != 0U) && (((x) & ((x) - 1U)) == 0U))
 
 /**
  * @brief Is @p x a power of two?
  * @param x value to check
  * @return true if @p x is a power of two, false otherwise
  */
-static inline bool is_power_of_two (unsigned int x) {
-  return IS_POWER_OF_TWO(x);
+static inline bool ak_is_power_of_two (unsigned int x) {
+  return AK_IS_POWER_OF_TWO(x);
 }
 
 /**
- * @def ak_updated_flag
+ * @def AK_UPDATED_FLAG
  * Returns a NEW mask with flag(s) conditionally set or cleared based on 'cond'.
  * @note Does NOT modify the original mask in place.
  */
-#define ak_updated_flag(orig, flag, cond) ((cond) ? ((orig) | (flag)) : ((orig) & ~(flag)))
+#define AK_UPDATED_FLAG(orig, flag, cond) ((cond) ? ((orig) | (flag)) : ((orig) & ~(flag)))
 
 /**
- * @def ak_set_flag_if
+ * @def AK_SET_FLAG_IF
  * Conditionally sets or clears a flag in the bitmask in place.
  *
  * ```c
  * // Sets STATUS_RUNNING if 'is_moving' is true, clears it if false.
- * ak_set_flag_if(player_state, STATUS_RUNNING, is_moving);
+ * AK_SET_FLAG_IF(player_state, STATUS_RUNNING, is_moving);
  * ```
  */
-#define ak_set_flag_if(mask, flag, cond) ((mask) = ak_updated_flag(mask, flag, cond))
+#define AK_SET_FLAG_IF(mask, flag, cond) ((mask) = AK_UPDATED_FLAG(mask, flag, cond))
 
 /**
- * @def ak_flag_all
+ * @def AK_FLAG_SUBSET
  * Checks if ALL specified flags are set.
- * @note If flag is 0, this will return true.
+ * @note If flag is constant value 0, this will return true.
  * ```c
- * if (ak_flag_all(player_state, STATUS_RUNNING | STATUS_POISONED)) {
+ * if (AK_FLAG_SUBSET(player_state, STATUS_RUNNING | STATUS_POISONED)) {
  * printf("Player is losing health fast!\n");
  * }
  * ```
  */
-#define ak_flag_all(mask, flag) ((~(mask) & (flag)) == (0))
+#define AK_FLAG_SUBSET(mask, flags) (((mask) & (flags)) == (flags))
 
 /**
  * @def ak_flag_has
  * Macro for when a single flag is being tested.
  */
 
-#define ak_flag_has(mask, flag) ak_flag_all(mask, flag)
+#define ak_flag_has(mask, flag) AK_FLAG_SUBSET(mask, flag)
 
 /**
- * @def ak_flag_any
+ * @def AK_FLAG_ANY
  * Checks if ANY of the specified flags are set.
  */
-#define ak_flag_any(mask, flag) (((mask) & (flag)) != 0)
+#define AK_FLAG_ANY(mask, flags) (((mask) & (flags)) != 0)
 
 /** @} */  // End BitMacros group
 
