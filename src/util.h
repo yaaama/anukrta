@@ -19,11 +19,12 @@
 #include <string.h> /* IWYU pragma: keep */
 #include <unistd.h>
 
-#define AK_TOSTRING(s) #s
-#define AK_STRINGIFY(s) AK_TOSTRING(s)
+#define AK_STRINGIFY_(s) #s
+/* Turn macro definition into a string  */
+#define AK_STRINGIFY(s) AK_STRINGIFY_(s)
 
-#define AK_GLUE(a, b) a##b
-#define AK_JOIN(a, b) AK_GLUE(a, b)
+#define AK_JOIN_(a, b) a##b
+#define AK_JOIN(a, b) AK_JOIN_(a, b)
 
 #define AK_UNIQ_T(x, uniq) AK_JOIN(__unique_prefix_, AK_JOIN(x, uniq))
 #define AK_UNIQ __COUNTER__
