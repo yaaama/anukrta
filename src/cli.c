@@ -683,7 +683,7 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         rc = verbose_opt(&verbosity, def, optarg); /* now takes u32*, returns 0/-1 */
         break;
       case AK_OPT_THREADS:
-        rc = parse_size_arg(def, optarg, 0, SIZE_MAX, &threads);
+        rc = parse_size_arg(def, optarg, 0, UINT8_MAX, &threads);
         threads_explicit = (rc == 0);
         break;
       case AK_OPT_SEGMENTS:
