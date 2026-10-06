@@ -15,6 +15,7 @@ Checks: >
   -bugprone-signed-bitwise,
   -bugprone-easily-swappable-parameters,
   -bugprone-inc-dec-in-conditions,
+  -bugprone-assignment-in-if-condition,
   -bugprone-reserved-identifier,
   -bugprone-swapped-arguments,
   cert-*,
