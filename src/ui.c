@@ -207,6 +207,8 @@ void ak_ui_progress_stop (ak_ui_ctx *ctx) {
     pthread_join(ctx->monitor_thread, NULL);
   }
 
+  free(ctx->label);
+
   /* Clear the progress bar */
   if (ctx->is_interactive) {
     ak_term_clear_line(stdout);

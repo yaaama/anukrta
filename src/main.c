@@ -181,16 +181,16 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
 
   pthread_t *threads AK_AUTO(free) = xcalloc(final_thread_count, sizeof(*threads));
 
-  ak_term_ctx *term AK_AUTO(term_ctx) = xcalloc(1, sizeof(*term));
-  ak_ui_ctx *ui AK_AUTO(ui_ctx) = xcalloc(1, sizeof(*ui));
+  ak_term_ctx term = {0};
+  ak_ui_ctx ui = {0};
 
-  if (ak_term_ctx_init(term)) {
+  if (ak_term_ctx_init(&term)) {
     log_error("Failed to initialise terminal context.");
   }
 
-  ak_ui_ctx_init(config, term, ui);
+  ak_ui_ctx_init(config, &term, &ui);
   char *progress_label_str = "HASHING";
-  ak_ui_progress_start(ui, &args->completed_count, args->pending_count, progress_label_str);
+  ak_ui_progress_start(&ui, &args->completed_count, args->pending_count, progress_label_str);
 
   int threads_made = 0;
   int threads_joined = 0;
@@ -233,7 +233,7 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
 cleanup:
   {
     /* Stop progress bar and clear it up */
-    ak_ui_progress_stop(ui);
+    ak_ui_progress_stop(&ui);
   }
 
   return ret;
