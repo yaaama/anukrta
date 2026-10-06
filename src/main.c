@@ -137,14 +137,16 @@ static void *hash_worker_thread (void *arg) {
 }
 
 /**
- * Shutdown callback
+ * Shutdown callback.
  * This poisons the work queue.
  * (`q_idx >= pending_count`) will lead to exiting the hashing loop early.
  */
 static void poison_hash_queue (int signo, void *userdata) {
   (void) signo;
   hashing_thread_ctx *tctx = userdata;
-  /* Silence all libav output before quitting out of hashing */
+  /* Silence all libav output before quitting out of hashing
+   * NOTE: I don't think this is actually thread-safe so this may end up causing problems.
+   */
   av_log_set_level(AV_LOG_QUIET);
   atomic_store(&tctx->pending_count, 0);
 }
