@@ -69,7 +69,6 @@ CPPFLAGS := -MMD -MP $(PREPROC_DEFS)
 # Release or Profile
 ifneq ($(filter profile release,$(VARIANT)),)
 	PREPROC_DEFS += -DNDEBUG
-	LDFLAGS += $(COMPILER_RELEASE_LDFLAGS)
 
 	ifeq ($(VARIANT), release)
 		CFLAGS += $(RELEASE_FLAGS)
@@ -231,7 +230,7 @@ $(OBJ_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.c
 $(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(ECHO_V) "Compiling Vendor [optimized] $<..."
-	$(Q)$(CC) $(VENDOR_CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(Q)$(CC) $(VENDOR_CFLAGS) -c $< -o $@
 
 $(SQLITE_OBJ): $(SQLITE_SRC) $(SQLITE_DIR)/sqlite_config.h
 	$(ECHO_V) "Compiling Standalone SQLite [optimized]..."
