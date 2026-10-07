@@ -18,6 +18,21 @@ typedef enum AK_MEDIA_TYPE : int32_t {
   AK_MEDIA_TYPE_AUDIO,
 } AK_MEDIA_TYPE;
 
+static inline char *ak_media_type_to_str (AK_MEDIA_TYPE mediatype) {
+  switch (mediatype) {
+    case AK_MEDIA_TYPE_UNKNOWN:
+      return "UNKNOWN";
+    case AK_MEDIA_TYPE_VIDEO:
+      return "VIDEO";
+    case AK_MEDIA_TYPE_IMAGE:
+      return "IMAGE";
+    case AK_MEDIA_TYPE_AUDIO:
+      return "AUDIO";
+    default:
+      return "ERROR";
+  }
+}
+
 typedef struct ak_file {
   /** Path of file. */
   char *path;

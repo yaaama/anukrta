@@ -64,6 +64,7 @@ static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENER
 typedef enum report_flags : uint32_t {
   REPORT_PRINT_HASHES = (1U << 0),
   REPORT_PRINT_UNIQUE_FILES = (1U << 1),
+  REPORT_FORMAT_JSON = (1U << 2),
 } report_flags;
 
 /* Structure describing the configuration settings to use for this run. */

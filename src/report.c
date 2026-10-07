@@ -17,6 +17,7 @@
 #include "mem.h"
 #include "tree.h"
 #include "util.h"
+#include "yyjson.h"
 
 typedef struct {
   u64 file_id;
@@ -243,24 +244,132 @@ static const char *get_skip_reason_string (AK_STATUS status) {
   }
 }
 
-void ak_report_print (ak_config *config,
-                      ak_report *report,
-                      ak_file_v *files,
-                      AK_STATUS *results,
-                      ak_hash_entry *entries) {
+/**
+ * Add into a file object the hashes of the file.
+ */
+static void insert_hash_array_json (ak_hash_entry *entries,
+                                    u64 file_id,
+                                    size_t segments,
+                                    yyjson_mut_doc *doc,
+                                    yyjson_mut_val *out) {
+  yyjson_mut_val *hashes = yyjson_mut_obj_add_arr(doc, out, "hashes");
+  const ak_hash_entry *file_entries = entries + (file_id * segments);
+  for (usize s = 0; s < segments; s++) {
+    yyjson_mut_arr_add_uint(doc, hashes, file_entries[s].hash);
+  }
+}
+
+/**
+ * Add file information into json object.
+ */
+static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *out) {
+
+  yyjson_mut_obj_add_str(doc, out, "path", file->path);
+  yyjson_mut_obj_add_uint(doc, out, "size", file->size);
+  yyjson_mut_obj_add_str(doc, out, "media_type", ak_media_type_to_str(file->media_type));
+  yyjson_mut_obj_add_int(doc, out, "duration_us", file->duration_us);
+  yyjson_mut_obj_add_int(doc, out, "ctime", file->ctime);
+  yyjson_mut_obj_add_int(doc, out, "mtime", file->mtime);
+}
+
+/**
+ * Generate a report formatted in JSON.
+ */
+static void report_json (ak_config *config,
+                         ak_report *report,
+                         ak_file_v *files,
+                         AK_STATUS *results,
+                         ak_hash_entry *entries) {
+  yyjson_mut_doc *doc = AK_OOM(yyjson_mut_doc_new(NULL));
+
+  /* Create an object, the value's memory is held by doc. */
+  yyjson_mut_val *root = yyjson_mut_obj(doc);
+  yyjson_mut_doc_set_root(doc, root);
+
+  yyjson_mut_obj_add_str(doc, root, "version", AK_VERSION_STR);
+  yyjson_mut_obj_add_str(doc, root, "best_file_strategy",
+                         BEST_FILE_STRAT_STRINGS[config->best_file_strategy]);
+  yyjson_mut_val *dupe_groups_obj = yyjson_mut_obj_add_obj(doc, root, "duplicate_groups");
+  yyjson_mut_val *skipped_files_obj = yyjson_mut_obj_add_obj(doc, root, "skipped_files");
+  yyjson_mut_val *unique_files_obj = yyjson_mut_obj_add_obj(doc, root, "unique_files");
+
+  yyjson_mut_obj_add_uint(doc, unique_files_obj, "count", report->unique.size);
+  yyjson_mut_obj_add_uint(doc, skipped_files_obj, "count", report->skipped.size);
+  yyjson_mut_obj_add_uint(doc, dupe_groups_obj, "count", report->groups.size);
+
+  yyjson_mut_val *unique_files_obj_array = yyjson_mut_obj_add_arr(doc, unique_files_obj, "files");
+  yyjson_mut_val *skipped_files_obj_array = yyjson_mut_obj_add_arr(doc, skipped_files_obj, "files");
+
+  yyjson_mut_val *dupe_groups_obj_array = yyjson_mut_obj_add_arr(doc, dupe_groups_obj, "groups");
+
+  for (usize i = 0; i < kv_size(report->unique); i++) {
+    usize unique_index = kv_A(report->unique, i);
+    ak_file *unique_file = &kv_A(*files, unique_index);
+    yyjson_mut_val *unique_obj = yyjson_mut_obj(doc);
+    file_to_json(unique_file, doc, unique_obj);
+    yyjson_mut_arr_append(unique_files_obj_array, unique_obj);
+  }
+
+  for (size_t i = 0; i < kv_size(report->skipped); i++) {
+    usize skipped_index = kv_A(report->skipped, i);
+    ak_file *skipped_file = &kv_A(*files, skipped_index);
+    yyjson_mut_val *skipped_obj = yyjson_mut_obj(doc);
+    file_to_json(skipped_file, doc, skipped_obj);
+    yyjson_mut_obj_add_str(doc, skipped_obj, "reason", get_skip_reason_string(results[skipped_index]));
+    yyjson_mut_arr_append(skipped_files_obj_array, skipped_obj);
+  }
+
+  bool print_hashes = ak_flag_has(config->report_flags, REPORT_PRINT_HASHES);
+  for (size_t i = 0; i < kv_size(report->groups); i++) {
+    u64_vec *group = &kv_A(report->groups, i);
+    yyjson_mut_val *duplicate_group = yyjson_mut_obj(doc);
+    yyjson_mut_obj_add_uint(doc, duplicate_group, "file_count", kv_size(*group));
+    yyjson_mut_val *group_files_arr = yyjson_mut_obj_add_arr(doc, duplicate_group, "files");
+    yyjson_mut_arr_append(dupe_groups_obj_array, duplicate_group);
+
+    for (usize j = 0; j < kv_size(*group); j++) {
+      usize file_index = kv_A(*group, j);
+      ak_file *file = &kv_A(*files, file_index);
+      yyjson_mut_val *file_obj = yyjson_mut_obj(doc);
+      file_to_json(file, doc, file_obj);
+      if (print_hashes) {
+        insert_hash_array_json(entries, file_index, config->segments, doc, file_obj);
+      }
+      yyjson_mut_arr_append(group_files_arr, file_obj);
+    }
+  }
+
+  size_t report_len = 0;
+  char *json AK_AUTO(free) = yyjson_mut_write(doc, YYJSON_WRITE_PRETTY, &report_len);
+
+  if (!json) {
+    log_error("Failed to serialise JSON report.");
+    return;
+  }
+
+  fputs(json, stdout);
+  fputc('\n', stdout);
+  yyjson_mut_doc_free(doc);
+}
+
+static void report_text (ak_config *config,
+                         ak_report *report,
+                         ak_file_v *files,
+                         AK_STATUS *results,
+                         ak_hash_entry *entries) {
 
   usize group_count = kv_size(report->groups);
+  size_t unique_count = kv_size(report->unique);
+  size_t skipped_count = kv_size(report->skipped);
 
-  if (group_count == 0) {
-    printf("No duplicate groups found.\n");
+  if (group_count == 0 && unique_count == 0 && skipped_count == 0) {
+    printf("No duplicates, unique files or skipped files were found!\n");
     return;
   }
 
   printf("\n=== Duplicate Report: ===\n");
 
   usize file_count = kv_size(*files);
-  size_t unique_count = kv_size(report->unique);
-  size_t skipped_count = kv_size(report->skipped);
   const char *strat_str = BEST_FILE_STRAT_STRINGS[config->best_file_strategy];
 
   printf("Found %zu duplicate groups from %zu files\n", group_count, file_count);
@@ -297,6 +406,19 @@ void ak_report_print (ak_config *config,
     i32 status = results[file_id];
     print_file_item(config, files, status, NULL, file_id, "  ");
     printf("        -> Reason: %s\n", get_skip_reason_string(status));
+  }
+}
+
+void ak_report_print (ak_config *config,
+                      ak_report *report,
+                      ak_file_v *files,
+                      AK_STATUS *results,
+                      ak_hash_entry *entries) {
+
+  if (ak_flag_has(config->report_flags, REPORT_FORMAT_JSON)) {
+    report_json(config, report, files, results, entries);
+  } else {
+    report_text(config, report, files, results, entries);
   }
 }
 

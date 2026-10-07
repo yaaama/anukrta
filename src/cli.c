@@ -49,6 +49,7 @@ typedef enum ak_cli_opt_id {  // NOLINT (*enum-initial-value)
   AK_OPT_DETECT_ROTATION,
   AK_OPT_PRINT_HASHES,
   AK_OPT_PRINT_UNIQUE,
+  AK_OPT_REPORT_FORMAT,
 
   /** Synthetic id: a positional path argument (never produced by getopt). */
   AK_CLI_OPT_POSITIONAL = 512,
@@ -178,6 +179,14 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .has_arg = optional_argument,
       .metavar = "bool",
       .help = "Include unique files in final report (default: true)."},
+
+     /* --format */
+     {.val = AK_OPT_REPORT_FORMAT,
+      .name = "format",
+      .short_name = 0,
+      .has_arg = required_argument,
+      .metavar = "str",
+      .help = "Format of report. Valid outputs: [text, json]. (default: text)"},
 
      CLI_HEADING("Execution & Storage"),
 
@@ -531,6 +540,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   PRINT_HEADING("Report Flags");
   PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, REPORT_PRINT_HASHES));
   PRINT_CONFIG_STR("Print Unique Files in Report", FLAG_VAL(reportflags, REPORT_PRINT_UNIQUE_FILES));
+  PRINT_CONFIG_STR("Report Format", ak_flag_has(reportflags, REPORT_FORMAT_JSON) ? "JSON" : "text");
 
   PRINT_HEADING("Detection Flags");
   PRINT_CONFIG_STR("Detect Bars", FLAG_VAL(detflags, DETECT_BARS));
@@ -608,6 +618,26 @@ static void resolve_threads (ak_config *config, size_t threads, bool threads_exp
     count = available;
   }
   config->thread_count = count;
+}
+
+/**
+ * @brief Maps a --format string to the report format flag.
+ * @retval 0 on success, -1 on an unrecognised format.
+ */
+static int report_format_opt (flags32 *report_flags, const ak_cli_opt_def *def, const char *arg) {
+  if (strcasecmp(arg, "json") == 0) {
+    *report_flags |= REPORT_FORMAT_JSON;
+    return 0;
+  }
+  if (strcasecmp(arg, "text") == 0) {
+    *report_flags &= ~REPORT_FORMAT_JSON;
+    return 0;
+  }
+
+  char invoked[64];
+  def_display(invoked, sizeof(invoked), def);
+  fprintf(stderr, "[%s] Error: %s expects one of [json, text], got '%s'.\n", CLI_NAME, invoked, arg);
+  return -1;
 }
 
 ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *paths, FILE *err) {
@@ -702,6 +732,9 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
 
       case AK_OPT_PRINT_UNIQUE:
         rc = bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES, true, def, optarg);
+        break;
+      case AK_OPT_REPORT_FORMAT:
+        rc = report_format_opt(&config->report_flags, def, optarg);
         break;
 
       case AK_OPT_DETECT_BLACK_FRAME:
