@@ -49,7 +49,7 @@ static void unite_sets (usize i, usize j, usize *restrict parent, usize *restric
   }
 }
 
-static const char *units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
+static const char *const units_iec[] = {"B", "KiB", "MiB", "GiB", "TiB"};
 static const int UNITS_IEC_COUNT = AK_ARRAY_SIZE(units_iec);
 
 char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
@@ -75,7 +75,7 @@ char *get_human_sizing_iec (u64 n_bytes, char *buf, usize buf_size) {
   if ((size_t) c >= buf_size) {
     ak_memzero_sz(buf, buf_size);
     return NULL;
-  };
+  }
   return buf;
 }
 
@@ -235,9 +235,9 @@ static void print_file_item (const ak_config *config,
 static const char *get_skip_reason_string (AK_STATUS status) {
   switch (status) {
     case AK_SKIP_SHORT_DURATION:
-      return "VIDEO TOO SHORT";
+      return "VID_SHORT";
     case AK_IO_FAIL:
-      return "I/O FAILURE";
+      return "IO_FAIL";
     default:
       return "UNKNOWN";
   }
@@ -322,6 +322,10 @@ static int compare_uf_pairs (const void *a, const void *b) {
   return 0;
 }
 
+static AK_ALWAYS_INLINE bool status_is_hashed (AK_STATUS s) {
+  return (s == AK_OK || s == AK_STATUS_FILE_CACHED);
+}
+
 ak_report ak_report_build (ak_file_v *files,
                            AK_STATUS *results,
                            ak_hash_entry *entries,
@@ -356,7 +360,7 @@ ak_report ak_report_build (ak_file_v *files,
   for (usize i = 0; i < file_count; i++) {
     AK_STATUS status = results[i];
     /* File was SKIPPED */
-    if (status != AK_OK && status != AK_STATUS_FILE_CACHED) {
+    if (!status_is_hashed(status)) {
       kv_push(report.skipped, (u64) i);
       continue;
     }
@@ -371,7 +375,7 @@ ak_report ak_report_build (ak_file_v *files,
       /* Process matches for this segment */
       usize results_count = kv_size(segment_results);
       for (usize j = 0; j < results_count; j++) {
-        u64 node_id = kv_A(segment_results, j);
+        usize node_id = kv_A(segment_results, j);
         unite_sets(i, node_id, parent, rank);
       }
     }
@@ -388,9 +392,9 @@ ak_report ak_report_build (ak_file_v *files,
   usize valid_count = 0;
 
   /* Every bucket is their own parent in the beginning */
-  for (u64 i = 0; i < file_count; i++) {
+  for (usize i = 0; i < file_count; i++) {
     AK_STATUS result = results[i];
-    if (result != AK_OK && result != AK_STATUS_FILE_CACHED) {
+    if (!status_is_hashed(result)) {
       continue;
     }
 
