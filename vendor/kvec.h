@@ -371,6 +371,7 @@ static inline size_t kv_roundup_size (size_t n) {
     const size_t kvec_n_ = (size_t) (len);                                                          \
     if (kvec_n_ > 0) {                                                                              \
       kv_ensure_space(v, kvec_n_);                                                                  \
+      kvec_bound_((v).items != NULL);                                                               \
       memcpy((void *) ((v).items + (v).size), (const void *) kvec_src_, kvec_bytes_((v), kvec_n_)); \
       (v).size = kv_checked_add((v).size, kvec_n_);                                                 \
     }                                                                                               \
@@ -391,15 +392,19 @@ static inline size_t kv_roundup_size (size_t n) {
  * NOTE: (v0).items is intentionally re-read AFTER kv_ensure_space():
  * when v1 == v0 the ensure may reallocate, and a cached pointer would dangle.
  */
-#define kv_splice(v1, v0)                                                                                 \
-  ({                                                                                                      \
-    KVEC_ASSERT_SAME_TYPE((v1).items[0], (v0).items[0], "kv_splice: element types differ");               \
-    if ((v0).size > 0) {                                                                                  \
-      kv_ensure_space(v1, (v0).size);                                                                     \
-      memcpy((void *) ((v1).items + (v1).size), (const void *) (v0).items, kvec_bytes_((v1), (v0).size)); \
-      (v1).size = kv_checked_add((v1).size, (v0).size);                                                   \
-    }                                                                                                     \
-    (v1).size;                                                                                            \
+#define kv_splice(v1, v0)                                                                   \
+  ({                                                                                        \
+    KVEC_ASSERT_SAME_TYPE((v1).items[0], (v0).items[0], "kv_splice: element types differ"); \
+    size_t kv_v0_size_ = (v0).size;                                                         \
+    if (kv_v0_size_ > 0) {                                                                  \
+      kv_ensure_space(v1, kv_v0_size_);                                                     \
+      /* ensure space for >0 elems implies a live buffer */                                 \
+      kvec_bound_((v1).items != NULL);                                                      \
+      memcpy((void *) ((v1).items + (v1).size), (const void *) (v0).items,                  \
+             kvec_bytes_((v1), kv_v0_size_));                                               \
+      (v1).size = kv_checked_add((v1).size, kv_v0_size_);                                   \
+    }                                                                                       \
+    (v1).size;                                                                              \
   })
 
 /**
