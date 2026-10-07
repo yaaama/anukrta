@@ -22,7 +22,6 @@
 #include "util.h"
 
 #define CLI_NAME "anukrta"
-#define AK_VERSION "0.0.1"
 
 #define AK_MAX_VERBOSITY 4
 #define HELP_OPT_WIDTH 30
@@ -677,7 +676,7 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         print_help(stdout);
         return AK_CLI_EXIT_OK;
       case AK_OPT_VERSION:
-        printf("%s - version: " AK_VERSION "\n", argv[0]);
+        printf("%s - version: " AK_VERSION_STR "\n", argv[0]);
         return AK_CLI_EXIT_OK;
       case AK_OPT_VERBOSE:
         rc = verbose_opt(&verbosity, def, optarg); /* now takes u32*, returns 0/-1 */

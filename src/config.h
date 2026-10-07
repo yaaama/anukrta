@@ -6,6 +6,9 @@
 #include "defs.h"
 #include "util.h"
 
+#define AK_VERSION 0.0.1
+#define AK_VERSION_STR AK_STRINGIFY(AK_VERSION)
+
 typedef enum ak_hash_type {
   AK_HASH_ALGO_AVERAGE = 0, /**< TODO Implement an average hash. */
   AK_HASH_ALGO_DCT,         /**< Standard DCT hashing. */
