@@ -150,7 +150,7 @@ SQLITE_OBJ = $(SQLITE_DIR)/sqlite_vendored.o
 #   Vendor Compilation Flags
 # ==========================================
 # We want vendor code to be optimised + no warnings + no debugging
-VENDOR_CFLAGS := -O3 -g -w -DNDEBUG $(COMPILER_CFLAGS) $(COMPILER_RELEASE_FLAGS) $(SAN_FLAGS)
+VENDOR_CFLAGS := $(COMPILER_CFLAGS) -O3 -g -w -DNDEBUG $(SAN_FLAGS)
 
 TEST_CFLAGS := $(CFLAGS) -w $(TEST_COMPILER_CFLAGS)
 
