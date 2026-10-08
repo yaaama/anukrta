@@ -11,7 +11,6 @@
 #include <string.h>
 #include <time.h>
 
-#include "config.h"
 #include "defs.h"
 #include "log.h"
 #include "term.h"
@@ -132,14 +131,10 @@ void ak_ui_destroy (ak_ui_ctx *ctx) {
     ak_ui_progress_stop(ctx);
   }
 
-  if (ctx->label) {
-    free(ctx->label);
-  }
-
   free(ctx);
 }
 
-int ak_ui_ctx_init (const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui_ctx) {
+int ak_ui_ctx_init (ak_term_ctx *term, ak_ui_ctx *ui_ctx) {
 
   /* Enable interactive progress bar only if:
    * - Is not explicitly disabled
@@ -147,19 +142,19 @@ int ak_ui_ctx_init (const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui_ct
    * - Not a dumb terminal
    * - Terminal was initialized properly
    * - Verbosity level is 0 (verbosity > 0 will conflict with progress output) */
+  if (!term->initialised) {
+    log_debug("Can't set up ui context: Terminal context wasn't initialised.");
+    return -1;
+  }
 
   ui_ctx->term = term;
   ui_ctx->label = NULL;
   ui_ctx->completed_count = NULL;
   ui_ctx->total_count = 0;
 
-  /* Enable progress bar only if interactive, supported, and verbosity == 0 */
-  bool flag_enabled = ak_flag_has(config->runtime_flags, RT_PROGRESS_BAR);
-  bool can_render = (term->is_tty && term->supports_ansi);
-  bool quiet = (config->verbosity == 0);
-
-  ui_ctx->is_interactive = (flag_enabled && can_render && quiet);
+  ui_ctx->is_interactive = (term && term->is_tty && term->supports_ansi);
   atomic_store(&ui_ctx->is_active, false);
+  log_debug("Initialised ui context.");
   return 0;
 }
 
@@ -181,7 +176,7 @@ int ak_ui_progress_start (ak_ui_ctx *ctx,
 
   ctx->completed_count = completed_count;
   ctx->total_count = total_count;
-  ctx->label = strdup(label);
+  ctx->label = label;
 
   clock_gettime(CLOCK_MONOTONIC, &ctx->start_time);
   atomic_store(&ctx->is_active, true);
@@ -195,7 +190,7 @@ int ak_ui_progress_start (ak_ui_ctx *ctx,
 }
 
 void ak_ui_progress_stop (ak_ui_ctx *ctx) {
-  if (!ctx) {
+  if (!ctx || ctx->term == NULL) {
     return;
   }
   if (!atomic_load(&ctx->is_active)) {
@@ -206,8 +201,6 @@ void ak_ui_progress_stop (ak_ui_ctx *ctx) {
   if (ctx->monitor_thread) {
     pthread_join(ctx->monitor_thread, NULL);
   }
-
-  free(ctx->label);
 
   /* Clear the progress bar */
   if (ctx->is_interactive) {

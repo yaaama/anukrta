@@ -51,8 +51,9 @@ typedef struct ak_term_ctx {
   int term_width;      /**< Width of terminal. */
   int term_height;     /**< Height of terminal. */
   bool is_tty;         /**< Is running in TTY. */
-  bool supports_ansi;  /**< Terminal is DUMB (no colour, or no escape processing etc). */
+  bool supports_ansi;  /**< Terminal is DUMB (no colour, or no escape-code processing etc). */
   bool colour_enabled; /**< Colour is enabled for output. */
+  bool initialised;    /**< Term successfully initialised. */
 } ak_term_ctx;
 
 static AK_ALWAYS_INLINE void ak_term_cursor_hide (FILE *stream) {

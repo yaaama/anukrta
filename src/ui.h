@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <time.h>
 
-#include "config.h"
 #include "term.h"
 #include "util.h"
 
@@ -14,7 +13,7 @@
 typedef struct ak_ui_ctx {
   struct timespec start_time;
   ak_term_ctx *term;
-  char *label;
+  const char *label;
   pthread_t monitor_thread;
   atomic_size_t *completed_count;
   size_t total_count;
@@ -29,7 +28,7 @@ typedef struct ak_ui_ctx {
  * @param term Pointer to terminal struct context
  * @return Pointer to allocated UI context, or NULL on failure.
  */
-int ak_ui_ctx_init(const ak_config *config, ak_term_ctx *term, ak_ui_ctx *ui);
+int ak_ui_ctx_init(ak_term_ctx *term, ak_ui_ctx *ui);
 
 /**
  * Destroy UI context, restore terminal state, and free memory.

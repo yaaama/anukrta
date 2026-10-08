@@ -119,6 +119,7 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
     .is_tty = false,
     .supports_ansi = false,
     .colour_enabled = false,
+    .initialised = false,
   };
 
   ctx->is_tty = (isatty(STDOUT_FILENO) == 1);
@@ -127,7 +128,7 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
    * TODO should probably check if stderr is a tty too */
   if (!ctx->is_tty) {
     log_info("Standard output is not a TTY.");
-    return 0;
+    return 1;
   }
 
   ctx->supports_ansi = (ctx->is_tty && !env_term_is_dumb());
@@ -137,5 +138,6 @@ int ak_term_ctx_init (ak_term_ctx *ctx) {
     log_info("Failed to retrieve terminal dimensions, using default.");
   }
 
+  ctx->initialised = true;
   return 0;
 }

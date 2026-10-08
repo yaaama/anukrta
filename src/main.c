@@ -151,6 +151,11 @@ static void poison_hash_queue (int signo, void *userdata) {
   atomic_store(&tctx->pending_count, 0);
 }
 
+/** Check for whether we should initialise & display the progress bar. */
+static bool should_display_progress_bar (ak_config *config) {
+  return ak_flag_has(config->runtime_flags, RT_PROGRESS_BAR) && (config->verbosity == 0);
+}
+
 /**
  * Spawn and manage worker threads to hash pending files.
  *
@@ -183,14 +188,16 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
 
   ak_term_ctx term = {0};
   ak_ui_ctx ui = {0};
+  const char progress_label_str[] = "HASHING\0";
 
-  if (ak_term_ctx_init(&term)) {
-    log_error("Failed to initialise terminal context.");
+  bool display_progress = should_display_progress_bar(config);
+  if (ak_term_ctx_init(&term) == 0 && ak_ui_ctx_init(&term, &ui) == 0) {
+    log_debug("Starting progress bar...");
+    ak_ui_progress_start(&ui, &args->completed_count, args->pending_count, progress_label_str);
+  } else {
+    display_progress = false;
+    log_error("Failed to initialise terminal/ui context.");
   }
-
-  ak_ui_ctx_init(config, &term, &ui);
-  char *progress_label_str = "HASHING";
-  ak_ui_progress_start(&ui, &args->completed_count, args->pending_count, progress_label_str);
 
   int threads_made = 0;
   int threads_joined = 0;
@@ -233,7 +240,9 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
 cleanup:
   {
     /* Stop progress bar and clear it up */
-    ak_ui_progress_stop(&ui);
+    if (display_progress) {
+      ak_ui_progress_stop(&ui);
+    }
   }
 
   return ret;
