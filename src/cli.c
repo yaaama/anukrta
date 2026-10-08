@@ -624,13 +624,13 @@ static void resolve_threads (ak_config *config, size_t threads, bool threads_exp
  * @brief Maps a --format string to the report format flag.
  * @retval 0 on success, -1 on an unrecognised format.
  */
-static int report_format_opt (flags32 *report_flags, const ak_cli_opt_def *def, const char *arg) {
+static int report_format_opt (flags32 *rep_flags, const ak_cli_opt_def *def, const char *arg) {
   if (strcasecmp(arg, "json") == 0) {
-    *report_flags |= REPORT_FORMAT_JSON;
+    *rep_flags |= REPORT_FORMAT_JSON;
     return 0;
   }
   if (strcasecmp(arg, "text") == 0) {
-    *report_flags &= ~REPORT_FORMAT_JSON;
+    *rep_flags &= ~REPORT_FORMAT_JSON;
     return 0;
   }
 
