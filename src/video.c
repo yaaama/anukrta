@@ -131,17 +131,17 @@ static int av_interrupt_cb (void *opaque) {
  *
  * @param [in] vreader vreader to destroy.
  */
-static void vreader_close (vreader *vreader) {
-  if (!vreader) {
+static void vreader_close (vreader *vr) {
+  if (!vr) {
     return;
   }
-  av_packet_free(&vreader->packet);
-  sws_freeContext(vreader->sws_ctx);
-  sws_freeContext(vreader->grey_sws_ctx);
-  av_frame_free(&vreader->frame);
-  av_frame_free(&vreader->grey_frame);
-  avcodec_free_context(&vreader->codec_ctx);
-  avformat_close_input(&vreader->fmt_ctx);
+  av_packet_free(&vr->packet);
+  sws_freeContext(vr->sws_ctx);
+  sws_freeContext(vr->grey_sws_ctx);
+  av_frame_free(&vr->frame);
+  av_frame_free(&vr->grey_frame);
+  avcodec_free_context(&vr->codec_ctx);
+  avformat_close_input(&vr->fmt_ctx);
 }
 
 /**
@@ -154,8 +154,8 @@ AK_DEFINE_AUTO(vreader_close, vreader, vreader_close(ak__obj))
  *
  * @return Pointer to video stream (AVStream).
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreader *vreader) {
-  return vreader->fmt_ctx->streams[vreader->video_stream_idx];
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreader *vr) {
+  return vr->fmt_ctx->streams[vr->video_stream_idx];
 }
 
 /**
@@ -163,8 +163,8 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreade
  *
  * @return The URL of the file as a char pointer.
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (vreader *vreader) {
-  return vreader->fmt_ctx->url;
+static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (vreader *vr) {
+  return vr->fmt_ctx->url;
 }
 
 /**
@@ -260,16 +260,14 @@ static bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
  * once you are done with it.
  *
  * @param f_path File path.
- * @param vreader Video reader to initialise. `vreader` must already be allocated.
+ * @param vr Video reader to initialise. `vr` must already be allocated.
  * @return AK_OK if success, anything else is an error.
  *
  */
-static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
-                                                 ak_signals_ctx *signals,
-                                                 vreader *vreader) {
+static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path, ak_signals_ctx *signals, vreader *vr) {
 
   /* Assign video stream index to an invalid index by default */
-  vreader->video_stream_idx = -1;
+  vr->video_stream_idx = -1;
 
   int errcode = 0;
 
@@ -277,11 +275,11 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
    * Initialise FORMAT CONTEXT.
    * This step will check if file is existent, can be opened, etc.
    */
-  vreader->fmt_ctx = AK_OOM(avformat_alloc_context());
+  vr->fmt_ctx = AK_OOM(avformat_alloc_context());
 
-  vreader->fmt_ctx->interrupt_callback = (AVIOInterruptCB){.callback = av_interrupt_cb, .opaque = signals};
+  vr->fmt_ctx->interrupt_callback = (AVIOInterruptCB){.callback = av_interrupt_cb, .opaque = signals};
   /* Opens input file and guesses format of file */
-  errcode = avformat_open_input(&vreader->fmt_ctx, f_path, NULL, NULL);
+  errcode = avformat_open_input(&vr->fmt_ctx, f_path, NULL, NULL);
 
   if (errcode != 0) {
     log_error("[%s] Could not open file: (%s)", f_path, ak_err2str(errcode));
@@ -293,7 +291,7 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
      method above missed.
    * `avformat_open_input` will only read header of file (which may not always be accurate).
    */
-  errcode = avformat_find_stream_info(vreader->fmt_ctx, NULL);
+  errcode = avformat_find_stream_info(vr->fmt_ctx, NULL);
   if (errcode < 0) {
     log_error("[%s] Failed to read both file header and stream info. (%s)", f_path, ak_err2str(errcode));
     return errcode;
@@ -307,16 +305,16 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
    */
   const AVCodec *codec = NULL;
 
-  vreader->video_stream_idx = av_find_best_stream(vreader->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
+  vr->video_stream_idx = av_find_best_stream(vr->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, -1);
 
   /* Check to see if we successfully got the video stream */
-  if (vreader->video_stream_idx < 0) {
-    if (vreader->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
+  if (vr->video_stream_idx < 0) {
+    if (vr->video_stream_idx == AVERROR_DECODER_NOT_FOUND) {
       log_error("[%s] No decoder found for stream.", f_path);
-    } else if (vreader->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
+    } else if (vr->video_stream_idx == AVERROR_STREAM_NOT_FOUND) {
       log_error("[%s] No video stream found.", f_path);
     } else {
-      log_error("[%s] Failed to find best stream: %s", f_path, ak_err2str(vreader->video_stream_idx));
+      log_error("[%s] Failed to find best stream: %s", f_path, ak_err2str(vr->video_stream_idx));
     }
     return errcode;
   }
@@ -327,27 +325,27 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
     return AVERROR_DECODER_NOT_FOUND;
   }
 
-  AVStream *vid_stream = vreader_video_stream(vreader);
+  AVStream *vid_stream = vreader_video_stream(vr);
 
-  log_trace("[%s] Video stream idx: [%d]", f_path, vreader->video_stream_idx);
+  log_trace("[%s] Video stream idx: [%d]", f_path, vr->video_stream_idx);
 
   /* Discard ALL non-video streams */
-  for (unsigned int i = 0; i < vreader->fmt_ctx->nb_streams; i++) {
-    if (i != (unsigned int) vreader->video_stream_idx) {
-      vreader->fmt_ctx->streams[i]->discard = AVDISCARD_ALL;
+  for (unsigned int i = 0; i < vr->fmt_ctx->nb_streams; i++) {
+    if (i != (unsigned int) vr->video_stream_idx) {
+      vr->fmt_ctx->streams[i]->discard = AVDISCARD_ALL;
     }
   }
-  log_trace("discarded %u non-video stream(s), keeping #%d", vreader->fmt_ctx->nb_streams - 1,
-            vreader->video_stream_idx);
+  log_trace("discarded %u non-video stream(s), keeping #%d", vr->fmt_ctx->nb_streams - 1,
+            vr->video_stream_idx);
 
   /* Allocate Codec Context */
   AVCodecContext *codec_ctx = AK_OOM(avcodec_alloc_context3(codec));
 
-  vreader->codec_ctx = codec_ctx;
+  vr->codec_ctx = codec_ctx;
 
   /* Get codec parameters required for video stream */
   AVCodecParameters *codec_params = vid_stream->codecpar;
-  errcode = avcodec_parameters_to_context(vreader->codec_ctx, codec_params);
+  errcode = avcodec_parameters_to_context(vr->codec_ctx, codec_params);
   if (errcode < 0) {
     log_error("[%s] Could not initialise codec with supplied parameters (%s)", f_path, ak_err2str(errcode));
     return errcode;
@@ -358,13 +356,13 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
    * NOTE: This must come AFTER `avcodec_parameters_to_context` so that our overrides aren't overriden
    */
 
-  codec_ctx->thread_count = 1; /* NOTE: Set thread count to prevent CACHE THRASHING */
-  vreader->codec_ctx->skip_loop_filter = AVDISCARD_ALL; /* Disable applying filter to speed up decoding */
-  vreader->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST; /* Enable speedup tricks whilst decoding the video */
-  vreader->codec_ctx->skip_frame = AVDISCARD_NONREF; /* Skip frames that are not reference frames */
+  codec_ctx->thread_count = 1;                     /* NOTE: Set thread count to prevent CACHE THRASHING */
+  vr->codec_ctx->skip_loop_filter = AVDISCARD_ALL; /* Disable applying filter to speed up decoding */
+  vr->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;    /* Enable speedup tricks whilst decoding the video */
+  vr->codec_ctx->skip_frame = AVDISCARD_NONREF;    /* Skip frames that are not reference frames */
 
   /* Initialise the codec context for use with our codec */
-  errcode = avcodec_open2(vreader->codec_ctx, codec, NULL);
+  errcode = avcodec_open2(vr->codec_ctx, codec, NULL);
   if (errcode < 0) {
     log_error("[%s] Failed to initialise codec context %s (%s)", f_path, codec->long_name,
               ak_err2str(errcode));
@@ -372,8 +370,8 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
   }
 
   /* Alloc Buffers */
-  vreader->frame = AK_OOM(av_frame_alloc());
-  vreader->packet = AK_OOM(av_packet_alloc());
+  vr->frame = AK_OOM(av_frame_alloc());
+  vr->packet = AK_OOM(av_packet_alloc());
 
   return 0;
 }
@@ -386,9 +384,9 @@ static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path,
  * @return Duration of video in microseconds.
  *
  */
-static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vreader) {
+static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vr) {
 
-  AVStream *vid_stream = vreader_video_stream(vreader);
+  AVStream *vid_stream = vreader_video_stream(vr);
 
   /* duration in stream-base */
   int64_t duration = vid_stream->duration;
@@ -398,11 +396,11 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vreader) {
   if (duration == AV_NOPTS_VALUE) {
 
     /* NOTE: Container durations are in microseconds (AV_TIME_BASE) */
-    duration = vreader->fmt_ctx->duration > 0 ? vreader->fmt_ctx->duration : 0;
+    duration = vr->fmt_ctx->duration > 0 ? vr->fmt_ctx->duration : 0;
     log_info(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
-        vreader->fname, ak_time_microsec_sec(duration));
+        vr->fname, ak_time_microsec_sec(duration));
     return duration;
   }
 
@@ -415,19 +413,18 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vreader) {
  *
  * Seeks to nearest preceding keyframe from target timestamp.
  *
- * @param vreader VideoReader instance.
+ * @param vr VideoReader instance.
  * @param target_pts_streambase Target time stamp (in streams own time base).
  * @return 0 on success, libav's error code on on failure.
  */
-static int vreader_seek_pts (vreader *vreader, int64_t target_pts_streambase) {
+static int vreader_seek_pts (vreader *vr, int64_t target_pts_streambase) {
 
   /* Perform seek
    *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
    jump to the nearest keyframe BEFORE this timestamp.
    *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
    * frame number (rarely works well), so we stick to TimeStamp seeking. */
-  int ret = av_seek_frame(vreader->fmt_ctx, vreader->video_stream_idx, target_pts_streambase,
-                          AVSEEK_FLAG_BACKWARD);
+  int ret = av_seek_frame(vr->fmt_ctx, vr->video_stream_idx, target_pts_streambase, AVSEEK_FLAG_BACKWARD);
 
   if (ret < 0) {
     return ret;
@@ -436,26 +433,26 @@ static int vreader_seek_pts (vreader *vreader, int64_t target_pts_streambase) {
   /* Flush the decoder buffers after a SUCCESSFUL seek.
    * If we don't do this, the decoder might return cached frames from the
    * old position before decoding frames from the new position. */
-  avcodec_flush_buffers(vreader->codec_ctx);
+  avcodec_flush_buffers(vr->codec_ctx);
   return 0;
 }
 
 /**
  * @brief Get a video frame.
- * @param [in] vreader An instance of a vreader.
+ * @param [in] vr An instance of a vreader.
  * @return Integer.
  * @retval 0 When successfully decoding packet.
  * @retval -1 End of file.
  * @retval -11 Error, please try again.
  * @retval Anything else is an unknown error.
  */
-static int vreader_decode_frame (vreader *vreader) {
+static int vreader_decode_frame (vreader *vr) {
   int ret = 0;
-  AVCodecContext *codec_ctx = vreader->codec_ctx;
+  AVCodecContext *codec_ctx = vr->codec_ctx;
 
   for (;;) {
     /* Try to grab a decoded frame first */
-    ret = avcodec_receive_frame(codec_ctx, vreader->frame);
+    ret = avcodec_receive_frame(codec_ctx, vr->frame);
 
     if (ret >= 0) {
       /* Success: We have a frame */
@@ -467,12 +464,12 @@ static int vreader_decode_frame (vreader *vreader) {
     }
     if (ret != AVERROR(EAGAIN)) {
       /* Fatal decoding error */
-      log_error("[%s] Error receiving frame: %s", vreader->fname, ak_err2str(ret));
+      log_error("[%s] Error receiving frame: %s", vr->fname, ak_err2str(ret));
       return ret;
     }
 
     /* EAGAIN means the decoder needs more data. Read a packet. */
-    ret = av_read_frame(vreader->fmt_ctx, vreader->packet);
+    ret = av_read_frame(vr->fmt_ctx, vr->packet);
     if (ret == AVERROR_EOF) {
       /* Flush the decoder and loop back to receive the remaining frames */
       ret = avcodec_send_packet(codec_ctx, NULL);
@@ -489,21 +486,21 @@ static int vreader_decode_frame (vreader *vreader) {
     }
 
     if (ret < 0) {
-      log_warn("[%s] Decoding error: %s", vreader->fname, ak_err2str(ret));
+      log_warn("[%s] Decoding error: %s", vr->fname, ak_err2str(ret));
       return ret;
     }
 
     /* Send the correct video packet to the decoder */
-    ret = avcodec_send_packet(codec_ctx, vreader->packet);
+    ret = avcodec_send_packet(codec_ctx, vr->packet);
 
-    av_packet_unref(vreader->packet);
+    av_packet_unref(vr->packet);
 
     if (ret == AVERROR(ENOMEM) || ret == AVERROR_EXIT) {
       return ret;
     }
 
     if (ret < 0) {
-      log_warn("[%s] Decoding error: %s", vreader->fname, ak_err2str(ret));
+      log_warn("[%s] Decoding error: %s", vr->fname, ak_err2str(ret));
       return ret;
     }
 
@@ -514,29 +511,29 @@ static int vreader_decode_frame (vreader *vreader) {
 /**
  * Seeks video to target pts, and then decodes forward til target is reached or PTS is > min pts.
  *
- * @param vreader Video reader.
+ * @param vr Video reader.
  * @param target_pts_streambase Target pts to reach.
  * @param min_pts_streambase Minimum value of PTS to reach before returning.
  * @return 0 if success, AV_ERR_ on failure.
  *
  */
-static int vreader_seek_decode_to_target (vreader *vreader,
+static int vreader_seek_decode_to_target (vreader *vr,
                                           int64_t target_pts_streambase,
                                           int64_t min_pts_streambase) {
 
   AK_ASSUME(target_pts_streambase >= 0);
-  int ret = vreader_seek_pts(vreader, target_pts_streambase);
+  int ret = vreader_seek_pts(vr, target_pts_streambase);
   if (ret != 0) {
     return ret;
   }
 
   for (;;) {
-    ret = vreader_decode_frame(vreader);
+    ret = vreader_decode_frame(vr);
     if (ret != 0) {
       return ret; /* EOF or decoding error */
     }
 
-    int64_t current_pts_sb = get_frame_pts(vreader->frame);
+    int64_t current_pts_sb = get_frame_pts(vr->frame);
 
     /* Check if we reach desired target pts OR we reach a frame higher than minimum pts */
     if ((current_pts_sb >= target_pts_streambase) && (current_pts_sb > min_pts_streambase)) {
@@ -1114,17 +1111,17 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   int target_segments = (int) config->segments;
   int ret = AK_OK;
 
-  vreader vreader AK_AUTO(vreader_close) = {0};
+  vreader vr AK_AUTO(vreader_close) = {0};
 
   /* Setup video reader */
-  ret = vreader_init(file->path, signals, &vreader);
+  ret = vreader_init(file->path, signals, &vr);
   if (ret != 0) {
     return (ret == AVERROR(ENOMEM)) ? AK_OOM : AK_IO_FAIL;
   }
-  vreader.fname = ak_file_name(file);
-  const char *vr_fname = vreader.fname;
+  vr.fname = ak_file_name(file);
+  const char *vr_fname = vr.fname;
 
-  file->duration_us = vreader_get_duration(&vreader);
+  file->duration_us = vreader_get_duration(&vr);
   double duration_s = ak_time_microsec_sec(file->duration_us);
 
   /* As long as this is true we won't break anything when we cast for libav */
@@ -1170,7 +1167,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   uint8_t matrix[AK_PHASH_TOTAL_PIXELS] = {0};
 
   /* Video stream */
-  AVStream *video_stream = vreader_video_stream(&vreader);
+  AVStream *video_stream = vreader_video_stream(&vr);
   /* Video streams timebase */
   const AVRational stream_timebase = video_stream->time_base;
 
@@ -1209,7 +1206,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
     /*
      * Seek to timestamp
      */
-    ret = vreader_seek_decode_to_target(&vreader, seek_target_sb, last_pts_streambase);
+    ret = vreader_seek_decode_to_target(&vr, seek_target_sb, last_pts_streambase);
     if (ret != AK_OK) {
       if (ret == AVERROR_EXIT) {
         log_warn("[%s] Hashing interrupted by shutdown request.\n", vr_fname);
@@ -1223,7 +1220,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
       goto segment_failed;
     }
 
-    int64_t pts_streambase = get_frame_pts(vreader.frame);
+    int64_t pts_streambase = get_frame_pts(vr.frame);
     int64_t pts_microseconds = pts_to_useconds(pts_streambase, stream_timebase);
     last_pts_streambase = pts_streambase; /* Keep tracked for next iteration */
 
@@ -1245,7 +1242,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
 
       /* If filter context not initialised, lets initialise it now */
       if (!fctx.init) {
-        ret = init_rotation_filter_graph(&fctx, vreader.frame, stream_timebase, rotation_normalised);
+        ret = init_rotation_filter_graph(&fctx, vr.frame, stream_timebase, rotation_normalised);
         if (ret < 0) {
           log_error("[%s] Failed to init filter graph: %s", vr_fname, ak_err2str(ret));
 
@@ -1258,7 +1255,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
       }
 
       /* Add frame to filter */
-      ret = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vreader.frame, AV_BUFFERSRC_FLAG_KEEP_REF);
+      ret = av_buffersrc_add_frame_flags(fctx.buffersrc_ctx, vr.frame, AV_BUFFERSRC_FLAG_KEEP_REF);
       if (ret < 0) {
         log_error("[%s] Failed add frame to filter graph: %s", vr_fname, ak_err2str(ret));
         goto segment_failed;
@@ -1272,8 +1269,8 @@ enum AK_STATUS ak_video_hash (ak_file *file,
       }
 
       /* Swap original frame out with the new filtered one. */
-      av_frame_unref(vreader.frame);
-      av_frame_move_ref(vreader.frame, filtered_frame);
+      av_frame_unref(vr.frame);
+      av_frame_move_ref(vr.frame, filtered_frame);
     }
 
     /* `proc` is the 'working frame' for the rest of the iteration.
@@ -1288,14 +1285,14 @@ enum AK_STATUS ak_video_hash (ak_file *file,
      *   - detect_bars on, no conversion -> proc stays `vreader.frame`
      *   - detect_bars on, converted     -> proc points at the clone (`owned_greyscale_clone`)
      */
-    AVFrame *proc = vreader.frame;
+    AVFrame *proc = vr.frame;
     /*
      * BAR DETECTION
      */
     if (detect_bars) {
 
       /* Normalise frame to greyscale */
-      ret = normalise_frame_to_grey8(&vreader, &proc, &owned_greyscale_clone);
+      ret = normalise_frame_to_grey8(&vr, &proc, &owned_greyscale_clone);
 
       if (ret != 0) {
         log_error("[%s] Could not greyscale frame (%" PRIi64 " us): %s", vr_fname, pts_microseconds,
@@ -1311,7 +1308,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
        * If all frames are dark (we can set some limit to the # of black frames),
        * then we should fail for the file and signal this to our caller.
        */
-      ret = apply_crop(&vreader, proc, AK_DEFAULT_BLACK_THRESHOLD, 0);
+      ret = apply_crop(&vr, proc, AK_DEFAULT_BLACK_THRESHOLD, 0);
       if (ret < 0) {
         log_error("[%s] Cropping failed (%" PRIi64 " us): %s", vr_fname, pts_microseconds, ak_err2str(ret));
         if (ret == AVERROR(ENOMEM)) {
@@ -1325,7 +1322,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
      * Scale frame to 32x32 (whilst converting to GRAY8 if it is necessary).
      * Extracts out the pixel buffer from the frame and places it in `matrix`.
      */
-    ret = extract_scaled_matrix(&vreader, proc, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
+    ret = extract_scaled_matrix(&vr, proc, matrix, AK_PHASH_INPUT_SIZE, AV_PIX_FMT_GRAY8);
     if (ret) {
       log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, ak_err2str(ret), pts_seconds);
       if (ret == AVERROR(ENOMEM)) {
