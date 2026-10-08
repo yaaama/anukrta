@@ -205,14 +205,17 @@ static void print_file_item (const ak_config *config,
                              const char *tag) {
 
   const ak_file *file = &files->items[file_id];
-  char sz[32];
+  char sz[64]; /* 64 digits for file size should be enough... */
   char dt[64];
   time_t t = (time_t) file->mtime;
 
-  bool valid_size = get_human_sizing_iec(file->size, sz, AK_ARRAY_SIZE(sz)) != NULL;
-
-  if (ak_unlikely(!valid_size)) {
-    AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
+  if (ak_flag_has(config->report_flags, REPORT_HUMAN_SIZE)) {
+    bool valid_size = get_human_sizing_iec(file->size, sz, AK_ARRAY_SIZE(sz)) != NULL;
+    if (ak_unlikely(!valid_size)) {
+      AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
+    }
+  } else {
+    sprintf(sz, "%zu", file->size);
   }
 
   get_date_from_epoch(&t, dt, AK_ARRAY_SIZE(dt));
@@ -262,14 +265,26 @@ static void insert_hash_array_json (ak_hash_entry *entries,
 /**
  * Add file information into json object.
  */
-static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *out) {
+static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *out, flags32 flags) {
 
   yyjson_mut_obj_add_str(doc, out, "path", file->path);
-  yyjson_mut_obj_add_uint(doc, out, "size", file->size);
+
   yyjson_mut_obj_add_str(doc, out, "media_type", ak_media_type_to_str(file->media_type));
   yyjson_mut_obj_add_int(doc, out, "duration_us", file->duration_us);
   yyjson_mut_obj_add_int(doc, out, "ctime", file->ctime);
   yyjson_mut_obj_add_int(doc, out, "mtime", file->mtime);
+  char buf[64];
+  /* Human sizing flag? */
+  if (ak_flag_has(flags, REPORT_HUMAN_SIZE)) {
+    bool valid_size = get_human_sizing_iec(file->size, buf, AK_ARRAY_SIZE(buf)) != NULL;
+    if (ak_unlikely(!valid_size)) {
+      AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
+    }
+  } else {
+    sprintf(buf, "%zu", file->size);
+  }
+
+  yyjson_mut_obj_add_strcpy(doc, out, "size", buf);
 }
 
 /**
@@ -280,6 +295,8 @@ static void report_json (ak_config *config,
                          ak_file_v *files,
                          AK_STATUS *results,
                          ak_hash_entry *entries) {
+
+  flags32 report_flags = config->report_flags;
   yyjson_mut_doc *doc = AK_OOM(yyjson_mut_doc_new(NULL));
 
   /* Create an object, the value's memory is held by doc. */
@@ -306,7 +323,7 @@ static void report_json (ak_config *config,
     usize unique_index = kv_A(report->unique, i);
     ak_file *unique_file = &kv_A(*files, unique_index);
     yyjson_mut_val *unique_obj = yyjson_mut_obj(doc);
-    file_to_json(unique_file, doc, unique_obj);
+    file_to_json(unique_file, doc, unique_obj, report_flags);
     yyjson_mut_arr_append(unique_files_obj_array, unique_obj);
   }
 
@@ -314,12 +331,13 @@ static void report_json (ak_config *config,
     usize skipped_index = kv_A(report->skipped, i);
     ak_file *skipped_file = &kv_A(*files, skipped_index);
     yyjson_mut_val *skipped_obj = yyjson_mut_obj(doc);
-    file_to_json(skipped_file, doc, skipped_obj);
+    file_to_json(skipped_file, doc, skipped_obj, report_flags);
     yyjson_mut_obj_add_str(doc, skipped_obj, "reason", get_skip_reason_string(results[skipped_index]));
     yyjson_mut_arr_append(skipped_files_obj_array, skipped_obj);
   }
 
   bool print_hashes = ak_flag_has(config->report_flags, REPORT_PRINT_HASHES);
+
   for (size_t i = 0; i < kv_size(report->groups); i++) {
     u64_vec *group = &kv_A(report->groups, i);
     yyjson_mut_val *duplicate_group = yyjson_mut_obj(doc);
@@ -331,7 +349,7 @@ static void report_json (ak_config *config,
       usize file_index = kv_A(*group, j);
       ak_file *file = &kv_A(*files, file_index);
       yyjson_mut_val *file_obj = yyjson_mut_obj(doc);
-      file_to_json(file, doc, file_obj);
+      file_to_json(file, doc, file_obj, report_flags);
       if (print_hashes) {
         insert_hash_array_json(entries, file_index, config->segments, doc, file_obj);
       }
