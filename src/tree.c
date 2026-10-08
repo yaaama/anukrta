@@ -12,7 +12,7 @@
 #include "mem.h"
 #include "util.h"
 
-bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
+bk_node *bk_tree_node_new (const uint64_t hash, const uint64_t file_id) {
 
   bk_node *node = xmalloc(1 * sizeof(*node));
 
@@ -27,9 +27,7 @@ bk_node *bk_tree_node_new (uint64_t hash, uint64_t file_id) {
   return node;
 }
 
-// NOLINTBEGIN (*recursion)
 void bk_tree_node_free (bk_node *node) {
-  // NOLINTEND
   if (!node) {
     return;
   }
@@ -87,7 +85,7 @@ static void bkTree_insert_internal (bk_node *node, uint64_t hash, uint64_t file_
   ++node->child_count;
 }
 
-void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
+void bk_tree_insert (bk_node **tree_ptr, const uint64_t hash, const uint64_t file_id) {
   assert(tree_ptr);
   if (*tree_ptr == NULL) {
     *tree_ptr = bk_tree_node_new(hash, file_id);
@@ -97,7 +95,7 @@ void bk_tree_insert (bk_node **tree_ptr, uint64_t hash, uint64_t file_id) {
   bkTree_insert_internal(*tree_ptr, hash, file_id);
 }
 
-void bk_tree_search (bk_node *root, uint64_t hash, size_t tolerance, u64_vec *groups_out) {
+void bk_tree_search (bk_node *root, const uint64_t hash, const size_t tolerance, u64_vec *groups_out) {
 
   assert(tolerance <= 64);
 
