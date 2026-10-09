@@ -1,0 +1,6 @@
+option('fast_math', type : 'boolean', value : true,
+       description : 'Enable -ffast-math in optimised builds (release/profile)')
+option('local_ffmpeg_dir', type : 'string', value : '',
+       description : 'Prefix of a locally-built FFmpeg (adds rpath; pair with -Dpkg_config_path=<dir>/lib/pkgconfig)')
+option('build_tests', type : 'boolean', value : false,
+       description : 'Build the criterion test binary (skipped for release)')

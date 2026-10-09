@@ -1,4 +1,8 @@
-vendor/sqlite/sqlite3.c linguist-generated=true
 vendor/sqlite/sqlite3.c -diff
+vendor/sqlite/sqlite3.c linguist-generated=true
 vendor/sqlite/sqlite3.h linguist-vendor=true
 vendor/sqlite/sqlite3ext.h linguist-vendor=true
+
+vendor/yyjson/yyjson.c -diff
+vendor/yyjson/yyjson.h linguist-vendor=true
+vendor/yyjson/yyjson.c linguist-vendor=true

@@ -1,296 +1,141 @@
-MAKEFLAGS += --no-print-directory
+MAKEFLAGS += --no-print-directory --no-builtin-rules --no-builtin-variables --warn-undefined-variables --output-sync=target
+.SUFFIXES:
+.DELETE_ON_ERROR:
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -eu -o pipefail -c
 
-VARIANT ?= debug
-SANITIZER ?= none
-DEBUG ?= 1
-SKIP_TESTS ?= 0
-
-USE_CCACHE ?= 0
-USE_MOLD ?= 0
-USE_LOCAL_FFMPEG ?= 0
-
+# V=0 (default): silent unless a tool has something to say — compiler
+# warnings/errors still show (they go to stderr); ninja progress doesn't.
+# V=1: full commands via `meson compile -v`.
 V ?= 0
 ifeq ($(V),1)
-		Q :=
-		ECHO_V := @echo
+	Q :=
+	COMPILE = meson compile -v -C
+	BUILD_OUT =
 else
-		Q := @
-		ECHO_V := @true
+	Q := @
+	COMPILE = ninja -C
+	BUILD_OUT = > /dev/null
 endif
 
-CC := clang
-LDFLAGS ?=
-
-# ==========================================
-#   Toolchain Setup
-# ==========================================
-ifeq ($(USE_MOLD), 1)
-	LDFLAGS += -fuse-ld=mold
-endif
-
-ifeq ($(USE_CCACHE), 1)
-	CCACHE_BIN := $(shell command -v ccache 2> /dev/null)
-  ifneq ($(CCACHE_BIN),)
-		CC := $(CCACHE_BIN) $(CC)
-  endif
-endif
-
-# Load config
-include config.mk
+# Default variant when running 'make'
+VARIANT ?= debug
 
 # ==========================================
 #   Project Settings
 # ==========================================
 TARGET_NAME := anukrta
-TEST_TARGET_NAME := test
 
-SRC_DIR := src
 BUILD_ROOT := build
 BUILD_DIR := $(BUILD_ROOT)/$(VARIANT)
-OBJ_DIR := $(BUILD_DIR)/objs
-VENDOR_DIR := vendor
+SRC_DIR := src
+VENDOR_DIR  := vendor
+VENDOR_OUT  := $(BUILD_ROOT)/vendor
+VENDOR_ARCS := $(VENDOR_OUT)/libsqlite3.a $(VENDOR_OUT)/libyyjson.a
 TEST_DIR := tests
 
-# DEFAULT C FLAGS
-CFLAGS := -std=gnu23 \
--Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Wshadow -Wvla \
--Wconversion -Wsign-conversion -Wdouble-promotion -Wmissing-include-dirs \
--Wnested-externs -Wredundant-decls -Wold-style-definition \
--Wunused-function -Wunused-parameter -Wunused-variable -Wmissing-prototypes \
--Wuninitialized -Warray-parameter -Winit-self -Wundef \
--Wattributes -Wignored-attributes -Wnonnull -Wunused-result -Wmissing-noreturn -Wmissing-format-attribute
-
-# Inject Compiler-specific flags from config.mk
-CFLAGS += $(COMPILER_CFLAGS)
-LDFLAGS += $(COMPILER_LDFLAGS)
-INCLUDES := $(addprefix -iquote ,$(SRC_DIR)) $(addprefix -I ,$(VENDOR_DIR))
-CPPFLAGS := -MMD -MP $(PREPROC_DEFS)
-
-# Release or Profile
-ifneq ($(filter profile release,$(VARIANT)),)
-	PREPROC_DEFS += -DNDEBUG
-
-	ifeq ($(VARIANT), release)
-		CFLAGS += $(RELEASE_FLAGS)
-	else ifeq ($(VARIANT), profile)
-		CFLAGS += $(PROFILE_FLAGS)
-	endif
-
-else ifeq ($(VARIANT), asan)
-	CFLAGS += $(DEV_FLAGS) -fno-optimize-sibling-calls -fno-omit-frame-pointer
-	CPPFLAGS += -DAK_DEBUG
-	SAN_FLAGS := -fsanitize=address,undefined,unreachable -fsanitize-address-use-after-scope $(CLANG_EXTRA_SANS)
-else ifeq ($(VARIANT), tsan)
-	CFLAGS += $(DEV_FLAGS) -fno-omit-frame-pointer
-	CPPFLAGS += -DAK_DEBUG
-	SAN_FLAGS := -fsanitize=thread,undefined,unreachable $(CLANG_EXTRA_SANS)
-# Debug Build
-else
-	CFLAGS += $(DEV_FLAGS)
-	CPPFLAGS += -DAK_DEBUG
-endif
-
 # ==========================================
-# Sanitisers
+#   Variants (Meson configurations)
 # ==========================================
+# Each variant is a build/<name> dir with its own setup options.
 
-ifneq ($(SAN_FLAGS),)
-	CFLAGS += $(SAN_FLAGS)
-	LDFLAGS += $(SAN_FLAGS)
+VARIANTS := debug release profile asan tsan
 
-  # Sanitizer runtime options
-  ASAN_LOG_FILE := etc/asan.log
-  export ASAN_OPTIONS := detect_leaks=1:abort_on_error=1:halt_on_error=1:log_path=$(ASAN_LOG_FILE):strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:$(ASAN_OPTIONS)
-  export LSAN_OPTIONS := log_threads=1:$(LSAN_OPTIONS)
-  export UBSAN_OPTIONS := abort_on_error=1:halt_on_error=1:print_stacktrace=1:$(UBSAN_OPTIONS)
-  export TSAN_OPTIONS := enable_adaptive_delay=1:adaptive_delay_aggressiveness=50:halt_on_error=1:$(TSAN_OPTIONS)
-endif
+debug: MESON_OPTS := --buildtype=debug
+release: MESON_OPTS := --buildtype=release
+profile: MESON_OPTS := --buildtype=plain -Doptimization=3 -Ddebug=true
+asan: MESON_OPTS := --buildtype=debugoptimized -Db_sanitize=address
+tsan: MESON_OPTS := --buildtype=debugoptimized -Db_sanitize=thread
 
-# ==========================================
-#   FFmpeg Configuration
-# ==========================================
-# --- Local FFmpeg Configuration ---
-# Set to 1 to use a custom locally-built FFmpeg instead of the system one
-PKG_CONFIG ?= pkg-config
-LOCAL_FFMPEG_DIR ?=
-FFMPEG_MODULES := libavdevice libavfilter libavformat libavcodec libswresample libswscale libavutil
-
-ifeq ($(USE_LOCAL_FFMPEG), 1)
-  # The path to the 'prefix' where your local FFmpeg was installed
-  # (the directory containing 'include' and 'lib' folders for ffmpeg)
-  # Point pkg-config to our local FFmpeg installation
-	PKG_CONFIG_CMD := PKG_CONFIG_PATH="$(LOCAL_FFMPEG_DIR)/lib/pkgconfig" $(PKG_CONFIG)
-  # Tell the resulting binary where to find the local shared libraries at runtime
-	LDFLAGS += -Wl,-rpath=$(LOCAL_FFMPEG_DIR)/lib
-  $(info [INFO] Using LOCAL FFmpeg located at: $(LOCAL_FFMPEG_DIR))
-else
-# Use standard system pkg-config
-	PKG_CONFIG_CMD := $(PKG_CONFIG)
-endif
-# Replace "-I/path" to "-isystem /path" to silence third-party warnings
-CFLAGS += $(patsubst -I%,-isystem %,$(shell $(PKG_CONFIG_CMD) --cflags $(FFMPEG_MODULES)))
-# Add FFMPEG_MODULES to link against
-LDLIBS += $(shell $(PKG_CONFIG_CMD) --libs $(FFMPEG_MODULES)) -lm -pthread
-# Only link what we need
-LDFLAGS += -Wl,--as-needed
-
-# ==========================================
-#   SQLite Configuration
-# ==========================================
-SQLITE_DIR = $(VENDOR_DIR)/sqlite
-
-# Add SQLite libs to the global LDLIBS
-LDLIBS += -lpthread -ldl -lm
-SQLITE_SRC = $(SQLITE_DIR)/sqlite_vendored.c
-SQLITE_OBJ = $(SQLITE_DIR)/sqlite_vendored.o
-
-
-# ==========================================
-#   Vendor Compilation Flags
-# ==========================================
-# We want vendor code to be optimised + no warnings + no debugging
-VENDOR_CFLAGS := $(COMPILER_CFLAGS) -O3 -g -w -DNDEBUG $(SAN_FLAGS)
-
-TEST_CFLAGS := $(CFLAGS) -w $(TEST_COMPILER_CFLAGS)
-
-# ==========================================
-#   Programmatic File Discovery
-# ==========================================
-
-SRC_SOURCES := $(shell find $(SRC_DIR) -name '*.c')
-TEST_SOURCES := $(shell find $(TEST_DIR) -name '*.c' 2>/dev/null)
-VENDOR_SOURCES := $(filter-out %sqlite3.c %sqlite_vendored.c, $(wildcard $(VENDOR_DIR)/*.c) $(wildcard $(VENDOR_DIR)/*/*.c))
-
-# Create object file names (src/main.c -> obj/main.o)
-SRC_OBJECTS    := $(SRC_SOURCES:%.c=$(OBJ_DIR)/%.o)
-VENDOR_OBJECTS := $(VENDOR_SOURCES:%.c=$(OBJ_DIR)/%.o)
-TEST_OBJECTS := $(TEST_SOURCES:%.c=$(OBJ_DIR)/%.o)
-
-OBJECTS := $(SRC_OBJECTS) $(VENDOR_OBJECTS)
-
-# Helper for testing (filter out main.o)
-MAIN_OBJ := $(OBJ_DIR)/$(SRC_DIR)/main.o
-LIB_OBJECTS := $(filter-out $(MAIN_OBJ), $(OBJECTS))
-# Dependency files
-DEPS := $(OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d)
-
-# ==========================================
-#   Build Rules
-# ==========================================
-
-# Determine which targets to build
-TARGETS_TO_BUILD := $(BUILD_DIR)/$(TARGET_NAME)
-
-# Skip building tests when refactoring etc
-SKIP_TESTS := 1
-
-#  Skip building tests for release/profile or if explicitly skipped
-ifeq ($(filter release profile,$(VARIANT)),)
-	ifneq ($(SKIP_TESTS), 1)
-		TARGETS_TO_BUILD += $(BUILD_DIR)/$(TEST_TARGET_NAME)
-	endif
-endif
-
-$(info [INFO] Compiler: $(COMPILER_ID))
-$(info [INFO] Variant: $(VARIANT))
-
-.PHONY: all build-variant run test clean clean-debug clean-vendor bear analyze cppcheck format lint memcheck
+.PHONY: all $(VARIANTS) test clean clean-all bear cppcheck format lint memcheck help
 .DEFAULT_GOAL := debug
 
-# ALL
-all: debug asan tsan profile release
+# Records the options a variant dir was configured with.
+SETUP_STAMP = $(BUILD_ROOT)/$@/.make-opts
 
-debug:   ; $(Q)$(MAKE) VARIANT=debug build-variant
-profile: ; $(Q)$(MAKE) VARIANT=profile build-variant
-release: ; $(Q)$(MAKE) VARIANT=release build-variant
-asan:    ; $(Q)$(MAKE) VARIANT=asan build-variant
-tsan:    ; $(Q)$(MAKE) VARIANT=tsan build-variant
+define setup_once
+	@if [ ! -f $(BUILD_ROOT)/$@/build.ninja ]; then \
+		echo "[setup] $@ ($(MESON_OPTS))"; \
+		meson setup $(BUILD_ROOT)/$@ $(MESON_OPTS) > /dev/null || exit 1; \
+		echo '$(MESON_OPTS)' > $(SETUP_STAMP); \
+	elif [ "$$(cat $(SETUP_STAMP) 2>/dev/null)" != '$(MESON_OPTS)' ]; then \
+		echo "[reconfigure] $@ (options changed)"; \
+		meson setup --reconfigure $(BUILD_ROOT)/$@ $(MESON_OPTS) > /dev/null || exit 1; \
+		echo '$(MESON_OPTS)' > $(SETUP_STAMP); \
+	fi
+endef
 
-# Shorthands for running variants directly
-run-asan:  ; $(MAKE) VARIANT=asan run
-run-tsan:  ; $(MAKE) VARIANT=tsan run
+# ==========================================
+#   Build
+# ==========================================
+all: $(VARIANTS)
 
-build-variant: $(TARGETS_TO_BUILD)
+.PHONY: vendor
+vendor: $(VENDOR_ARCS)
 
-$(BUILD_DIR)/$(TARGET_NAME): $(OBJECTS) $(SQLITE_OBJ)
-	@mkdir -p $(dir $@)
-	$(ECHO_V) "Linking $(VARIANT) -> $(TARGET_NAME)..."
-	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+$(VENDOR_OUT)/build.ninja: $(VENDOR_DIR)/meson.build
+	@if [ -f $@ ]; then \
+		meson setup --reconfigure $(VENDOR_OUT) $(VENDOR_DIR); \
+	else \
+		meson setup $(VENDOR_OUT) $(VENDOR_DIR); \
+	fi
 
-$(BUILD_DIR)/$(TEST_TARGET_NAME): $(LIB_OBJECTS) $(TEST_OBJECTS) $(SQLITE_OBJ)
-	@mkdir -p $(dir $@)
-	$(ECHO_V) "Linking $(VARIANT) -> $(TEST_TARGET_NAME)..."
-	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -lcriterion -o $@
+# Grouped target (&: needs GNU make >= 4.3):
+# one ninja run produces both archives, regardless of how many are out of date.
+# A plain multi-target rule would run the recipe once per stale target.
+$(VENDOR_ARCS) &: $(VENDOR_OUT)/build.ninja \
+		$(VENDOR_DIR)/sqlite3/sqlite3.c $(VENDOR_DIR)/yyjson/yyjson.c
+	ninja -C $(VENDOR_OUT)
 
-$(OBJ_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(ECHO_V) "Compiling Test [no-warnings] $<..."
-	$(Q)$(CC) $(TEST_CFLAGS) $(INCLUDES) $(CPPFLAGS) -c $< -o $@
+$(VARIANTS): $(VENDOR_ARCS)
+	$(setup_once)
+	$(Q)$(COMPILE) $(BUILD_ROOT)/$@ $(BUILD_OUT)
 
-$(OBJ_DIR)/$(VENDOR_DIR)/%.o: $(VENDOR_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(ECHO_V) "Compiling Vendor [optimized] $<..."
-	$(Q)$(CC) $(VENDOR_CFLAGS) -c $< -o $@
 
-$(SQLITE_OBJ): $(SQLITE_SRC) $(SQLITE_DIR)/sqlite_config.h
-	$(ECHO_V) "Compiling Standalone SQLite [optimized]..."
-	$(Q)$(CC) $(VENDOR_CFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(ECHO_V) "Compiling [$(VARIANT)] $<..."
-	$(Q)$(CC) $(CFLAGS) $(INCLUDES) $(CPPFLAGS) -c $< -o $@
-
-.PHONY: run test run-asan test-asan run-tsan test-tsan
-
-run: build-variant
-	@echo "--- Running $(TARGET_NAME) [$(VARIANT)] ---"
-	@./$(BUILD_DIR)/$(TARGET_NAME)
-
-test: build-variant
+# Requires -Dbuild_tests=true
+test: $(VARIANT)
 	@echo "--- Testing [$(VARIANT)] ---"
-	./$(BUILD_DIR)/$(TEST_TARGET_NAME) -j$(shell nproc)
+	$(Q)meson test -C $(BUILD_DIR) -q --no-rebuild --print-errorlogs
 
-# Clean
+# ==========================================
+#   Clean
+# ==========================================
+
 clean:
-	@echo "Cleaning up all build variants..."
-	@rm -rf $(BUILD_ROOT)
-	@rm -f etc/asan.log.*
+	@echo "Cleaning up build dir for $(VARIANT)"
+	$(Q)rm -rf $(BUILD_DIR)
 
-clean-debug:
-	@echo "Cleaning up debug build..."
-	@rm -rf $(BUILD_ROOT)/debug
+clean-all:
+	@echo "Cleaning up all build files and object files"
+	$(Q)rm -rf $(BUILD_ROOT)
+	@echo "Removed build/"
 
-clean-vendor:
-	@echo "Cleaning compiled vendor libraries..."
-	rm -f $(SQLITE_OBJ)
-
-bear:
-	$(Q)$(MAKE) clean-debug
-	$(Q)$(MAKE) $(SQLITE_OBJ) CC=$(CC)
-	@mkdir -p $(BUILD_ROOT)/debug
-	@echo "Generating compile_commands.json..."
-	$(Q)bear -- $(MAKE) CC=clang VARIANT=debug USE_CCACHE=0 SKIP_TESTS=1
-
-analyze: clean-debug
-	scan-build --use-cc=clang --force-analyze-debug-code -analyze-headers --exclude ./$(TEST_DIR) --exclude ./$(VENDOR_DIR) -o $(BUILD_DIR)/scan-reports $(MAKE) VARIANT=debug USE_CCACHE=0
+# ==========================================
+#   Tooling
+# ==========================================
+bear: debug
+	$(Q)ln -sf $(BUILD_ROOT)/debug/compile_commands.json compile_commands.json
+	@echo "compile_commands.json -> $(BUILD_ROOT)/debug/compile_commands.json"
 
 cppcheck:
-	@cppcheck -q --enable=all --disable=style,unusedFunction --check-level=exhaustive --language=c --inconclusive --std=c23 \
-	--suppress=missingIncludeSystem \
-	--template='{file}:{line}:{column}: {severity}: {message} [{id}]' \
-	-I $(VENDOR_DIR) -i $(VENDOR_DIR) $(SRC_DIR)
+	$(Q)./scripts/cppcheck.sh $(BUILD_DIR)/compile_commands.json
 
 format:
-	@find $(SRC_DIR) $(TEST_DIR) -name '*.[ch]' -o -name '*.inl' 2>/dev/null | xargs -P $(shell nproc) clang-format -i --verbose
+	$(Q)./scripts/clang-format.sh
 
-lint:
-	@run-clang-tidy -quiet -hide-progress -config-file .clang-tidy $(SRC_DIR)
+lint: $(VARIANT)
+	$(Q)./scripts/clang-tidy.sh $(BUILD_DIR)
 
 memcheck: debug
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BUILD_ROOT)/debug/$(TARGET_NAME)
+	$(Q)./scripts/valgrind.sh $(BUILD_ROOT)/debug $(ARGS)
 
+# ==========================================
+#   Misc
+# ==========================================
 print-%: ; @echo $*=$($*)
 
-# Include Dependencies
--include $(DEPS)
+help:
+	@echo "Build variants : $(VARIANTS)  (make asan, make release, ...)"
+	@echo "Build libs     : make vendor"
+	@echo "Clean          : clean | clean-all"
+	@echo "Tooling        : bear | format | lint | memcheck"

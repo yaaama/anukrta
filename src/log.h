@@ -32,7 +32,14 @@ typedef struct {
 typedef void (*log_log_fn)(log_event *ev);
 typedef void (*log_lock_fn)(bool lock, void *udata);
 
-enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
+enum {
+  LOG_TRACE,
+  LOG_DEBUG,
+  LOG_INFO,
+  LOG_WARN,
+  LOG_ERROR,
+  LOG_FATAL
+};
 
 #define log_trace(...) log_log(LOG_TRACE, __FILE__, __LINE__, __VA_ARGS__)
 #define log_debug(...) log_log(LOG_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
@@ -42,7 +49,7 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define log_fatal(...) log_log(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
 void log_log(int level, const char *file, int line, const char *fmt, ...)
-  __attribute__((format(__printf__, 4, 5)));
+    __attribute__((format(__printf__, 4, 5)));
 
 const char *log_level_string(int level);
 void log_set_lock(log_lock_fn fn, void *udata);
