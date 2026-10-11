@@ -77,18 +77,34 @@ anukrta [arguments...] [paths...]
 
 ### Options and Flags
 
-- `-s [int] | --segments [int]` : Number of frames to hash from each video.
-  - Default is 3.
-  - Warning: Do not make this number too high.
-- `-t [int] | --threshold [int]` : Threshold of similarity required to group files together.
+- `-s [int] | --segments=[int]` : Number of frames to hash from each video.
+  - The default is 3.
+  - Warning: Do not make this number too high or it will slow operation down significantly.
+- `-t [int] | --threshold=[int]` : Threshold of similarity required to group files together.
   - Values range from 0 to 64, where 0 is most similar.
   - Default is 15.
-- `--threads [int]` : Number of threads to run in parallel.
+- `--threads[=int]` : Number of threads to run in parallel.
   - Defaults to using all available cores.
-- `--skip-duration [int]` : Videos shorter than this duration (in seconds) will be skipped.
-- `-v | --verbose` : Enable verbose output.
+- `--skip-duration=[int]` : Videos shorter than this duration (in seconds) will be skipped.
+- `-v[v*] | --verbose=[0|1|2|3|4]` : Enable verbose output.
+  - You can stack `v` like so: `-vvv`, which is the same as `--verbose=3`.
+  - `--verbosity=0` is the same as if you had not specified the argument at all (it will run in quiet mode).
+  - `-v | --verbosity=1` Serious error messages.
+  - `-vv | --verbosity=2`: Warnings/informational messages.
+  - `-vvv | --verbosity=3`: Verbose messages.
+  - `-vvvv | --verbosity=4`: Trace level messages.
 - `-h | --help` : Print help for the CLI.
 - `--version` : Print version information.
 - `--dry-run` : Does not do anything yet.
-- `--detect-bars` : Detect window boxing.
-- `--detect-rotation` : Does not do anything yet.
+- `--progress-bar[=bool (default true)]` : Will display a progress bar.
+  - Warning: If verbosity level is above 0, then the progress bar is disabled automatically.
+  - This limitation will be solved once logging to a file is implemented. 
+- `--detect-bars[=bool (default true)]` : Detect window boxing and automatically crop frames (before hashing) to exclude the bars.
+- `--detect-black[=bool (default true)]` : Detect black frames and skip hashing them.
+- `--detect-rotation[=bool (default true)]` : Read metadata from video and apply rotation if it is specified.
+  - Quite useful for iPhone videos where the video rotation is specified in the metadata.
+- `--format=(text|json)` : Format of the report. Currently `text` and `json` are supported.
+- `--print-hashes[=bool (default true)]` : Print hashes produced by video in the report.
+- `--print-unique[=bool (default true)]` : Print unique file list in the report.
+- `--human-sizing[=bool (default true)]` : Print file sizing in human readable format (e.g 1024 => '1 KiB').
+- `--cache[=bool (default true)]` : Save results to a local database so it can be reused on another run.
