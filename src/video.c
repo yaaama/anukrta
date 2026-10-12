@@ -163,6 +163,7 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreade
  *
  * @return The URL of the file as a char pointer.
  */
+/* NOLINTNEXTLINE (*-unused-function) */
 static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (vreader *vr) {
   return vr->fmt_ctx->url;
 }

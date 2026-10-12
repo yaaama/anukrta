@@ -45,9 +45,7 @@ void bk_tree_node_free (bk_node *node) {
   free(node);
 }
 
-// NOLINTBEGIN (*recursion)
 static void bkTree_insert_internal (bk_node *node, uint64_t hash, uint64_t file_id) {
-  // NOLINTEND
   uint64_t node_hash = node->hash;
   unsigned int hamming_dist = hamming_distance(node_hash, hash);
   /* If this is not true, then something horrible has gone wrong. */
@@ -64,6 +62,7 @@ static void bkTree_insert_internal (bk_node *node, uint64_t hash, uint64_t file_
     if (node->children[i].distance == dist) {
       /* Found child with this distance
        * Recurse down this child. */
+      /* NOLINTNEXTLINE (*recursion) */
       bkTree_insert_internal(node->children[i].node, hash, file_id);
       return;
     }
@@ -135,9 +134,7 @@ void bk_tree_search (bk_node *root, const uint64_t hash, const size_t tolerance,
   kvi_destroy(stack);  // Clean up
 }
 
-// NOLINTBEGIN (*recursion)
 static void bk_node_print_recursive (bk_node *node, size_t depth, int edge_distance) {
-  // NOLINTEND
   if (ak_unlikely(!node)) {
     return;
   }
@@ -169,6 +166,7 @@ static void bk_node_print_recursive (bk_node *node, size_t depth, int edge_dista
      file_ids) */
   for (size_t i = 0; i < node->child_count; i++) {
     AK_ASSUME(node->children[i].distance <= 64);
+    /* NOLINTNEXTLINE (*recursion) */
     bk_node_print_recursive(node->children[i].node, depth + 1, (int) node->children[i].distance);
   }
 }
