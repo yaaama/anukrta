@@ -89,9 +89,8 @@ typedef enum {
  * Struct definition for an extension.
  */
 typedef struct ak_ext_info {
-  char lower[5];
-  char upper[5];
-  unsigned char _padding[2];
+  char lower[6];
+  char upper[6];
   AK_VIDEO_4CC fourcc;
 } ak_ext_info;
 
