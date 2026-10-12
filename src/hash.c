@@ -22,6 +22,7 @@
  * AK_PHASH_DCT_SIZE^2
  */
 #define DCT_DIGEST_LEN (AK_PHASH_DCT_SIZE * AK_PHASH_DCT_SIZE)
+AK_STATIC_ASSERT((DCT_DIGEST_LEN - 1) % 2 == 1, "Count of coefficients should be odd");
 
 /** Scale factor: 2^15 (32768) */
 #define DCT_INT_FIXED_SHIFT 15
@@ -118,15 +119,17 @@ uint64_t AK_PURE AK_HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
 
   int32_t row_result[DCT_INTERMEDIATE_BUF_LEN];
   int64_t dct_result[DCT_DIGEST_LEN];
-  int64_t ac_coeffs[DCT_DIGEST_LEN - 1];
+  int64_t ac_coeffs[DCT_AC_COEFFICIENT_COUNT];
+  const size_t dct_results_bytes =
+      (sizeof(int64_t) * DCT_AC_COEFFICIENT_COUNT); /* 8 bytes (64 bits) * 63 = 504 */
 
   /* Pass 1: 1D DCT on Rows */
 
   for (ptrdiff_t u = 0; u < AK_PHASH_DCT_SIZE; u++) {
-    const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[u * AK_PHASH_INPUT_SIZE];
+    const int16_t *weight_ptr = &DCT_WEIGHTS_INT[u * AK_PHASH_INPUT_SIZE];
 
     for (ptrdiff_t y = 0; y < AK_PHASH_INPUT_SIZE; y++) {
-      const uint8_t *restrict row_ptr = &input_pixels[(y * AK_PHASH_INPUT_SIZE)];
+      const uint8_t *row_ptr = &input_pixels[(y * AK_PHASH_INPUT_SIZE)];
 
       int32_t sum = 0;
 
@@ -143,12 +146,11 @@ uint64_t AK_PURE AK_HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
   /* Pass 2: 1D DCT on Columns */
   for (ptrdiff_t u = 0; u < AK_PHASH_DCT_SIZE; u++) {
     /* u is our output row index */
-    const int32_t *restrict row_of_t = &row_result[u * AK_PHASH_INPUT_SIZE];
+    const int32_t *row_of_t = &row_result[u * AK_PHASH_INPUT_SIZE];
 
     for (ptrdiff_t v = 0; v < AK_PHASH_DCT_SIZE; v++) {
       /* v is our output column index */
-      const int16_t *restrict weight_ptr = &DCT_WEIGHTS_INT[v * AK_PHASH_INPUT_SIZE];
-
+      const int16_t *weight_ptr = &DCT_WEIGHTS_INT[v * AK_PHASH_INPUT_SIZE];
       int64_t sum = 0;
 
       for (ptrdiff_t y = 0; y < AK_PHASH_INPUT_SIZE; y++) {
@@ -159,11 +161,9 @@ uint64_t AK_PURE AK_HOT_FUNC dct_hash (const uint8_t *restrict input_pixels) {
     }
   }
 
-  static_assert((DCT_DIGEST_LEN - 1) % 2 == 1, "Count of coefficients should be odd");
+  memcpy(ac_coeffs, &dct_result[1], dct_results_bytes);
 
-  memcpy(ac_coeffs, &dct_result[1], (AK_ARRAY_SIZE(ac_coeffs) * sizeof(int64_t)));
-
-  int64_t median = quickselect_median(ac_coeffs, DCT_DIGEST_LEN - 1);
+  int64_t median = quickselect_median(ac_coeffs, DCT_AC_COEFFICIENT_COUNT);
   /* Calculate threshold.
    * With 15-bit weights, total scale is 2^30.
    * Float epsilon 0.001 * 2^30 = 1073741. */
