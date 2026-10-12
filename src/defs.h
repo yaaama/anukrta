@@ -16,10 +16,32 @@ typedef uint32_t u32; /**< 32-bit unsigned integer */
 typedef uint64_t u64; /**< 64-bit unsigned integer */
 typedef float f32;    /**< 32-bit floating-point number (single precision) */
 typedef double f64;   /**< 64-bit floating-point number (double precision) */
+typedef uint8_t byte; /**< Raw byte representation (alias for u8/uint8_t) */
 
-typedef uint8_t byte;     /**< Raw byte representation (alias for u8/uint8_t) */
-typedef uintptr_t uptr;   /**< Unsigned integer capable of holding a pointer securely */
-typedef ptrdiff_t size;   /**< Signed integer for pointer arithmetic or negative sizes */
+/**
+ * Unsigned integer capable of holding a pointer.
+ *
+ * From man page:
+ * ```
+ * uintptr_t is an unsigned integer type such that any valid (void  *)  value
+ * can  be  converted to this type and then converted back.  It is capable of
+ * storing values in the range [0, UINTPTR_MAX].
+ * ```
+ */
+typedef uintptr_t uptr;
+
+/**
+ * Signed integer capable of holding a pointer securely.
+ *
+ * From man page:
+ * ```
+ * intptr_t  is  a signed integer type such that any valid (void *) value can
+ * be converted to this type and then converted back.
+ * It is capable of storing values in the range [INTPTR_MIN, INTPTR_MAX].
+ * ```
+ */
+typedef intptr_t sptr;
+typedef ptrdiff_t pdiff;  /**< Unsigned integer capable of holding a pointer securely */
 typedef size_t usize;     /**< Unsigned integer for object sizes, memory sizing, and array indexing */
 typedef uint32_t flags32; /**< 32-bit unsigned integer explicitly used for bitwise flags/masks */
 
