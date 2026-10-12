@@ -8,42 +8,24 @@ Checks: >
   *,
   -altera-*,
   -android-*,
-
-  clang-diagnostic-*,
   -clang-diagnostic-#pragma-messages,
-  bugprone-*,
   -bugprone-signed-bitwise,
   -bugprone-easily-swappable-parameters,
   -bugprone-inc-dec-in-conditions,
   -bugprone-assignment-in-if-condition,
   -bugprone-reserved-identifier,
   -bugprone-swapped-arguments,
-  cert-*,
-  performance-*,
-  portability-*,
-  readability-*,
-  concurrency-*,
-  misc-*,
   -misc-no-recursion,
-
-  clang-analyzer-*,
   -clang-analyzer-security.insecureAPI.*,
   -clang-analyzer-unix.Malloc,
-  -*cert-err33-c,
+  -cert-err33-c,
   -cert-dcl51-cpp,
   -cert-dcl37-c,
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
-  -readability-identifier-naming,
   -readability-magic-numbers,
-  -readability-avoid-unconditional-preprocessor-if,
-  -readability-non-const-parameter,
   -readability-implicit-bool-conversion,
   -readability-trailing-comma,
-  readability-redundant-function-ptr-dereference,
-  readability-redundant-casting,
-  readability-avoid-const-params-in-decls,
-  modernize-use-designated-initializers,
   -llvm-header-guard, We use #AK_...,
   -llvmlibc-restrict-system-libc-headers,
   -cppcoreguidelines-macro-to-enum,
@@ -78,26 +60,7 @@ CheckOptions:
       ^malloc$, xmalloc,;
       ^calloc$, xcalloc,;
       ^realloc$, xrealloc,;
-  # Naming conventions (C style)
-  - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
-    value: "(log_.*|'^_.*')"
-    # - key: readability-identifier-naming.MacroDefinitionCase
-    #   value: UPPER_CASE
-  - key: readability-identifier-naming.FunctionCase
-    value: lower_case
-  - key: readability-identifier-naming.VariableCase
-    value: lower_case
-  - key: readability-identifier-naming.ParameterCase
-    value: lower_case
-  - key: readability-identifier-naming.StructCase
-    value: lower_case
-  - key: readability-identifier-naming.TypedefCase
-    value: lower_case
 
-  - key: readability-identifier-naming.EnumCase
-    value: lower_case
-  - key: readability-identifier-naming.EnumConstantCase
-    value: UPPER_CASE
   - key: readability-implicit-bool-conversion.AllowIntegerConditions
     value: "true"
   - key: readability-implicit-bool-conversion.AllowLogicalOperatorConversion
