@@ -1048,10 +1048,14 @@ ak_oom_or_die (void *p, const char *file, int line, const char *expr) {
 #else /* Release build: */
 
 /* UNREACHABLE */
-#  define AK_UNREACHABLE(msg) ((void) sizeof("" msg), __builtin_unreachable())
+#  if __has_builtin(__builtin_unreachable)
+#    define AK_UNREACHABLE(msg) ((void) sizeof("" msg), __builtin_unreachable())
+#  else
+#    define AK_UNREACHABLE(msg) abort()
+#  endif
 
 /* ASSUME */
-#  if defined(__clang__) || (defined(__GNUC__) && __GNUC__ >= 13)
+#  if __has_builtin(__builtin_assume)
 #    define AK_ASSUME(cond) __builtin_assume(cond)
 #  else
 #    define AK_ASSUME(cond) ((cond) ? (void) 0 : AK_UNREACHABLE())
