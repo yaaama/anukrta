@@ -58,7 +58,7 @@ typedef enum best_file_strat {
 #define GENERATE_STRING(ENUM_NAME, STRING_VAL) [ENUM_NAME] = (STRING_VAL),
 static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENERATE_STRING)};
 #undef GENERATE_STRING
-
+#undef BEST_FILE_STRATEGIES
 /* END: BEST_FILE_STRATEGIES */
 
 typedef enum report_flags : uint32_t {
