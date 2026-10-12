@@ -215,12 +215,17 @@ static void print_file_item (const ak_config *config,
       AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
     }
   } else {
-    sprintf(sz, "%zu", file->size);
+    sprintf(sz, "%" PRIu64, file->size);
   }
 
-  get_date_from_epoch(&t, dt, AK_ARRAY_SIZE(dt));
+  /* TODO Also include 'ctime' in report */
+  if (ak_flag_has(config->report_flags, REPORT_HUMAN_TIME)) {
+    get_date_from_epoch(&t, dt, AK_ARRAY_SIZE(dt));
+  } else {
+    sprintf(dt, "%" PRIi64, file->mtime);
+  }
 
-  // Format: "[TAG] path" or "  path"
+  /* Format: "[TAG] path" or "  path" */
   if (tag) {
     printf("%s %s\n", tag, file->path);
   } else {
@@ -271,8 +276,6 @@ static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *ou
 
   yyjson_mut_obj_add_str(doc, out, "media_type", ak_media_type_to_str(file->media_type));
   yyjson_mut_obj_add_int(doc, out, "duration_us", file->duration_us);
-  yyjson_mut_obj_add_int(doc, out, "ctime", file->ctime);
-  yyjson_mut_obj_add_int(doc, out, "mtime", file->mtime);
   char buf[64];
   /* Human sizing flag? */
   if (ak_flag_has(flags, REPORT_HUMAN_SIZE)) {
@@ -282,6 +285,27 @@ static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *ou
     }
   } else {
     sprintf(buf, "%zu", file->size);
+  }
+
+  char mtime_buf[64] = {0};
+  char ctime_buf[64] = {0};
+
+  if (ak_flag_has(flags, REPORT_HUMAN_TIME)) {
+    time_t mtime_timet = (time_t) file->mtime;
+    time_t ctime_timet = (time_t) file->ctime;
+
+    get_date_from_epoch(&mtime_timet, mtime_buf, AK_ARRAY_SIZE(mtime_buf));
+
+    yyjson_mut_obj_add_strcpy(doc, out, "mtime", mtime_buf);
+    if (file->ctime == file->mtime) {
+      yyjson_mut_obj_add_strcpy(doc, out, "ctime", mtime_buf);
+    } else {
+      get_date_from_epoch(&ctime_timet, ctime_buf, AK_ARRAY_SIZE(ctime_buf));
+      yyjson_mut_obj_add_strcpy(doc, out, "ctime", ctime_buf);
+    }
+  } else {
+    yyjson_mut_obj_add_int(doc, out, "ctime", file->ctime);
+    yyjson_mut_obj_add_int(doc, out, "mtime", file->mtime);
   }
 
   yyjson_mut_obj_add_strcpy(doc, out, "size", buf);

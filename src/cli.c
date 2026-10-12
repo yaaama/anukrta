@@ -51,6 +51,7 @@ typedef enum ak_cli_opt_id {  // NOLINT (*enum-initial-value)
   AK_OPT_PRINT_UNIQUE,
   AK_OPT_REPORT_FORMAT,
   AK_OPT_REPORT_HUMAN_SIZE,
+  AK_OPT_REPORT_HUMAN_TIME,
 
   /** Synthetic id: a positional path argument (never produced by getopt). */
   AK_CLI_OPT_POSITIONAL = 512,
@@ -188,6 +189,14 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .has_arg = optional_argument,
       .metavar = "bool",
       .help = "Print file sizes in human readable format (as opposed to number of bytes) (default: true)."},
+
+     /* --human-time */
+     {.val = AK_OPT_REPORT_HUMAN_TIME,
+      .name = "human-time",
+      .short_name = 0,
+      .has_arg = optional_argument,
+      .metavar = "bool",
+      .help = "Print times as human readable strings (as opposed to UNIX time) (default: true)."},
 
      /* --format */
      {.val = AK_OPT_REPORT_FORMAT,
@@ -550,6 +559,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, REPORT_PRINT_HASHES));
   PRINT_CONFIG_STR("Print Unique Files in Report", FLAG_VAL(reportflags, REPORT_PRINT_UNIQUE_FILES));
   PRINT_CONFIG_STR("Display Human Friendly File Size", FLAG_VAL(reportflags, REPORT_HUMAN_SIZE));
+  PRINT_CONFIG_STR("Human Friendly Time", FLAG_VAL(reportflags, REPORT_HUMAN_SIZE));
   PRINT_CONFIG_STR("Report Format", ak_flag_has(reportflags, REPORT_FORMAT_JSON) ? "JSON" : "text");
 
   PRINT_HEADING("Detection Flags");
@@ -745,6 +755,9 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         break;
       case AK_OPT_REPORT_HUMAN_SIZE:
         rc = bool_flag(&config->report_flags, REPORT_HUMAN_SIZE, true, def, optarg);
+        break;
+      case AK_OPT_REPORT_HUMAN_TIME:
+        rc = bool_flag(&config->report_flags, REPORT_HUMAN_TIME, true, def, optarg);
         break;
       case AK_OPT_REPORT_FORMAT:
         rc = report_format_opt(&config->report_flags, def, optarg);

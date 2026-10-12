@@ -66,6 +66,7 @@ typedef enum report_flags : uint32_t {
   REPORT_PRINT_UNIQUE_FILES = (1U << 1),
   REPORT_FORMAT_JSON = (1U << 2),
   REPORT_HUMAN_SIZE = (1U << 3),
+  REPORT_HUMAN_TIME = (1U << 4),
 } report_flags;
 
 /* Structure describing the configuration settings to use for this run. */
@@ -134,6 +135,7 @@ static AK_ALWAYS_INLINE AK_CONST ak_config anukrta_default_config (void) {
   config.runtime_flags |= RT_PROGRESS_BAR;
   config.report_flags |= REPORT_PRINT_UNIQUE_FILES;
   config.report_flags |= REPORT_HUMAN_SIZE;
+  config.report_flags |= REPORT_HUMAN_TIME;
   return config;
 }
 
