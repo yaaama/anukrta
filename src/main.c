@@ -191,12 +191,16 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
   const char progress_label_str[] = "HASHING\0";
 
   bool display_progress = should_display_progress_bar(config);
-  if (ak_term_ctx_init(&term) == 0 && ak_ui_ctx_init(&term, &ui) == 0) {
-    log_debug("Starting progress bar...");
-    ak_ui_progress_start(&ui, &args->completed_count, args->pending_count, progress_label_str);
+  if (!display_progress) {
+    log_info("Not displaying progress bar for this run.");
   } else {
-    display_progress = false;
-    log_error("Failed to initialise terminal/ui context.");
+    if (ak_term_ctx_init(&term) == 0 && ak_ui_ctx_init(&term, &ui) == 0) {
+      log_debug("Starting progress bar...");
+      ak_ui_progress_start(&ui, &args->completed_count, args->pending_count, progress_label_str);
+    } else {
+      display_progress = false;
+      log_error("Failed to initialise terminal/ui context.");
+    }
   }
 
   int threads_made = 0;
