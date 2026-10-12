@@ -1252,7 +1252,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
           }
           goto segment_failed;
         }
-        fctx.init = 1;
+        fctx.init = true;
       }
 
       /* Add frame to filter */
