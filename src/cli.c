@@ -179,7 +179,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .short_name = 0,
       .has_arg = optional_argument,
       .metavar = "bool",
-      .help = "Include unique files in final report (default: true)."},
+      .help = "Include a list of unique files in final report (default: true)."},
 
      /* --human-size */
      {.val = AK_OPT_REPORT_HUMAN_SIZE,
@@ -187,7 +187,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .short_name = 0,
       .has_arg = optional_argument,
       .metavar = "bool",
-      .help = "Output file sizes in human readable format (as opposed to in BYTES) (default: true)."},
+      .help = "Print file sizes in human readable format (as opposed to number of bytes) (default: true)."},
 
      /* --format */
      {.val = AK_OPT_REPORT_FORMAT,
