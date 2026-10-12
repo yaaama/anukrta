@@ -51,22 +51,22 @@ static inline int cache_commit_transaction (anu_cache_ctx *ctx) {
   return sqlite3_exec(ctx->db, "COMMIT;", NULL, NULL, NULL);
 }
 
-int cache_is_file_valid(anu_cache_ctx *ctx, ak_file *file, u64 *out_file_id, i64 *out_duration_us);
+int cache_is_file_valid(anu_cache_ctx *ctx, const ak_file *file, u64 *out_file_id, i64 *out_duration_us);
 
-int cache_upsert_file(anu_cache_ctx *ctx, ak_file *file, uint64_t time_of_hash, uint64_t *row_id_out);
+int cache_upsert_file(anu_cache_ctx *ctx, const ak_file *file, u64 time_of_hash, u64 *row_id_out);
 
-int cache_insert_hash(anu_cache_ctx *ctx, uint64_t file_id, ak_hash_entry entry);
+int cache_insert_hash(anu_cache_ctx *ctx, u64 file_id, ak_hash_entry entry);
 
 int cache_get_hashes(anu_cache_ctx *ctx,
-                     uint64_t file_id,
+                     u64 file_id,
                      size_t max_hashes,
                      ak_hash_entry *entries_out,
                      u64 *out_count);
 
 void cache_sync_results_maybe(anu_cache_ctx *ctx,
-                              ak_config *config,
-                              ak_file_v *files,
-                              AK_STATUS *result_codes,
-                              ak_hash_entry *entries);
+                              const ak_config *config,
+                              const ak_file_v *files,
+                              const AK_STATUS *result_codes,
+                              const ak_hash_entry *entries);
 
 #endif  // AK_CACHE_H_

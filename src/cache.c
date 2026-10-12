@@ -91,10 +91,10 @@ static inline int safe_bind_txt_static (sqlite3_stmt *stmt, const char *param_na
 }
 
 void cache_sync_results_maybe (anu_cache_ctx *ctx,
-                               ak_config *config,
-                               ak_file_v *files,
-                               AK_STATUS *result_codes,
-                               ak_hash_entry *entries) {
+                               const ak_config *config,
+                               const ak_file_v *files,
+                               const AK_STATUS *result_codes,
+                               const ak_hash_entry *entries) {
 
   if (!ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_CACHE) || !ctx) {
     return;
@@ -252,7 +252,7 @@ static int init_db__schema (anu_cache_ctx *ctx) {
  * @return 1 if valid cache exists, 0 if it needs to be hashed.
  *  Populates out_file_id if valid.
  */
-int cache_is_file_valid (anu_cache_ctx *ctx, ak_file *file, u64 *out_file_id, i64 *out_duration_us) {
+int cache_is_file_valid (anu_cache_ctx *ctx, const ak_file *file, u64 *out_file_id, i64 *out_duration_us) {
 
   sqlite3_stmt *stmt_check_cache = ctx->stmt_check_cache;
   safe_bind_txt_static(stmt_check_cache, ":path", file->path);
@@ -263,7 +263,7 @@ int cache_is_file_valid (anu_cache_ctx *ctx, ak_file *file, u64 *out_file_id, i6
   int ret = sqlite3_step(stmt_check_cache);
 
   if (ret == SQLITE_ROW) {
-    *out_file_id = (uint64_t) sqlite3_column_int64(stmt_check_cache, 0);
+    *out_file_id = (u64) sqlite3_column_int64(stmt_check_cache, 0);
     *out_duration_us = sqlite3_column_int64(stmt_check_cache, 1);
     sqlite3_reset(stmt_check_cache);
     log_trace("Cache HIT: File '%s' is valid (ID: %zu, Duration: %zu us)", file->path, *out_file_id,
@@ -339,7 +339,7 @@ static int init_db__prepare_statements (anu_cache_ctx *ctx) {
  *
  * @return 0 on success, 1 on failure.
  */
-int cache_upsert_file (anu_cache_ctx *ctx, ak_file *file, uint64_t time_of_hash, uint64_t *row_id_out) {
+int cache_upsert_file (anu_cache_ctx *ctx, const ak_file *file, u64 time_of_hash, u64 *row_id_out) {
   sqlite3_stmt *stmt_upsert_file = ctx->stmt_upsert_file;
   safe_bind_txt_static(stmt_upsert_file, ":path", file->path);
   safe_bind_int(stmt_upsert_file, ":media_type", file->media_type);
@@ -354,7 +354,7 @@ int cache_upsert_file (anu_cache_ctx *ctx, ak_file *file, uint64_t time_of_hash,
   if (ret != SQLITE_DONE) {
     log_error("Failed to upsert file: %s", sqlite3_errmsg(sqlite3_db_handle(stmt_upsert_file)));
   } else {
-    row_id = (uint64_t) sqlite3_last_insert_rowid(sqlite3_db_handle(stmt_upsert_file));
+    row_id = (u64) sqlite3_last_insert_rowid(sqlite3_db_handle(stmt_upsert_file));
     log_trace("Upserted file record: '%s' -> Row ID: %" PRIu64, file->path, row_id);
   }
   /* Because of the schema, if this was a REPLACE, previous hashes were automatically deleted! */
@@ -378,7 +378,7 @@ int cache_upsert_file (anu_cache_ctx *ctx, ak_file *file, uint64_t time_of_hash,
  * @return 0 on success, -1 on fail.
  * @note Place this in a transaction when bulk inserting.
  */
-int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, ak_hash_entry entry) {
+int cache_insert_hash (anu_cache_ctx *ctx, u64 file_id, ak_hash_entry entry) {
   sqlite3_stmt *stmt_insert_hash = ctx->stmt_insert_hash;
   /* Storing 64-bit uint as sqlite 64-bit signed int. The bit pattern stays the same. */
   safe_bind_i64(stmt_insert_hash, ":file_id", (sqlite3_int64) file_id);
@@ -395,7 +395,7 @@ int cache_insert_hash (anu_cache_ctx *ctx, uint64_t file_id, ak_hash_entry entry
 }
 
 int cache_get_hashes (anu_cache_ctx *ctx,
-                      uint64_t file_id,
+                      u64 file_id,
                       size_t max_hashes,
                       ak_hash_entry *entries_out,
                       u64 *out_count) {
@@ -412,7 +412,7 @@ int cache_get_hashes (anu_cache_ctx *ctx,
   /* Increment strictly to accurately check if the DB has the EXACT segment amount we're asking for */
   while ((ret = sqlite3_step(stmt_get_hashes)) == SQLITE_ROW) {
     if (count < max_hashes) {
-      entries_out[count].hash = (uint64_t) sqlite3_column_int64(stmt_get_hashes, 0);
+      entries_out[count].hash = (u64) sqlite3_column_int64(stmt_get_hashes, 0);
       entries_out[count].timestamp = sqlite3_column_int64(stmt_get_hashes, 1);
     }
     ++count;
