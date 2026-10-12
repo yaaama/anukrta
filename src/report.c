@@ -491,7 +491,7 @@ static AK_ALWAYS_INLINE bool status_is_hashed (AK_STATUS s) {
 }
 
 ak_report ak_report_build (ak_file_v *files,
-                           AK_STATUS *results,
+                           AK_STATUS const *results,
                            ak_hash_entry *entries,
                            ak_config *config,
                            bk_node *tree) {

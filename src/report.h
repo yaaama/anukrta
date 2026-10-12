@@ -30,7 +30,7 @@ void ak_report_print(ak_config *config,
                      ak_hash_entry *entries);
 
 ak_report ak_report_build(ak_file_v *files,
-                          AK_STATUS *results,
+                          AK_STATUS const *results,
                           ak_hash_entry *entries,
                           ak_config *config,
                           bk_node *tree);
