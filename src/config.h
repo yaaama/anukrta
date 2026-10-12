@@ -9,65 +9,65 @@
 #define AK_VERSION 0.0.1
 #define AK_VERSION_STR AK_STRINGIFY(AK_VERSION)
 
-typedef enum ak_hash_type {
+typedef enum AK_HASH_TYPE_ENUM {
   AK_HASH_ALGO_AVERAGE = 0, /**< TODO Implement an average hash. */
   AK_HASH_ALGO_DCT,         /**< Standard DCT hashing. */
-} ak_hash_type;
+} AK_HASH_TYPE_ENUM;
 
-typedef enum detect_flags : uint32_t {
+typedef enum AK_DETECT_FLAGS_ENUM : uint32_t {
   /** Detect black frames and skip them. */
-  DETECT_BLACK_FRAME = (1U << 0),
+  AK_DETECT_FLAG_BLACK_FRAME = (1U << 0),
   /** Detect window/pillar/letter boxing and discard those pixels. */
-  DETECT_BARS = (1U << 1),
+  AK_DETECT_FLAG_BARS = (1U << 1),
   /** Detect rotation of frame. */
-  DETECT_ROTATION = (1U << 2),
-} detect_flags;
+  AK_DETECT_FLAG_ROTATION = (1U << 2),
+} AK_DETECT_FLAGS_ENUM;
 
-typedef enum runtime_flags : uint32_t {
+typedef enum AK_RUNTIME_FLAGS_ENUM : uint32_t {
   /** @private Internal flag to exit quickly (set when parsing '-h', etc). */
-  RT_EXIT_EARLY = (1U << 0),
+  AK_RUNTIME_FLAG_EXIT_EARLY = (1U << 0),
   /** Only scan current directory. */
-  RT_SCAN_CURR_DIR = (1U << 1),
+  AK_RUNTIME_FLAG_SCAN_CURR_DIR = (1U << 1),
   /** List the files that would be hashed if run. */
-  RT_DRY_RUN = (1U << 2),
+  AK_RUNTIME_FLAG_DRYRUN = (1U << 2),
   /** Read from and write to the cache */
-  RT_CACHE = (1U << 3),
-  RT_PROGRESS_BAR = (1U << 4),
-} runtime_flags;
+  AK_RUNTIME_FLAG_CACHE = (1U << 3),
+  AK_RUNTIME_FLAG_PROGRESS_BAR = (1U << 4),
+} AK_RUNTIME_FLAGS_ENUM;
 
 /* START: BEST_FILE_STRATEGIES */
-#define BEST_FILE_STRATEGIES(X)                                 \
-  X(BEST_FILE_NONE, "No Strategy")                              \
-  X(BEST_FILE_LARGEST, "Largest File")                          \
-  X(BEST_FILE_SMALLEST, "Smallest File")                        \
-  X(BEST_FILE_CTIME_OLDEST, "Oldest Change Time (ctime)")       \
-  X(BEST_FILE_CTIME_NEWEST, "Newest Change Time (ctime)")       \
-  X(BEST_FILE_MTIME_OLDEST, "Oldest Modification Time (mtime)") \
-  X(BEST_FILE_MTIME_NEWEST, "Newest Modification Time (mtime)") \
-  X(BEST_FILE_LONGEST, "Longest Video Duration")                \
-  X(BEST_FILE_SHORTEST, "Shortest Video Duration")
+#define BEST_FILE_STRATEGIES(X)                                          \
+  X(AK_BEST_FILE_STRAT_NONE, "No Strategy")                              \
+  X(AK_BEST_FILE_STRAT_LARGEST, "Largest File")                          \
+  X(AK_BEST_FILE_STRAT_SMALLEST, "Smallest File")                        \
+  X(AK_BEST_FILE_STRAT_CTIME_OLDEST, "Oldest Change Time (ctime)")       \
+  X(AK_BEST_FILE_STRAT_CTIME_NEWEST, "Newest Change Time (ctime)")       \
+  X(AK_BEST_FILE_STRAT_MTIME_OLDEST, "Oldest Modification Time (mtime)") \
+  X(AK_BEST_FILE_STRAT_MTIME_NEWEST, "Newest Modification Time (mtime)") \
+  X(AK_BEST_FILE_STRAT_LONGEST, "Longest Video Duration")                \
+  X(AK_BEST_FILE_STRAT_SHORTEST, "Shortest Video Duration")
 
 #define GENERATE_ENUM(ENUM_NAME, STRING_VAL) ENUM_NAME,
 
-typedef enum best_file_strat {
+typedef enum AK_BEST_FILE_STRAT_ENUM {
   BEST_FILE_STRATEGIES(GENERATE_ENUM)
-} best_file_strat;
+} AK_BEST_FILE_STRAT_ENUM;
 
 #undef GENERATE_ENUM
 
 #define GENERATE_STRING(ENUM_NAME, STRING_VAL) [ENUM_NAME] = (STRING_VAL),
-static const char *const BEST_FILE_STRAT_STRINGS[] = {BEST_FILE_STRATEGIES(GENERATE_STRING)};
+static const char *const AK_BEST_FILE_STRAT_STRV[] = {BEST_FILE_STRATEGIES(GENERATE_STRING)};
 #undef GENERATE_STRING
 #undef BEST_FILE_STRATEGIES
 /* END: BEST_FILE_STRATEGIES */
 
-typedef enum report_flags : uint32_t {
-  REPORT_PRINT_HASHES = (1U << 0),
-  REPORT_PRINT_UNIQUE_FILES = (1U << 1),
-  REPORT_FORMAT_JSON = (1U << 2),
-  REPORT_HUMAN_SIZE = (1U << 3),
-  REPORT_HUMAN_TIME = (1U << 4),
-} report_flags;
+typedef enum AK_REPORT_FLAGS_ENUM : uint32_t {
+  AK_REPORT_FLAG_PRINT_HASHES = (1U << 0),
+  AK_REPORT_FLAG_PRINT_UNIQUE_FILES = (1U << 1),
+  AK_REPORT_FLAG_FMT_JSON = (1U << 2),
+  AK_REPORT_FLAG_HUMAN_SIZE = (1U << 3),
+  AK_REPORT_FLAG_HUMAN_TIME = (1U << 4),
+} AK_REPORT_FLAGS_ENUM;
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anu_config {
@@ -83,17 +83,17 @@ typedef struct anu_config {
    * @see `detection_flags`. */
   flags32 detect_flags;
   /** Bitmask flags for runtime settings.
-   * @see `runtime_flags`. */
+   * @see `AK_RUNTIME_FLAGS_ENUM`. */
   flags32 runtime_flags;
   /** Bitmask flags determining the final report format and contents.
-   * @see `report_flags`. */
+   * @see `AK_REPORT_FLAGS_ENUM`. */
   flags32 report_flags;
   /** Hashing algorithm to use.
-   * @see `anu_hash_type`.*/
-  ak_hash_type hash_algorithm;
+   * @see `AK_HASH_TYPE_ENUM`.*/
+  AK_HASH_TYPE_ENUM hash_algorithm;
   /** Strategy for determining the 'best' file out of a group of duplicates.
-   * @see `best_file_strat`. */
-  best_file_strat best_file_strategy;
+   * @see `AK_BEST_FILE_STRAT_ENUM`. */
+  AK_BEST_FILE_STRAT_ENUM best_file_strategy;
   /**
    * Verbosity ranging from 0 to 3
    * level 0: No logging output (default).
@@ -109,8 +109,8 @@ typedef struct anu_config {
 #define AK_CFG_DEFAULT_THRESHOLD 8
 #define AK_CFG_DEFAULT_SKIP_DURATION 3
 #define AK_CFG_DEFAULT_VERBOSITY 0
-#define AK_CFG_DEFAULT_BEST_FILE_STRAT_E BEST_FILE_LONGEST
-#define AK_CFG_DEFAULT_BEST_FILE_STRAT_STR BEST_FILE_STRAT_STRINGS[AK_CFG_DEFAULT_BEST_FILE_STRAT_E]
+#define AK_CFG_DEFAULT_BEST_FILE_STRAT_E AK_BEST_FILE_STRAT_LONGEST
+#define AK_CFG_DEFAULT_BEST_FILE_STRAT_STR AK_BEST_FILE_STRAT_STRV[AK_CFG_DEFAULT_BEST_FILE_STRAT_E]
 #define AK_CFG_DEFAULT_THREAD_COUNT 0
 
 static AK_ALWAYS_INLINE AK_CONST ak_config anukrta_default_config (void) {
@@ -128,14 +128,14 @@ static AK_ALWAYS_INLINE AK_CONST ak_config anukrta_default_config (void) {
     .verbosity = AK_CFG_DEFAULT_VERBOSITY,
   };
 
-  config.detect_flags |= DETECT_ROTATION;
-  config.detect_flags |= DETECT_BARS;
-  config.detect_flags |= DETECT_BLACK_FRAME;
-  config.runtime_flags |= RT_CACHE;
-  config.runtime_flags |= RT_PROGRESS_BAR;
-  config.report_flags |= REPORT_PRINT_UNIQUE_FILES;
-  config.report_flags |= REPORT_HUMAN_SIZE;
-  config.report_flags |= REPORT_HUMAN_TIME;
+  config.detect_flags |= AK_DETECT_FLAG_ROTATION;
+  config.detect_flags |= AK_DETECT_FLAG_BARS;
+  config.detect_flags |= AK_DETECT_FLAG_BLACK_FRAME;
+  config.runtime_flags |= AK_RUNTIME_FLAG_CACHE;
+  config.runtime_flags |= AK_RUNTIME_FLAG_PROGRESS_BAR;
+  config.report_flags |= AK_REPORT_FLAG_PRINT_UNIQUE_FILES;
+  config.report_flags |= AK_REPORT_FLAG_HUMAN_SIZE;
+  config.report_flags |= AK_REPORT_FLAG_HUMAN_TIME;
   return config;
 }
 

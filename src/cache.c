@@ -96,7 +96,7 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
                                AK_STATUS *result_codes,
                                ak_hash_entry *entries) {
 
-  if (!ak_flag_has(config->runtime_flags, RT_CACHE) || !ctx) {
+  if (!ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_CACHE) || !ctx) {
     return;
   }
 

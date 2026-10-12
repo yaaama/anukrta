@@ -691,10 +691,11 @@ static inline bool ak_is_power_of_two (unsigned int x) {
 
 /**
  * @def ak_flag_has
- * Macro for when a single flag is being tested.
+ * Test whether flag is 1 in mask.
  */
-
-#define ak_flag_has(mask, flag) AK_FLAG_SUBSET(mask, flag)
+static AK_ALWAYS_INLINE AK_CONST bool ak_flag_has (uint64_t mask, uint64_t flag) {
+  return AK_FLAG_SUBSET(mask, flag);
+}
 
 /**
  * @def AK_FLAG_ANY
@@ -968,7 +969,7 @@ static AK_ALWAYS_INLINE AK_CONST int64_t ak_time_sec_microsec (double seconds) {
  */
 static AK_ALWAYS_INLINE AK_CONST unsigned int hamming_distance (const uint64_t a, const uint64_t b) {
 
-  static_assert(sizeof(unsigned long long) >= 8,
+  static_assert(sizeof(unsigned long long) >= 8, /* NOLINT (readability-magic-numbers) */
                 "Unsigned long longs must be at least 64 bits for our hamming distance "
                 "implementation to work.");
 

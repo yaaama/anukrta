@@ -33,6 +33,7 @@ void bk_tree_node_free (bk_node *node) {
   }
 
   for (size_t i = 0; i < node->child_count; i++) {
+    /* NOLINTNEXTLINE (*recursion) */
     bk_tree_node_free(node->children[i].node);
   }
 

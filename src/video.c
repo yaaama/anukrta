@@ -676,7 +676,8 @@ static AK_NONNULL_ARG(1, 3) bool detect_black_borders (const AVFrame *frame,
  * @param hash_algo TODO The type of hashing algorithm to use. Currently does not do anything.
  * @return Unsigned 64 bit integer (hash).
  */
-static AK_PURE uint64_t hash_decoded_frame (const uint8_t *restrict matrix, const ak_hash_type hash_algo) {
+static AK_PURE uint64_t hash_decoded_frame (const uint8_t *restrict matrix,
+                                            const AK_HASH_TYPE_ENUM hash_algo) {
 
   if (hash_algo != AK_HASH_ALGO_DCT) {
     AK_TODO("We've only implemented DCT hashing thus far.");
@@ -744,7 +745,7 @@ static inline AK_PURE bool is_color_matrix_applicable (enum AVPixelFormat const 
   }
 
   /* If it's RGB or has less than 3 components (like GRAY8), YUV matrices don't apply */
-  if ((ak_flag_has(desc->flags, AV_PIX_FMT_FLAG_RGB)) || (desc->nb_components < 3)) {
+  if (ak_flag_has(desc->flags, AV_PIX_FMT_FLAG_RGB) || (desc->nb_components < 3)) {
     return false;
   }
   return true;
@@ -1172,7 +1173,7 @@ enum AK_STATUS ak_video_hash (ak_file *file,
   const AVRational stream_timebase = video_stream->time_base;
 
   /* Should we detect black bars in the video frame? */
-  bool detect_bars = ak_flag_has(config->detect_flags, DETECT_BARS);
+  bool detect_bars = ak_flag_has(config->detect_flags, AK_DETECT_FLAG_BARS);
 
   /* Filter context in case we need to run any filters on frames */
   filter_ctx fctx AK_AUTO(filterctx) = {0};

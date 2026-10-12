@@ -356,7 +356,7 @@ int ak_explore_filewalk (char *path, ak_file_v *files_out) {
 void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files) {
 
   /* Check if we need to scan current directory */
-  bool scan_curr_dir_only = ak_flag_has(config->runtime_flags, RT_SCAN_CURR_DIR);
+  bool scan_curr_dir_only = ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_SCAN_CURR_DIR);
   if (scan_curr_dir_only) {
     char *resolved AK_AUTO(free) = NULL;
     resolved = realpath(".", NULL);

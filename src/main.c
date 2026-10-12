@@ -153,7 +153,7 @@ static void poison_hash_queue (int signo, void *userdata) {
 
 /** Check for whether we should initialise & display the progress bar. */
 static bool should_display_progress_bar (ak_config *config) {
-  return ak_flag_has(config->runtime_flags, RT_PROGRESS_BAR) && (config->verbosity == 0);
+  return ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_PROGRESS_BAR) && (config->verbosity == 0);
 }
 
 /**
@@ -330,7 +330,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
   /* Database context, will remain NULL if caching is disabled */
   anu_cache_ctx *cache_ctx AK_AUTO(cache_ctx) = NULL;
 
-  bool cache_enabled = ak_flag_has(config->runtime_flags, RT_CACHE);
+  bool cache_enabled = ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_CACHE);
 
   /* Setup sqlite3 for use if caching is enabled */
   if (cache_enabled) {
@@ -364,7 +364,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
       log_error("Failed to open cache database! Proceeding with caching disabled.");
     }
 
-    config->runtime_flags &= ~RT_CACHE;
+    config->runtime_flags &= ~AK_RUNTIME_FLAG_CACHE;
 
     /* Add all files found to our work queue and set their status as PENDING */
     for (size_t i = 0; i < file_count; i++) {

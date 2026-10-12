@@ -545,9 +545,9 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   /* Verbosity */
   PRINT_CONFIG_U8("Verbosity", config->verbosity);
 
-  PRINT_CONFIG_STR("Dry Run", FLAG_VAL(rtflags, RT_DRY_RUN));
-  PRINT_CONFIG_STR("Scan Current Directory", FLAG_VAL(rtflags, RT_SCAN_CURR_DIR));
-  PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, RT_CACHE));
+  PRINT_CONFIG_STR("Dry Run", FLAG_VAL(rtflags, AK_RUNTIME_FLAG_DRYRUN));
+  PRINT_CONFIG_STR("Scan Current Directory", FLAG_VAL(rtflags, AK_RUNTIME_FLAG_SCAN_CURR_DIR));
+  PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, AK_RUNTIME_FLAG_CACHE));
 
   PRINT_HEADING("Algorithm Settings");
   PRINT_CONFIG_ZU("Segments to hash", config->segments);
@@ -556,16 +556,16 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   PRINT_CONFIG_ZU("Thread Count", config->thread_count);
 
   PRINT_HEADING("Report Flags");
-  PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, REPORT_PRINT_HASHES));
-  PRINT_CONFIG_STR("Print Unique Files in Report", FLAG_VAL(reportflags, REPORT_PRINT_UNIQUE_FILES));
-  PRINT_CONFIG_STR("Display Human Friendly File Size", FLAG_VAL(reportflags, REPORT_HUMAN_SIZE));
-  PRINT_CONFIG_STR("Human Friendly Time", FLAG_VAL(reportflags, REPORT_HUMAN_SIZE));
-  PRINT_CONFIG_STR("Report Format", ak_flag_has(reportflags, REPORT_FORMAT_JSON) ? "JSON" : "text");
+  PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, AK_REPORT_FLAG_PRINT_HASHES));
+  PRINT_CONFIG_STR("Print Unique Files in Report", FLAG_VAL(reportflags, AK_REPORT_FLAG_PRINT_UNIQUE_FILES));
+  PRINT_CONFIG_STR("Display Human Friendly File Size", FLAG_VAL(reportflags, AK_REPORT_FLAG_HUMAN_SIZE));
+  PRINT_CONFIG_STR("Human Friendly Time", FLAG_VAL(reportflags, AK_REPORT_FLAG_HUMAN_SIZE));
+  PRINT_CONFIG_STR("Report Format", ak_flag_has(reportflags, AK_REPORT_FLAG_FMT_JSON) ? "JSON" : "text");
 
   PRINT_HEADING("Detection Flags");
-  PRINT_CONFIG_STR("Detect Bars", FLAG_VAL(detflags, DETECT_BARS));
-  PRINT_CONFIG_STR("Detect Black Frames", FLAG_VAL(detflags, DETECT_BLACK_FRAME));
-  PRINT_CONFIG_STR("Detect Rotation", FLAG_VAL(detflags, DETECT_ROTATION));
+  PRINT_CONFIG_STR("Detect Bars", FLAG_VAL(detflags, AK_DETECT_FLAG_BARS));
+  PRINT_CONFIG_STR("Detect Black Frames", FLAG_VAL(detflags, AK_DETECT_FLAG_BLACK_FRAME));
+  PRINT_CONFIG_STR("Detect Rotation", FLAG_VAL(detflags, AK_DETECT_FLAG_ROTATION));
   /* clang-format on */
 #undef PRINT_HEADING
 #undef PRINT_CONFIG_STR
@@ -646,11 +646,11 @@ static void resolve_threads (ak_config *config, size_t threads, bool threads_exp
  */
 static int report_format_opt (flags32 *rep_flags, const ak_cli_opt_def *def, const char *arg) {
   if (strcasecmp(arg, "json") == 0) {
-    *rep_flags |= REPORT_FORMAT_JSON;
+    *rep_flags |= AK_REPORT_FLAG_FMT_JSON;
     return 0;
   }
   if (strcasecmp(arg, "text") == 0) {
-    *rep_flags &= ~REPORT_FORMAT_JSON;
+    *rep_flags &= ~AK_REPORT_FLAG_FMT_JSON;
     return 0;
   }
 
@@ -739,40 +739,40 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         rc = parse_size_arg(def, optarg, 1, AK_MAX_VIDEO_SEGMENTS, &config->segments);
         break;
       case AK_OPT_CACHE:
-        rc = bool_flag(&config->runtime_flags, RT_CACHE, true, def, optarg);
+        rc = bool_flag(&config->runtime_flags, AK_RUNTIME_FLAG_CACHE, true, def, optarg);
         break;
 
       case AK_OPT_PROGRESS_BAR:
-        rc = bool_flag(&config->runtime_flags, RT_PROGRESS_BAR, true, def, optarg);
+        rc = bool_flag(&config->runtime_flags, AK_RUNTIME_FLAG_PROGRESS_BAR, true, def, optarg);
         break;
 
       case AK_OPT_PRINT_HASHES:
-        rc = bool_flag(&config->report_flags, REPORT_PRINT_HASHES, true, def, optarg);
+        rc = bool_flag(&config->report_flags, AK_REPORT_FLAG_PRINT_HASHES, true, def, optarg);
         break;
 
       case AK_OPT_PRINT_UNIQUE:
-        rc = bool_flag(&config->report_flags, REPORT_PRINT_UNIQUE_FILES, true, def, optarg);
+        rc = bool_flag(&config->report_flags, AK_REPORT_FLAG_PRINT_UNIQUE_FILES, true, def, optarg);
         break;
       case AK_OPT_REPORT_HUMAN_SIZE:
-        rc = bool_flag(&config->report_flags, REPORT_HUMAN_SIZE, true, def, optarg);
+        rc = bool_flag(&config->report_flags, AK_REPORT_FLAG_HUMAN_SIZE, true, def, optarg);
         break;
       case AK_OPT_REPORT_HUMAN_TIME:
-        rc = bool_flag(&config->report_flags, REPORT_HUMAN_TIME, true, def, optarg);
+        rc = bool_flag(&config->report_flags, AK_REPORT_FLAG_HUMAN_TIME, true, def, optarg);
         break;
       case AK_OPT_REPORT_FORMAT:
         rc = report_format_opt(&config->report_flags, def, optarg);
         break;
 
       case AK_OPT_DETECT_BLACK_FRAME:
-        rc = bool_flag(&config->detect_flags, DETECT_BLACK_FRAME, true, def, optarg);
+        rc = bool_flag(&config->detect_flags, AK_DETECT_FLAG_BLACK_FRAME, true, def, optarg);
         break;
 
       case AK_OPT_DETECT_BARS:
-        rc = bool_flag(&config->detect_flags, DETECT_BARS, true, def, optarg);
+        rc = bool_flag(&config->detect_flags, AK_DETECT_FLAG_BARS, true, def, optarg);
         break;
 
       case AK_OPT_DETECT_ROTATION:
-        rc = bool_flag(&config->detect_flags, DETECT_ROTATION, true, def, optarg);
+        rc = bool_flag(&config->detect_flags, AK_DETECT_FLAG_ROTATION, true, def, optarg);
         break;
 
       case AK_OPT_THRESHOLD:
@@ -799,7 +799,7 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
 
   /* If we do not have any paths, then fall back to scanning current directory. */
   if (kv_size(*paths) == 0) {
-    config->runtime_flags |= RT_SCAN_CURR_DIR;
+    config->runtime_flags |= AK_RUNTIME_FLAG_SCAN_CURR_DIR;
   }
 
   /* Clamp verbosity to a valid value */

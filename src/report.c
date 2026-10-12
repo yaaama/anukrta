@@ -109,40 +109,40 @@ static void print_file_hashes (const ak_hash_entry *entries, const usize entries
 
 static bool is_better_file (const ak_file *restrict candidate,
                             const ak_file *restrict current_best,
-                            best_file_strat strat) {
+                            AK_BEST_FILE_STRAT_ENUM strat) {
   bool better = false;
   bool tied = false;
 
   switch (strat) {
-    case BEST_FILE_SMALLEST:
+    case AK_BEST_FILE_STRAT_SMALLEST:
       better = (candidate->size < current_best->size);
       tied = (candidate->size == current_best->size);
       break;
-    case BEST_FILE_LARGEST:
+    case AK_BEST_FILE_STRAT_LARGEST:
       better = (candidate->size > current_best->size);
       tied = (candidate->size == current_best->size);
       break;
-    case BEST_FILE_CTIME_OLDEST:
+    case AK_BEST_FILE_STRAT_CTIME_OLDEST:
       better = (candidate->ctime < current_best->ctime);
       tied = (candidate->ctime == current_best->ctime);
       break;
-    case BEST_FILE_CTIME_NEWEST:
+    case AK_BEST_FILE_STRAT_CTIME_NEWEST:
       better = (candidate->ctime > current_best->ctime);
       tied = (candidate->ctime == current_best->ctime);
       break;
-    case BEST_FILE_MTIME_OLDEST:
+    case AK_BEST_FILE_STRAT_MTIME_OLDEST:
       better = (candidate->mtime < current_best->mtime);
       tied = (candidate->mtime == current_best->mtime);
       break;
-    case BEST_FILE_MTIME_NEWEST:
+    case AK_BEST_FILE_STRAT_MTIME_NEWEST:
       better = (candidate->mtime > current_best->mtime);
       tied = (candidate->mtime == current_best->mtime);
       break;
-    case BEST_FILE_LONGEST:
+    case AK_BEST_FILE_STRAT_LONGEST:
       better = (candidate->duration_us > current_best->duration_us);
       tied = (candidate->duration_us == current_best->duration_us);
       break;
-    case BEST_FILE_SHORTEST:
+    case AK_BEST_FILE_STRAT_SHORTEST:
       better = (candidate->duration_us < current_best->duration_us);
       tied = (candidate->duration_us == current_best->duration_us);
       break;
@@ -166,11 +166,11 @@ static void elect_best_file (u64_vec *group, ak_file_v *files, ak_config *config
   /* Exit early if no strategy or if group is just 1 file */
   usize group_count = kv_size(*group);
 
-  if (group_count <= 1 || config->best_file_strategy == BEST_FILE_NONE) {
+  if (group_count <= 1 || config->best_file_strategy == AK_BEST_FILE_STRAT_NONE) {
     return;
   }
 
-  const best_file_strat strat = config->best_file_strategy;
+  const AK_BEST_FILE_STRAT_ENUM strat = config->best_file_strategy;
 
   usize best_index = 0;
   u64 idx = kv_A(*group, 0);
@@ -209,7 +209,7 @@ static void print_file_item (const ak_config *config,
   char dt[64];
   time_t t = (time_t) file->mtime;
 
-  if (ak_flag_has(config->report_flags, REPORT_HUMAN_SIZE)) {
+  if (ak_flag_has(config->report_flags, AK_REPORT_FLAG_HUMAN_SIZE)) {
     bool valid_size = get_human_sizing_iec(file->size, sz, AK_ARRAY_SIZE(sz)) != NULL;
     if (ak_unlikely(!valid_size)) {
       AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
@@ -219,7 +219,7 @@ static void print_file_item (const ak_config *config,
   }
 
   /* TODO Also include 'ctime' in report */
-  if (ak_flag_has(config->report_flags, REPORT_HUMAN_TIME)) {
+  if (ak_flag_has(config->report_flags, AK_REPORT_FLAG_HUMAN_TIME)) {
     get_date_from_epoch(&t, dt, AK_ARRAY_SIZE(dt));
   } else {
     sprintf(dt, "%" PRIi64, file->mtime);
@@ -234,7 +234,7 @@ static void print_file_item (const ak_config *config,
 
   printf("%20s | %-.2fs | %-15s\n", sz, ak_time_microsec_sec(file->duration_us), dt);
   /* entry may be NULL if we have not hashed the file (because it was skipped for example) */
-  int print_hashes = (entries && ak_flag_has(config->report_flags, REPORT_PRINT_HASHES));
+  int print_hashes = (entries && ak_flag_has(config->report_flags, AK_REPORT_FLAG_PRINT_HASHES));
   if (print_hashes) {
     print_file_hashes(entries + (file_id * config->segments), config->segments);
     printf("\n");
@@ -278,7 +278,7 @@ static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *ou
   yyjson_mut_obj_add_int(doc, out, "duration_us", file->duration_us);
   char buf[64];
   /* Human sizing flag? */
-  if (ak_flag_has(flags, REPORT_HUMAN_SIZE)) {
+  if (ak_flag_has(flags, AK_REPORT_FLAG_HUMAN_SIZE)) {
     bool valid_size = get_human_sizing_iec(file->size, buf, AK_ARRAY_SIZE(buf)) != NULL;
     if (ak_unlikely(!valid_size)) {
       AK_PANIC("Buffer sizing is too small! Update it to be bigger.");
@@ -290,7 +290,7 @@ static void file_to_json (ak_file *file, yyjson_mut_doc *doc, yyjson_mut_val *ou
   char mtime_buf[64] = {0};
   char ctime_buf[64] = {0};
 
-  if (ak_flag_has(flags, REPORT_HUMAN_TIME)) {
+  if (ak_flag_has(flags, AK_REPORT_FLAG_HUMAN_TIME)) {
     time_t mtime_timet = (time_t) file->mtime;
     time_t ctime_timet = (time_t) file->ctime;
 
@@ -329,7 +329,7 @@ static void report_json (ak_config *config,
 
   yyjson_mut_obj_add_str(doc, root, "version", AK_VERSION_STR);
   yyjson_mut_obj_add_str(doc, root, "best_file_strategy",
-                         BEST_FILE_STRAT_STRINGS[config->best_file_strategy]);
+                         AK_BEST_FILE_STRAT_STRV[config->best_file_strategy]);
   yyjson_mut_val *dupe_groups_obj = yyjson_mut_obj_add_obj(doc, root, "duplicate_groups");
   yyjson_mut_val *skipped_files_obj = yyjson_mut_obj_add_obj(doc, root, "skipped_files");
   yyjson_mut_val *unique_files_obj = yyjson_mut_obj_add_obj(doc, root, "unique_files");
@@ -360,7 +360,7 @@ static void report_json (ak_config *config,
     yyjson_mut_arr_append(skipped_files_obj_array, skipped_obj);
   }
 
-  bool print_hashes = ak_flag_has(config->report_flags, REPORT_PRINT_HASHES);
+  bool print_hashes = ak_flag_has(config->report_flags, AK_REPORT_FLAG_PRINT_HASHES);
 
   for (size_t i = 0; i < kv_size(report->groups); i++) {
     u64_vec *group = &kv_A(report->groups, i);
@@ -412,15 +412,15 @@ static void report_text (ak_config *config,
   printf("\n=== Duplicate Report: ===\n");
 
   usize file_count = kv_size(*files);
-  const char *strat_str = BEST_FILE_STRAT_STRINGS[config->best_file_strategy];
+  const char *strat_str = AK_BEST_FILE_STRAT_STRV[config->best_file_strategy];
 
   printf("Found %zu duplicate groups from %zu files\n", group_count, file_count);
   printf("\n+----------------------------------------------+");
   printf("\n \"Best\" file strategy: '%s'\n", strat_str);
   printf("+----------------------------------------------+\n");
 
-  bool use_tags = (config->best_file_strategy != BEST_FILE_NONE);
-  bool print_unique = ak_flag_has(config->report_flags, REPORT_PRINT_UNIQUE_FILES);
+  bool use_tags = (config->best_file_strategy != AK_BEST_FILE_STRAT_NONE);
+  bool print_unique = ak_flag_has(config->report_flags, AK_REPORT_FLAG_PRINT_UNIQUE_FILES);
 
   for (usize i = 0; i < group_count; i++) {
     u64_vec *group = &kv_A(report->groups, i);
@@ -457,7 +457,7 @@ void ak_report_print (ak_config *config,
                       AK_STATUS *results,
                       ak_hash_entry *entries) {
 
-  if (ak_flag_has(config->report_flags, REPORT_FORMAT_JSON)) {
+  if (ak_flag_has(config->report_flags, AK_REPORT_FLAG_FMT_JSON)) {
     report_json(config, report, files, results, entries);
   } else {
     report_text(config, report, files, results, entries);
