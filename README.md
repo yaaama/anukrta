@@ -52,29 +52,6 @@ anukrta [arguments...] [paths...]
 
 - Not specifying a path is fine, it will just scan the current directory.
 
-### Example Output:
-
-```
-[+] Group #1 (3 items):
-  /home/user/videos/video1.mov
-    -> [...] | size: ... KiB | time: ... | duration: ...
-    -> Hashes: [ ... ]
-  /home/user/videos/video2.mp4
-    -> [...] | size: ... KiB | time: ... | duration: ...
-    -> Hashes: [ ... ]
-  /home/user/videos/video3.mp4
-    -> [...] | size: ... MiB   | time: ... | duration: ...
-    -> Hashes: [ ... ]
-
-[+] Group #2 (2 items):
-  /home/user/videos/video4.mp4
-    -> [...] | size: ... MiB   | time: ... | duration: ...
-    -> Hashes: [ ... ]
-  /home/user/videos/video5.mov
-    -> [...] | size: ... MiB   | time: ... | duration: ...
-    -> Hashes: [ ... ]
-```
-
 ### Options and Flags
 
 - `-s [int] | --segments=[int]` : Number of frames to hash from each video.
@@ -98,7 +75,7 @@ anukrta [arguments...] [paths...]
 - `--dry-run` : Does not do anything yet.
 - `--progress-bar[=bool (default true)]` : Will display a progress bar.
   - Warning: If verbosity level is above 0, then the progress bar is disabled automatically.
-  - This limitation will be solved once logging to a file is implemented. 
+  - This limitation will be solved once logging to a file is implemented.
 - `--detect-bars[=bool (default true)]` : Detect window boxing and automatically crop frames (before hashing) to exclude the bars.
 - `--detect-black[=bool (default true)]` : Detect black frames and skip hashing them.
 - `--detect-rotation[=bool (default true)]` : Read metadata from video and apply rotation if it is specified.
