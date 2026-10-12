@@ -55,9 +55,9 @@ anukrta [arguments...] [paths...]
 ### Options and Flags
 
 - `-s [int] | --segments=[int]` : Number of frames to hash from each video.
-  - The default is 3.
+  - The default number of segments is 3.
   - Warning: Do not make this number too high or it will slow operation down significantly.
-- `-t [int] | --threshold=[int]` : Threshold of similarity required to group files together.
+- `-t [int] | --threshold=[int]` : Threshold required to consider files *similar*.
   - Values range from 0 to 64, where 0 is most similar.
   - Default is 15.
 - `--threads[=int]` : Number of threads to run in parallel.
@@ -65,11 +65,12 @@ anukrta [arguments...] [paths...]
 - `--skip-duration=[int]` : Videos shorter than this duration (in seconds) will be skipped.
 - `-v[v*] | --verbose=[0|1|2|3|4]` : Enable verbose output.
   - You can stack `v` like so: `-vvv`, which is the same as `--verbose=3`.
-  - `--verbosity=0` is the same as if you had not specified the argument at all (it will run in quiet mode).
-  - `-v | --verbosity=1` Serious error messages.
-  - `-vv | --verbosity=2`: Warnings/informational messages.
-  - `-vvv | --verbosity=3`: Verbose messages.
-  - `-vvvv | --verbosity=4`: Trace level messages.
+  - `--verbose=0` is the same as if you had not specified the argument at all (it will run in quiet mode).
+  - Currently verbosity settings affect `libav` logging too. We will decouple the two soon.
+  - `-v | --verbose=1` Serious error messages.
+  - `-vv | --verbose=2`: Warnings/informational messages.
+  - `-vvv | --verbose=3`: Verbose messages.
+  - `-vvvv | --verbose=4`: Trace level messages.
 - `-h | --help` : Print help for the CLI.
 - `--version` : Print version information.
 - `--dry-run` : Does not do anything yet.
