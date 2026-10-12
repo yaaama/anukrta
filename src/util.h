@@ -1029,11 +1029,11 @@ AK_NEVER_INLINE AK_COLD_FUNC AK_PRINTF(4, 5) AK_MAYBE_UNUSED AK_NO_RETURN void a
  *     struct foo *f = AK_OOM (malloc (sizeof (*f)));
  */
 static AK_ALWAYS_INLINE AK_MAYBE_UNUSED AK_NO_DISCARD AK_RET_NONNULL void *
-ak_oom_or_die (void *p, const char *file, int line, const char *expr) {
-  if (ak_unlikely(p == NULL)) {
+ak_oom_or_die (void *ptr, const char *file, int line, const char *expr) {
+  if (ak_unlikely(ptr == NULL)) {
     ak_fatal_at("OOM", file, line, "out of memory: %s", expr);
   }
-  return p;
+  return ptr;
 }
 
 #define AK_OOM(p) ak_oom_or_die((p), __FILE__, __LINE__, #p)
