@@ -1294,7 +1294,7 @@ AK_STATUS ak_video_hash (ak_file *file,
       ret = normalise_frame_to_grey8(&vr, &proc, &owned_greyscale_clone);
 
       if (ret != 0) {
-        log_error("[%s] Could not greyscale frame (%" PRIi64 " us): %s", vr_fname, pts_microseconds,
+        log_error("[%s] Could not greyscale frame (%" PRId64 " us): %s", vr_fname, pts_microseconds,
                   ak_err2str(ret));
         if (ret == AVERROR(ENOMEM)) {
           return AK_OOM;
@@ -1309,7 +1309,7 @@ AK_STATUS ak_video_hash (ak_file *file,
        */
       ret = apply_crop(&vr, proc, AK_DEFAULT_BLACK_THRESHOLD, 0);
       if (ret < 0) {
-        log_error("[%s] Cropping failed (%" PRIi64 " us): %s", vr_fname, pts_microseconds, ak_err2str(ret));
+        log_error("[%s] Cropping failed (%" PRId64 " us): %s", vr_fname, pts_microseconds, ak_err2str(ret));
         if (ret == AVERROR(ENOMEM)) {
           return AK_OOM;
         }

@@ -222,7 +222,7 @@ static void print_file_item (const ak_config *config,
   if (ak_flag_has(config->report_flags, AK_REPORT_FLAG_HUMAN_TIME)) {
     get_date_from_epoch(&t, dt, AK_ARRAY_SIZE(dt));
   } else {
-    sprintf(dt, "%" PRIi64, file->mtime);
+    sprintf(dt, "%" PRId64, file->mtime);
   }
 
   /* Format: "[TAG] path" or "  path" */
