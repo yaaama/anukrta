@@ -188,7 +188,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .short_name = 0,
       .has_arg = optional_argument,
       .metavar = "bool",
-      .help = "Print file sizes in human readable format (as opposed to number of bytes) (default: true)."},
+      .help = "Print file sizes in human readable format (rather than in bytes) (default: true)."},
 
      /* --human-time */
      {.val = AK_OPT_REPORT_HUMAN_TIME,
@@ -196,7 +196,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .short_name = 0,
       .has_arg = optional_argument,
       .metavar = "bool",
-      .help = "Print times as human readable strings (as opposed to UNIX time) (default: true)."},
+      .help = "Print times in human readable format (as opposed to UNIX time) (default: true)."},
 
      /* --format */
      {.val = AK_OPT_REPORT_FORMAT,
@@ -214,24 +214,24 @@ static const ak_cli_opt_def cli_opt_defs[] = {
       .short_name = 0,
       .has_arg = required_argument,
       .metavar = "int",
-      .help = "Number of threads to use (default: " AK_STRINGIFY(AK_CFG_DEFAULT_THREAD_COUNT) " all available)."},
+      .help = "Number of threads to use (default is 0 which means use all available threads)."},
 
-      /* --cache */
-      {.val = AK_OPT_CACHE,
-       .name = "cache",
-       .short_name = 0,
-       .has_arg = optional_argument,
-       .metavar = "bool",
-       .help = "Use the database cache (default: true)."},
+     /* --cache */
+     {.val = AK_OPT_CACHE,
+      .name = "cache",
+      .short_name = 0,
+      .has_arg = optional_argument,
+      .metavar = "bool",
+      .help = "Use the database cache (default: true)."},
 
-      /* --progress-bar */
-      {.val = AK_OPT_PROGRESS_BAR,
-       .name = "progress-bar",
-       .short_name = 0,
-       .has_arg = optional_argument,
-       .metavar = "bool",
-       .help = "Display a visual progress bar (default: true)."},
-    };
+     /* --progress-bar */
+     {.val = AK_OPT_PROGRESS_BAR,
+      .name = "progress-bar",
+      .short_name = 0,
+      .has_arg = optional_argument,
+      .metavar = "bool",
+      .help = "Display a visual progress bar (default: true)."},
+   };
 #undef CLI_HEADING
 
 #define CLI_DEF_COUNT AK_ARRAY_SIZE(cli_opt_defs)
