@@ -74,13 +74,13 @@ char *ak_best_file_strat_str(AK_BEST_FILE_STRAT_ENUM strat);
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anu_config {
   /** Video length shorter than this will be skipped (seconds) */
-  usize skip_duration;
   /** Similarity threshold (0 to 64) with 64 being completely different. */
   usize threshold;
   /** Number of segments to hash from a video. */
   usize segments;
   /** Number of concurrent threads to spawn. */
   usize thread_count;
+  i64 skip_duration;
   /** Bitmask flags for similarity detection.
    * @see `detection_flags`. */
   flags32 detect_flags;

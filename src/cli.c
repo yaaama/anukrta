@@ -579,6 +579,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
 #define PRINT_CONFIG_STR(cfg, val) fprintf(out, "   %-*s : %s\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_ZU(cfg, val) fprintf(out, "   %-*s : %zu\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_U32(cfg, val) fprintf(out, "   %-*s : %" PRIu32 "\n", OPT_W, cfg, val)
+#define PRINT_CONFIG_I64(cfg, val) fprintf(out, "   %-*s : %" PRId64 "\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_U8(cfg, val) fprintf(out, "   %-*s : %" PRIu8 "\n", OPT_W, cfg, val)
 #define FLAG_VAL(var, flag) (ak_flag_has((var), (flag)) ? "true" : "false")
 
@@ -603,6 +604,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   PRINT_CONFIG_ZU("Maximum Distance Threshold", config->threshold);
   PRINT_CONFIG_ZU("Skip videos shorter than", config->skip_duration);
   PRINT_CONFIG_ZU("Thread Count", config->thread_count);
+  PRINT_CONFIG_I64("Skip videos shorter than", config->skip_duration);
 
   PRINT_HEADING("Report Flags");
   PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, AK_REPORT_FLAG_PRINT_HASHES));
@@ -829,7 +831,7 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         break;
 
       case AK_OPT_SKIP_DURATION:
-        rc = parse_size_arg(def, optarg, 0, INT_MAX, &config->skip_duration);
+        rc = parse_i64_arg(def, optarg, 0, INT64_MAX - 1, &config->skip_duration);
         break;
 
       default:
