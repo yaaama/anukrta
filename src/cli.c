@@ -101,7 +101,7 @@ static const ak_cli_opt_def cli_opt_defs[] = {
    .short_name = 'v',
    .has_arg = optional_argument,
    .metavar = "int",
-   .help = "Increase verbosity (repeatable, e.g. -vvvv, or set a level with --verbose=N, where N=[0-4]."},
+   .help = "Increase verbosity (repeatable, e.g. -vvvv, or set a level with --verbose=N, where N=[0..4]."},
 
   /* --dry-run */
   {.val = AK_OPT_DRY_RUN,
