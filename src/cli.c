@@ -559,7 +559,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, AK_REPORT_FLAG_PRINT_HASHES));
   PRINT_CONFIG_STR("Print Unique Files in Report", FLAG_VAL(reportflags, AK_REPORT_FLAG_PRINT_UNIQUE_FILES));
   PRINT_CONFIG_STR("Human Friendly Sizes", FLAG_VAL(reportflags, AK_REPORT_FLAG_HUMAN_SIZE));
-  PRINT_CONFIG_STR("Human Friendly Times", FLAG_VAL(reportflags, AK_REPORT_FLAG_HUMAN_SIZE));
+  PRINT_CONFIG_STR("Human Friendly Times", FLAG_VAL(reportflags, AK_REPORT_FLAG_HUMAN_TIME));
   PRINT_CONFIG_STR("Report Format", ak_flag_has(reportflags, AK_REPORT_FLAG_FMT_JSON) ? "json" : "text");
 
   PRINT_HEADING("Detection Flags");
