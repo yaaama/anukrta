@@ -27,11 +27,12 @@ Diagnostics:
 Completion:
   AllScopes: true
   MacroFilter: FuzzyMatch
-  HeaderInsertion: None
+  HeaderInsertion: Never
+  ArgumentLists: OpenDelimiter
 
 Hover:
   ShowAKA: true
-  MacroContentsLimit: 2048
+  MacroContentsLimit: 0
 
 Documentation:
   CommentFormat: Doxygen
