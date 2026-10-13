@@ -768,11 +768,13 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
 
     /* Find definition for the option that the user specified */
     const ak_cli_opt_def *def = find_def(opt);
-    if (!def) {
-      AK_UNREACHABLE(CLI_NAME ": getopt returned an unknown option id");
-    }
 
-    AK_CHECK(def->name != NULL);
+    if (def == NULL) {
+      AK_PANIC(CLI_NAME ": getopt returned an unknown option id");
+    }
+    if (def->name == NULL) {
+      AK_PANIC(CLI_NAME ": this option doesn't have a name");
+    }
 
     /* Reject abbreviations */
     if (long_index >= 0) {
