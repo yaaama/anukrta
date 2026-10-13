@@ -1105,7 +1105,6 @@ AK_STATUS ak_video_hash (ak_file *file,
   assert(file);
   assert(entries_out);
   assert(config->segments > 0);
-  AK_ASSUME(config->segments < INT_MAX);
 
   int target_segments = (int) config->segments;
   int ret = AK_OK;

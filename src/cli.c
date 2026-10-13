@@ -319,12 +319,9 @@ static int parse_i64_arg (const ak_cli_opt_def *def,
 }
 
 /** Parses a string to a size_t within [min, max], storing it in @p *out. */
-static int parse_size_arg (const ak_cli_opt_def *def,
-                           const char *arg_str,
-                           size_t min,
-                           size_t max,
-                           size_t *out) {
+static int parse_u64_arg (const ak_cli_opt_def *def, const char *arg_str, u64 min, u64 max, u64 *out) {
   assert(def && out);
+  AK_CHECK(min < max);
 
   char invoked[64];
   def_display(invoked, sizeof(invoked), def);
@@ -349,25 +346,46 @@ static int parse_size_arg (const ak_cli_opt_def *def,
   char *endptr = NULL;
   errno = 0;
 
-  unsigned long long val = strtoull(arg_str, &endptr, 10);
+  const unsigned long long val = strtoull(arg_str, &endptr, 10);
 
-  if (endptr == arg_str || *endptr != '\0') {
+  if (endptr == arg_str) {
     fprintf(stderr, "[%s] Error: %s requires a valid positive integer, got '%s'.\n", CLI_NAME, invoked,
             arg_str);
     return -1;
   }
 
+  if (*endptr != '\0') {
+    fprintf(stderr, "[%s] Error: %s got unexpected trailing characters '%s' in '%s'.\n", CLI_NAME, invoked,
+            endptr, arg_str);
+    return -1;
+  }
+
   if (errno == ERANGE || val < min || val > max) {
-    fprintf(stderr, "[%s] Error: %s value '%s' is out of range.\n", CLI_NAME, invoked, arg_str);
-    if (max == SIZE_MAX) {
-      fprintf(stderr, "  Value must be %zu or greater.\n", min);
+    if (val < min) {
+      fprintf(stderr, "[%s] Error: %s value '%s' is too small; must be >= %" PRIu64 ".\n", CLI_NAME,
+              invoked, arg_str, min);
     } else {
-      fprintf(stderr, "  Valid range is %zu to %zu.\n", min, max);
+      fprintf(stderr, "[%s] Error: %s value '%s' is too large; must be <= %" PRIu64 ".\n", CLI_NAME,
+              invoked, arg_str, max);
     }
     return -1;
   }
 
-  *out = (size_t) val;
+  *out = (u64) val;
+  return 0;
+}
+
+/** Parses a string to a uint8_t within [min, max], storing it in @p *out. */
+static int parse_u8_arg (const ak_cli_opt_def *def, const char *arg_str, u64 min, u64 max, u8 *out) {
+  assert(out);
+  AK_CHECK(min <= max && max <= UINT8_MAX);
+
+  u64 val = 0;
+  if (parse_u64_arg(def, arg_str, min, max, &val) != 0) {
+    return -1;
+  }
+  /* narrowing is safe since val is within [min, max], and max <= UINT8_MAX */
+  *out = (u8) val;
   return 0;
 }
 
@@ -579,6 +597,7 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
 #define PRINT_CONFIG_STR(cfg, val) fprintf(out, "   %-*s : %s\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_ZU(cfg, val) fprintf(out, "   %-*s : %zu\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_U32(cfg, val) fprintf(out, "   %-*s : %" PRIu32 "\n", OPT_W, cfg, val)
+#define PRINT_CONFIG_U64(cfg, val) fprintf(out, "   %-*s : %" PRIu64 "\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_I64(cfg, val) fprintf(out, "   %-*s : %" PRId64 "\n", OPT_W, cfg, val)
 #define PRINT_CONFIG_U8(cfg, val) fprintf(out, "   %-*s : %" PRIu8 "\n", OPT_W, cfg, val)
 #define FLAG_VAL(var, flag) (ak_flag_has((var), (flag)) ? "true" : "false")
@@ -600,11 +619,10 @@ void ak_cli_print_config (FILE *out, const ak_config *config) {
   PRINT_CONFIG_STR("Cache Results", FLAG_VAL(rtflags, AK_RUNTIME_FLAG_CACHE));
 
   PRINT_HEADING("Algorithm Settings");
-  PRINT_CONFIG_ZU("Segments to hash", config->segments);
-  PRINT_CONFIG_ZU("Maximum Distance Threshold", config->threshold);
-  PRINT_CONFIG_ZU("Skip videos shorter than", config->skip_duration);
-  PRINT_CONFIG_ZU("Thread Count", config->thread_count);
+  PRINT_CONFIG_U8("Segments to hash", config->segments);
+  PRINT_CONFIG_U8("Maximum Distance Threshold", config->threshold);
   PRINT_CONFIG_I64("Skip videos shorter than", config->skip_duration);
+  PRINT_CONFIG_U8("Thread Count", config->thread_count);
 
   PRINT_HEADING("Report Flags");
   PRINT_CONFIG_STR("Print Hashes in Report", FLAG_VAL(reportflags, AK_REPORT_FLAG_PRINT_HASHES));
@@ -653,27 +671,18 @@ static int bool_flag (flags32 *field,
 }
 
 /** Special case: -v stacks, --verbose=N sets an explicit level. */
-static int verbose_opt (u32 *verbosity, const ak_cli_opt_def *def, const char *arg) {
-  if (!arg) {
-    (*verbosity)++;
-    return 0;
-  }
+static int verbose_opt (u8 *verbosity, const ak_cli_opt_def *def, const char *arg) {
 
-  /* We allow for INT_MAX here and clamp to AK_MAX_VERBOSITY at the end. */
-  if (*arg == 'v') {
-    while (*arg == 'v') {
+  if (!arg) {
+    /* Check if we can increase verbosity any further
+     * This prevents problems from something like `-vvvvvvvvvvvvv` */
+    if (*verbosity < AK_MAX_VERBOSITY) {
       (*verbosity)++;
-      arg++;
     }
     return 0;
   }
-  /* We allow for INT_MAX here and clamp to AK_MAX_VERBOSITY at the end. */
-  size_t level = 0;
-  if (parse_size_arg(def, arg, 0, INT_MAX, &level) != 0) {
-    return -1;
-  }
-  *verbosity = (u32) level;
-  return 0;
+
+  return parse_u8_arg(def, arg, 0, AK_MAX_VERBOSITY, verbosity);
 }
 
 static void resolve_threads (ak_config *config, size_t threads, bool threads_explicit) {
@@ -687,8 +696,14 @@ static void resolve_threads (ak_config *config, size_t threads, bool threads_exp
   }
   if (count == 0) {
     count = available;
+    fprintf(stderr, "%s: Using all %zu available cores. \n", CLI_NAME, available);
   }
-  config->thread_count = count;
+
+  if (count > UINT8_MAX) {
+    count = UINT8_MAX;
+  }
+  u8 resolved_count = (u8) count;
+  config->thread_count = resolved_count;
 }
 
 /**
@@ -728,8 +743,7 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
   kv_init(*paths);
 
   /* Deferred state, we finalise their values at the end. */
-  u32 verbosity = 0;
-  size_t threads = 0;
+  u64 threads = 0;
   bool threads_explicit = false;
 
   for (;;) {
@@ -771,7 +785,8 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
       }
     }
 
-    int rc = 0;
+    int rc = 0; /* Code returned by our parsing functions */
+
     switch (opt) {
       case AK_OPT_HELP:
         print_help(stdout);
@@ -780,14 +795,14 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         printf("%s - version: " AK_VERSION_STR "\n", argv[0]);
         return AK_CLI_EXIT_OK;
       case AK_OPT_VERBOSE:
-        rc = verbose_opt(&verbosity, def, optarg); /* now takes u32*, returns 0/-1 */
+        rc = verbose_opt(&config->verbosity, def, optarg);
         break;
       case AK_OPT_THREADS:
-        rc = parse_size_arg(def, optarg, 0, UINT8_MAX, &threads);
+        rc = parse_u64_arg(def, optarg, 0, INT_MAX, &threads);
         threads_explicit = (rc == 0);
         break;
       case AK_OPT_SEGMENTS:
-        rc = parse_size_arg(def, optarg, 1, AK_MAX_VIDEO_SEGMENTS, &config->segments);
+        rc = parse_u8_arg(def, optarg, 1, AK_MAX_VIDEO_SEGMENTS, &config->segments);
         break;
       case AK_OPT_CACHE:
         rc = bool_flag(&config->runtime_flags, AK_RUNTIME_FLAG_CACHE, true, def, optarg);
@@ -827,7 +842,7 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
         break;
 
       case AK_OPT_THRESHOLD:
-        rc = parse_size_arg(def, optarg, AK_HAMMING_MIN, AK_HAMMING_MAX, &config->threshold);
+        rc = parse_u8_arg(def, optarg, AK_HAMMING_MIN, AK_HAMMING_MAX, &config->threshold);
         break;
 
       case AK_OPT_SKIP_DURATION:
@@ -851,11 +866,6 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
   /* If we do not have any paths, then fall back to scanning current directory. */
   if (kv_size(*paths) == 0) {
     config->runtime_flags |= AK_RUNTIME_FLAG_SCAN_CURR_DIR;
-  }
-
-  /* Clamp verbosity to a valid value */
-  if (verbosity > 0) {
-    config->verbosity = (u8) MINIMUM(verbosity, AK_MAX_VERBOSITY);
   }
 
   /* Resolve our threads value to a valid value. */

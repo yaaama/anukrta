@@ -179,8 +179,8 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
     config->thread_count = 1;
   }
   size_t final_thread_count = MINIMUM(config->thread_count, file_count);
-  log_debug("Utilising [%zu/%zu] threads.", final_thread_count, config->thread_count);
-  config->thread_count = final_thread_count;
+  log_debug("Utilising [%zu/%hhu] threads.", final_thread_count, config->thread_count);
+  config->thread_count = (u8) final_thread_count;
 
   assert(config->thread_count > 0);
 
@@ -315,7 +315,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
 
   /* The total number of segments to hash = number of files * number of segments */
   const usize segments_count = (file_count * config->segments);
-  log_info("Total segments to process: (%zu * %zu) = `%zu`", file_count, config->segments, segments_count);
+  log_info("Total segments to process: (%zu * %hhu) = `%zu`", file_count, config->segments, segments_count);
 
   /* List of hash entries (each segment has a hash entry) */
   ak_hash_entry *hash_entries AK_AUTO(free) = xcalloc(segments_count, sizeof(*hash_entries));
