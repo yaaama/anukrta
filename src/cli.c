@@ -807,15 +807,12 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
       case AK_OPT_CACHE:
         rc = bool_flag(&config->runtime_flags, AK_RUNTIME_FLAG_CACHE, true, def, optarg);
         break;
-
       case AK_OPT_PROGRESS_BAR:
         rc = bool_flag(&config->runtime_flags, AK_RUNTIME_FLAG_PROGRESS_BAR, true, def, optarg);
         break;
-
       case AK_OPT_PRINT_HASHES:
         rc = bool_flag(&config->report_flags, AK_REPORT_FLAG_PRINT_HASHES, true, def, optarg);
         break;
-
       case AK_OPT_PRINT_UNIQUE:
         rc = bool_flag(&config->report_flags, AK_REPORT_FLAG_PRINT_UNIQUE_FILES, true, def, optarg);
         break;
@@ -828,27 +825,23 @@ ak_cli_action ak_cli_parse (int argc, char **argv, ak_config *config, ak_paths *
       case AK_OPT_REPORT_FORMAT:
         rc = report_format_opt(&config->report_flags, def, optarg);
         break;
-
       case AK_OPT_DETECT_BLACK_FRAME:
         rc = bool_flag(&config->detect_flags, AK_DETECT_FLAG_BLACK_FRAME, true, def, optarg);
         break;
-
       case AK_OPT_DETECT_BARS:
         rc = bool_flag(&config->detect_flags, AK_DETECT_FLAG_BARS, true, def, optarg);
         break;
-
       case AK_OPT_DETECT_ROTATION:
         rc = bool_flag(&config->detect_flags, AK_DETECT_FLAG_ROTATION, true, def, optarg);
         break;
-
       case AK_OPT_THRESHOLD:
         rc = parse_u8_arg(def, optarg, AK_HAMMING_MIN, AK_HAMMING_MAX, &config->threshold);
         break;
-
       case AK_OPT_SKIP_DURATION:
         rc = parse_i64_arg(def, optarg, 0, INT64_MAX - 1, &config->skip_duration);
         break;
 
+      /* Default case should be unreachable. */
       default:
         AK_UNREACHABLE(CLI_NAME ": unknown option id");
         break;
