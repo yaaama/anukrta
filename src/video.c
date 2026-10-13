@@ -154,7 +154,7 @@ AK_DEFINE_AUTO(vreader_close, vreader, vreader_close(ak__obj))
  *
  * @return Pointer to video stream (AVStream).
  */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreader *vr) {
+static AK_ALWAYS_INLINE AK_NONNULL_ALL AVStream *vreader_video_stream (vreader *vr) {
   return vr->fmt_ctx->streams[vr->video_stream_idx];
 }
 
@@ -164,7 +164,7 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) AVStream *vreader_video_stream (vreade
  * @return The URL of the file as a char pointer.
  */
 /* NOLINTNEXTLINE (*-unused-function) */
-static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) char *vreader_fmt_url (vreader *vr) {
+static AK_ALWAYS_INLINE AK_NONNULL_ALL char *vreader_fmt_url (vreader *vr) {
   return vr->fmt_ctx->url;
 }
 
@@ -265,7 +265,7 @@ static bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
  * @return AK_OK if success, anything else is an error.
  *
  */
-static AK_NONNULL_ARG(1, 2, 3) int vreader_init (const char *f_path, ak_signals_ctx *signals, vreader *vr) {
+static AK_NONNULL_ALL int vreader_init (const char *f_path, ak_signals_ctx *signals, vreader *vr) {
 
   /* Assign video stream index to an invalid index by default */
   vr->video_stream_idx = -1;
@@ -447,7 +447,7 @@ static int vreader_seek_pts (vreader *vr, int64_t target_pts_streambase) {
  * @retval -11 Error, please try again.
  * @retval Anything else is an unknown error.
  */
-static int vreader_decode_frame (vreader *vr) {
+static AK_NONNULL_ALL int vreader_decode_frame (vreader *vr) {
   int ret = 0;
   AVCodecContext *codec_ctx = vr->codec_ctx;
 
@@ -597,14 +597,14 @@ static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint
  * @warn This function expects frame->data[0] to be the luma plane. This holds true for YUV and GRAY pixel
  * formats, NOT RGB.
  */
-static AK_NONNULL_ARG(1, 3) bool detect_black_borders (const AVFrame *frame,
-                                                       const int threshold,
-                                                       crop_region *const restrict crop_out) {
+static AK_NONNULL_ALL bool detect_black_borders (const AVFrame *frame,
+                                                 const int threshold,
+                                                 crop_region *crop_out) {
 
   const int w = frame->width;
   const int h = frame->height;
   const ptrdiff_t linesize = frame->linesize[0];
-  const uint8_t *const restrict y_plane = frame->data[0];
+  const uint8_t *y_plane = frame->data[0];
 
   /* top edge.
    * `row` walks down one scanline per iteration and ends pointing at the first content row  */
@@ -684,10 +684,7 @@ static AK_PURE uint64_t hash_decoded_frame (const uint8_t *restrict matrix,
     AK_TODO("We've only implemented DCT hashing thus far.");
   }
 
-  uint64_t hash = 0;
-  hash = dct_hash(matrix);
-
-  return hash;
+  return dct_hash(matrix);
 }
 
 /**
@@ -1100,10 +1097,10 @@ static AK_ALWAYS_INLINE AK_NONNULL_ARG(1) void mark_segment_failed (ak_hash_entr
  *
  * @return AK_STATUS
  */
-enum AK_STATUS ak_video_hash (ak_file *file,
-                              ak_config *config,
-                              ak_signals_ctx *signals,
-                              ak_hash_entry *entries_out) {
+AK_STATUS ak_video_hash (ak_file *file,
+                         const ak_config *config,
+                         ak_signals_ctx *signals,
+                         ak_hash_entry *entries_out) {
 
   assert(file);
   assert(entries_out);

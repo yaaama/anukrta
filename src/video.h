@@ -10,7 +10,7 @@
 #include "signals.h"
 
 AK_STATUS ak_video_hash(ak_file *file,
-                        ak_config *config,
+                        const ak_config *config,
                         ak_signals_ctx *signals,
                         ak_hash_entry *entries_out);
 
