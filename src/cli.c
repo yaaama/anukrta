@@ -269,6 +269,55 @@ static long get_available_threads (void) {
   return MAXIMUM(cores, 1);
 }
 
+/** Parses a string to a int64_t within [min, max], storing it in @p *out. */
+static int parse_i64_arg (const ak_cli_opt_def *def,
+                          const char *arg_str,
+                          int64_t min,
+                          int64_t max,
+                          int64_t *out) {
+  assert(def && out);
+  AK_CHECK(min < max);
+
+  char invoked[64];
+  def_display(invoked, sizeof(invoked), def);
+
+  if (!arg_str) {
+    fprintf(stderr, "[%s] Error: %s requires an argument.\n", CLI_NAME, invoked);
+    return -1;
+  }
+
+  char *endptr = NULL;
+  errno = 0;
+  signed long long val = strtoll(arg_str, &endptr, 10);
+
+  if (endptr == arg_str) {
+    fprintf(stderr, "[%s] Error: %s requires a valid integer, got '%s'.\n", CLI_NAME, invoked, arg_str);
+    return -1;
+  }
+
+  /* Some junk followed the number... */
+  if (*endptr != '\0') {
+    fprintf(stderr, "[%s] Error: %s got unexpected trailing characters '%s' in '%s'.\n", CLI_NAME, invoked,
+            endptr, arg_str);
+    return -1;
+  }
+
+  if (errno == ERANGE || val < min || val > max) {
+    const bool too_small = (val < min) || (errno == ERANGE && val == LLONG_MIN);
+    if (too_small) {
+      fprintf(stderr, "[%s] Error: %s value '%s' is too small; must be >= %" PRId64 ".\n", CLI_NAME,
+              invoked, arg_str, min);
+    } else {
+      fprintf(stderr, "[%s] Error: %s value '%s' is too large; must be <= %" PRId64 ".\n", CLI_NAME,
+              invoked, arg_str, max);
+    }
+    return -1;
+  }
+
+  *out = (int64_t) val;
+  return 0;
+}
+
 /** Parses a string to a size_t within [min, max], storing it in @p *out. */
 static int parse_size_arg (const ak_cli_opt_def *def,
                            const char *arg_str,
