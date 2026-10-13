@@ -412,7 +412,7 @@ static void report_text (ak_config *config,
   printf("\n=== Duplicate Report: ===\n");
 
   usize file_count = kv_size(*files);
-  const char *strat_str = AK_BEST_FILE_STRAT_STRV[config->best_file_strategy];
+  const char *strat_str = ak_best_file_strat_str(config->best_file_strategy);
 
   printf("Found %zu duplicate groups from %zu files\n", group_count, file_count);
   printf("\n+----------------------------------------------+");

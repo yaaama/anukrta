@@ -35,8 +35,16 @@ typedef enum AK_RUNTIME_FLAGS_ENUM : uint32_t {
   AK_RUNTIME_FLAG_PROGRESS_BAR = (1U << 4),
 } AK_RUNTIME_FLAGS_ENUM;
 
+typedef enum AK_REPORT_FLAGS_ENUM : uint32_t {
+  AK_REPORT_FLAG_PRINT_HASHES = (1U << 0),
+  AK_REPORT_FLAG_PRINT_UNIQUE_FILES = (1U << 1),
+  AK_REPORT_FLAG_FMT_JSON = (1U << 2),
+  AK_REPORT_FLAG_HUMAN_SIZE = (1U << 3),
+  AK_REPORT_FLAG_HUMAN_TIME = (1U << 4),
+} AK_REPORT_FLAGS_ENUM;
+
 /* START: BEST_FILE_STRATEGIES */
-#define BEST_FILE_STRATEGIES(X)                                          \
+#define AK__BEST_FILE_STRATEGIES_(X)                                     \
   X(AK_BEST_FILE_STRAT_NONE, "No Strategy")                              \
   X(AK_BEST_FILE_STRAT_LARGEST, "Largest File")                          \
   X(AK_BEST_FILE_STRAT_SMALLEST, "Smallest File")                        \
@@ -50,24 +58,18 @@ typedef enum AK_RUNTIME_FLAGS_ENUM : uint32_t {
 #define GENERATE_ENUM(ENUM_NAME, STRING_VAL) ENUM_NAME,
 
 typedef enum AK_BEST_FILE_STRAT_ENUM {
-  BEST_FILE_STRATEGIES(GENERATE_ENUM)
+  AK__BEST_FILE_STRATEGIES_(GENERATE_ENUM)
 } AK_BEST_FILE_STRAT_ENUM;
 
 #undef GENERATE_ENUM
 
 #define GENERATE_STRING(ENUM_NAME, STRING_VAL) [ENUM_NAME] = (STRING_VAL),
-static const char *const AK_BEST_FILE_STRAT_STRV[] = {BEST_FILE_STRATEGIES(GENERATE_STRING)};
+static const char *const AK_BEST_FILE_STRAT_STRV[] = {AK__BEST_FILE_STRATEGIES_(GENERATE_STRING)};
 #undef GENERATE_STRING
-#undef BEST_FILE_STRATEGIES
-/* END: BEST_FILE_STRATEGIES */
 
-typedef enum AK_REPORT_FLAGS_ENUM : uint32_t {
-  AK_REPORT_FLAG_PRINT_HASHES = (1U << 0),
-  AK_REPORT_FLAG_PRINT_UNIQUE_FILES = (1U << 1),
-  AK_REPORT_FLAG_FMT_JSON = (1U << 2),
-  AK_REPORT_FLAG_HUMAN_SIZE = (1U << 3),
-  AK_REPORT_FLAG_HUMAN_TIME = (1U << 4),
-} AK_REPORT_FLAGS_ENUM;
+char *ak_best_file_strat_str(AK_BEST_FILE_STRAT_ENUM strat);
+
+/* END: AK__BEST_FILE_STRATEGIES_ */
 
 /* Structure describing the configuration settings to use for this run. */
 typedef struct anu_config {
@@ -108,35 +110,10 @@ typedef struct anu_config {
 #define AK_CFG_DEFAULT_SEGMENTS 3
 #define AK_CFG_DEFAULT_THRESHOLD 8
 #define AK_CFG_DEFAULT_SKIP_DURATION 3
-#define AK_CFG_DEFAULT_VERBOSITY 0
-#define AK_CFG_DEFAULT_BEST_FILE_STRAT_E AK_BEST_FILE_STRAT_LONGEST
-#define AK_CFG_DEFAULT_BEST_FILE_STRAT_STR AK_BEST_FILE_STRAT_STRV[AK_CFG_DEFAULT_BEST_FILE_STRAT_E]
-#define AK_CFG_DEFAULT_THREAD_COUNT 0
 
-static AK_ALWAYS_INLINE AK_CONST ak_config anukrta_default_config (void) {
-
-  ak_config config = {
-    .segments = AK_CFG_DEFAULT_SEGMENTS,
-    .threshold = AK_CFG_DEFAULT_THRESHOLD,
-    .hash_algorithm = AK_HASH_ALGO_DCT,
-    .skip_duration = AK_CFG_DEFAULT_SKIP_DURATION,
-    .thread_count = AK_CFG_DEFAULT_THREAD_COUNT,
-    .runtime_flags = 0,
-    .detect_flags = 0,
-    .report_flags = 0,
-    .best_file_strategy = AK_CFG_DEFAULT_BEST_FILE_STRAT_E,
-    .verbosity = AK_CFG_DEFAULT_VERBOSITY,
-  };
-
-  config.detect_flags |= AK_DETECT_FLAG_ROTATION;
-  config.detect_flags |= AK_DETECT_FLAG_BARS;
-  config.detect_flags |= AK_DETECT_FLAG_BLACK_FRAME;
-  config.runtime_flags |= AK_RUNTIME_FLAG_CACHE;
-  config.runtime_flags |= AK_RUNTIME_FLAG_PROGRESS_BAR;
-  config.report_flags |= AK_REPORT_FLAG_PRINT_UNIQUE_FILES;
-  config.report_flags |= AK_REPORT_FLAG_HUMAN_SIZE;
-  config.report_flags |= AK_REPORT_FLAG_HUMAN_TIME;
-  return config;
-}
+/**
+ * Return a default configuration object.
+ */
+AK_CONST ak_config anukrta_default_config(void);
 
 #endif  // AK_CONFIG_H
