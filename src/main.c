@@ -253,7 +253,7 @@ cleanup:
 }
 
 /* Tries to load a single file from cache. */
-static bool search_cache_for_file (anu_cache_ctx *db,
+static bool search_cache_for_file (ak_cache_ctx *db,
                                    size_t segments_needed,
                                    ak_file *file,
                                    size_t file_idx,
@@ -328,7 +328,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
   size_t pending_count = 0;
 
   /* Database context, will remain NULL if caching is disabled */
-  anu_cache_ctx *cache_ctx AK_AUTO(cache_ctx) = NULL;
+  ak_cache_ctx *cache_ctx AK_AUTO(cache_ctx) = NULL;
 
   bool cache_enabled = ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_CACHE);
 

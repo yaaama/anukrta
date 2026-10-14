@@ -90,7 +90,7 @@ static inline int safe_bind_txt_static (sqlite3_stmt *stmt, const char *param_na
   return sqlite3_bind_text(stmt, idx, val, -1, SQLITE_STATIC);
 }
 
-void cache_sync_results_maybe (anu_cache_ctx *ctx,
+void cache_sync_results_maybe (ak_cache_ctx *ctx,
                                const ak_config *config,
                                const ak_file_v *files,
                                const AK_STATUS *result_codes,
@@ -133,7 +133,7 @@ void cache_sync_results_maybe (anu_cache_ctx *ctx,
   log_info("Finished syncing results: %zu file records written/updated.", sync_count);
 }
 
-static void cache_finalize_statements (anu_cache_ctx *ctx) {
+static void cache_finalize_statements (ak_cache_ctx *ctx) {
   if (ctx->stmt_check_cache) {
     sqlite3_finalize(ctx->stmt_check_cache);
     ctx->stmt_check_cache = NULL;
@@ -166,7 +166,7 @@ int cache_init_once (void) {
   return 0;
 }
 
-int cache_close_db (anu_cache_ctx *ctx) {
+int cache_close_db (ak_cache_ctx *ctx) {
   cache_finalize_statements(ctx);
 
   int ret = sqlite3_close(ctx->db);
@@ -180,7 +180,7 @@ int cache_close_db (anu_cache_ctx *ctx) {
   return 0;
 }
 
-int cache_ctx_destroy (anu_cache_ctx **ctx) {
+int cache_ctx_destroy (ak_cache_ctx **ctx) {
 
   if (ctx == NULL || *ctx == NULL) {
     return 0;
@@ -196,7 +196,7 @@ int cache_ctx_destroy (anu_cache_ctx **ctx) {
 /**
  * @brief SQLite pragmas to be used after database is successfully opened.
  */
-static int init_db__pragmas (anu_cache_ctx *ctx) {
+static int init_db__pragmas (ak_cache_ctx *ctx) {
 
   char *err_msg = NULL;
   sqlite3 *db = ctx->db;
@@ -216,7 +216,7 @@ AK_DEFINE_AUTO(sqlite3_errmsg, char *, sqlite3_free(*ak__obj));
 /**
  * @brief Create database tables (if they are not present).
  */
-static int init_db__schema (anu_cache_ctx *ctx) {
+static int init_db__schema (ak_cache_ctx *ctx) {
   char *err_msg AK_AUTO(sqlite3_errmsg) = NULL;
 
   int ret = 0;
@@ -252,7 +252,7 @@ static int init_db__schema (anu_cache_ctx *ctx) {
  * @return 1 if valid cache exists, 0 if it needs to be hashed.
  *  Populates out_file_id if valid.
  */
-int cache_is_file_valid (anu_cache_ctx *ctx, const ak_file *file, u64 *out_file_id, i64 *out_duration_us) {
+int cache_is_file_valid (ak_cache_ctx *ctx, const ak_file *file, u64 *out_file_id, i64 *out_duration_us) {
 
   sqlite3_stmt *stmt_check_cache = ctx->stmt_check_cache;
   safe_bind_txt_static(stmt_check_cache, ":path", file->path);
@@ -280,7 +280,7 @@ int cache_is_file_valid (anu_cache_ctx *ctx, const ak_file *file, u64 *out_file_
 /**
  * @brief Compile SQL statements.
  */
-static int init_db__prepare_statements (anu_cache_ctx *ctx) {
+static int init_db__prepare_statements (ak_cache_ctx *ctx) {
   int result;
 
   sqlite3 *db = ctx->db;
@@ -339,7 +339,7 @@ static int init_db__prepare_statements (anu_cache_ctx *ctx) {
  *
  * @return 0 on success, 1 on failure.
  */
-int cache_upsert_file (anu_cache_ctx *ctx, const ak_file *file, u64 time_of_hash, u64 *row_id_out) {
+int cache_upsert_file (ak_cache_ctx *ctx, const ak_file *file, u64 time_of_hash, u64 *row_id_out) {
   sqlite3_stmt *stmt_upsert_file = ctx->stmt_upsert_file;
   safe_bind_txt_static(stmt_upsert_file, ":path", file->path);
   safe_bind_int(stmt_upsert_file, ":media_type", file->media_type);
@@ -378,7 +378,7 @@ int cache_upsert_file (anu_cache_ctx *ctx, const ak_file *file, u64 time_of_hash
  * @return 0 on success, -1 on fail.
  * @note Place this in a transaction when bulk inserting.
  */
-int cache_insert_hash (anu_cache_ctx *ctx, u64 file_id, ak_hash_entry entry) {
+int cache_insert_hash (ak_cache_ctx *ctx, u64 file_id, ak_hash_entry entry) {
   sqlite3_stmt *stmt_insert_hash = ctx->stmt_insert_hash;
   /* Storing 64-bit uint as sqlite 64-bit signed int. The bit pattern stays the same. */
   safe_bind_i64(stmt_insert_hash, ":file_id", (sqlite3_int64) file_id);
@@ -394,7 +394,7 @@ int cache_insert_hash (anu_cache_ctx *ctx, u64 file_id, ak_hash_entry entry) {
   return (ret == SQLITE_DONE) ? 0 : -1;
 }
 
-int cache_get_hashes (anu_cache_ctx *ctx,
+int cache_get_hashes (ak_cache_ctx *ctx,
                       u64 file_id,
                       size_t max_hashes,
                       ak_hash_entry *entries_out,
@@ -431,11 +431,11 @@ int cache_get_hashes (anu_cache_ctx *ctx,
 /**
  * @brief Open database located at `db_path`.
  */
-anu_cache_ctx *cache_open_db (const char *db_path) {
+ak_cache_ctx *cache_open_db (const char *db_path) {
 
   /* TODO Add cleanup function for context
    * TODO Return pointer using ak_return_ptr macro */
-  anu_cache_ctx *ctx AK_AUTO(cache_ctx) = xcalloc(1, sizeof(anu_cache_ctx));
+  ak_cache_ctx *ctx AK_AUTO(cache_ctx) = xcalloc(1, sizeof(ak_cache_ctx));
   sqlite3 *db = NULL;
 
   /* Try opening database file */
