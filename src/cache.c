@@ -32,7 +32,7 @@ static const char *DATABASE_SCHEMA[] = {
   "  media_type INTEGER NOT NULL,"  /* Mimetype */
   "  size INTEGER NOT NULL,"        /* Size in bytes */
   "  mtime INTEGER NOT NULL,"       /* Modification timestamp */
-  "  ctime INTEGER NOT NULL,"       /* Creation timestamp */
+  "  ctime INTEGER NOT NULL,"       /* Change timestamp */
   "  duration_us INTEGER NOT NULL," /* Duration of video or 0 if stillframe */
   "  last_hashed INTEGER NOT NULL"  /* Hashing timestamp */
   ");",
@@ -68,9 +68,7 @@ static const char *DATABASE_SCHEMA[] = {
 static inline int safe_param_index (sqlite3_stmt *stmt, const char *param_name) {
   int idx = sqlite3_bind_parameter_index(stmt, param_name);
   if (idx == 0) {
-    fprintf(stderr, "FATAL DATABASE ERROR: Bind parameter '%s' not found in statement!\n", param_name);
-    assert(0 && "Missing bind parameter!");
-    exit(EXIT_FAILURE);  // NOLINT (concurrency-mt-unsafe)
+    AK_PANIC("FATAL DATABASE ERROR: Bind parameter '%s' not found in statement!\n", param_name);
   }
   return idx;
 }
