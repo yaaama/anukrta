@@ -48,6 +48,10 @@ static const char *level_colors[] = {"\x1b[94m", "\x1b[36m", "\x1b[32m",
                                      "\x1b[33m", "\x1b[31m", "\x1b[35m"};
 #endif
 
+/* Ignore format-nonliteral warnings */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+
 static void stdout_callback (log_event *ev) {
   char buf[16];
   buf[strftime(buf, sizeof(buf), "%H:%M:%S", ev->time)] = '\0';
@@ -71,6 +75,8 @@ static void file_callback (log_event *ev) {
   fprintf(ev->udata, "\n");
   fflush(ev->udata);
 }
+
+#pragma GCC diagnostic pop /* end of ignore -Wformat-nonliteral */
 
 static inline void lock (void) {
   if (l.lock) {
