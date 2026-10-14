@@ -20,6 +20,7 @@
 #define LOG_VERSION "0.1.0"
 
 typedef struct {
+  struct tm tm;
   va_list ap;
   const char *fmt;
   const char *file;
