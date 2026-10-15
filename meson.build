@@ -7,10 +7,15 @@ project(
         'buildtype=debugoptimized',
         'warning_level=2',  # Warnings also managed below
     ],
+    license: 'GPL-3.0-or-later',
     meson_version: '>=1.3',  # need for c23
 )
 
 cc = meson.get_compiler('c')
+cc_id = cc.get_id()
+is_gcc = cc_id == 'gcc'
+is_clang = cc_id == 'clang'
+
 fs = import('fs')
 
 buildtype = get_option('buildtype')
@@ -64,75 +69,73 @@ test_sources = files(
 #   Flags
 # ============================================================
 warning_flags = cc.get_supported_arguments(
-    [
-        '-Wstrict-prototypes',
-        '-Wmissing-prototypes',
-        '-Wshadow',
-        '-Wvla',
-        '-Wconversion',
-        '-Wsign-conversion',
-        '-Wdouble-promotion',
-        '-Wmissing-include-dirs',
-        '-Wnested-externs',
-        '-Wredundant-decls',
-        '-Wold-style-definition',
-        '-Wunused-function',
-        '-Wunused-parameter',
-        '-Wunused-variable',
-        '-Wuninitialized',
-        '-Warray-parameter',
-        '-Winit-self',
-        '-Wundef',
-        '-Wattributes',
-        '-Wignored-attributes',
-        '-Wnonnull',
-        '-Wunused-result',
-        '-Wmissing-noreturn',
-        '-Wmissing-format-attribute',
-    ],
+    '-Wstrict-prototypes',
+    '-Wmissing-prototypes',
+    '-Wshadow',
+    '-Wvla',
+    '-Wconversion',
+    '-Wsign-conversion',
+    '-Wdouble-promotion',
+    '-Wmissing-include-dirs',
+    '-Wnested-externs',
+    '-Wredundant-decls',
+    '-Wold-style-definition',
+    '-Wunused-function',
+    '-Wunused-parameter',
+    '-Wunused-variable',
+    '-Wuninitialized',
+    '-Warray-parameter',
+    '-Winit-self',
+    '-Wundef',
+    '-Wattributes',
+    '-Wignored-attributes',
+    '-Wnonnull',
+    '-Wunused-result',
+    '-Wmissing-noreturn',
+    '-Wmissing-format-attribute',
+    checked: 'require',
 )
 
 dev_flags = cc.get_supported_arguments(
-    [
-        '-g3',
-        '-Walloc-size',
-        '-Warray-bounds-pointer-arithmetic',
-        '-Wassign-enum',
-        '-Wcast-qual',
-        '-Wformat=2',
-        '-Wimplicit-fallthrough',
-        '-Wmisleading-indentation',
-        '-Wmissing-field-initializers',
-        '-Wnull-dereference',
-        '-Wparentheses',
-        '-Wpedantic-macros',
-        '-Wstack-protector',
-        '-Wstrict-aliasing',
-        '-Wstrict-overflow',
-        '-Wsuggest-attribute=const',
-        '-Wsuggest-attribute=format',
-        '-Wsuggest-attribute=malloc',
-        '-Wsuggest-attribute=noreturn',
-        '-Wsuggest-attribute=pure',
-        '-Wsuggest-final-types',
-        '-Wthread-safety',
-        '-Wunused',
-        '-Wuse-after-free=3',
-        '-fcf-protection',
-        '-fextend-variable-liveness',
-        '-fno-omit-frame-pointer',
-        '-fno-optimize-sibling-calls',
-        '-fstack-clash-protection',
-        '-fstack-protector-strong',
-        '-fstrict-aliasing',
-        '-ftrapv',
-    ],
+    '-g3',
+    '-Walloc-size',
+    '-Wcast-qual',
+    '-Wformat=2',
+    '-Wimplicit-fallthrough',
+    '-Wmisleading-indentation',
+    '-Wmissing-field-initializers',
+    '-Wnull-dereference',
+    '-Wparentheses',
+    '-Wstack-protector',
+    '-Wstrict-aliasing',
+    '-Wstrict-overflow',
+    '-Warray-bounds-pointer-arithmetic',
+    '-Wthread-safety',
+    '-Wpedantic-macros',
+    '-Wassign-enum',
+    '-Wunused',
+    '-Wsuggest-attribute=const',
+    '-Wsuggest-attribute=format',
+    '-Wsuggest-attribute=malloc',
+    '-Wsuggest-attribute=noreturn',
+    '-Wsuggest-attribute=pure',
+    '-Wsuggest-final-types',
+    '-Wuse-after-free=3',
+    '-fstrict-overflow',
+    '-fstrict-aliasing',
+    '-fcf-protection',
+    '-fno-omit-frame-pointer',
+    '-fno-optimize-sibling-calls',
+    '-fstack-clash-protection',
+    '-fstack-protector-strong',
+    '-ftrapv',
+    '-fextend-variable-liveness',
 )
 
 add_project_arguments(warning_flags, language: 'c')
 
 # debug / asan / tsan builds
-if buildtype in ['debug', 'debugoptimized']
+if buildtype in ['debug']
     add_project_arguments(dev_flags, language: 'c')
     add_project_arguments('-DAK_DEBUG', language: 'c')
 endif
@@ -144,7 +147,7 @@ if get_option('optimization') == '3'
     endif
     add_project_arguments('-DNDEBUG', language: 'c')
 
-    if get_option('debug') or get_option('debugoptimized')
+    if get_option('debug')
         add_project_arguments('-g3', '-fno-omit-frame-pointer', language: 'c')
     endif
 endif
