@@ -18,8 +18,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 #include "cache.h"
 #include "cli.h"
@@ -85,7 +83,7 @@ typedef struct hashing_thread_ctx {
 
   /** Indices of files to be processed.
    * E.g. Index 0 of this array may be '5' which means ak_file_v[5] requires processing. */
-  size_t *pending_indices;
+  usize *pending_indices;
   atomic_size_t pending_count; /**< Number of elements in `pending_indices`. */
 
   atomic_size_t current_idx;     /**< Index of file to process by thread worker. */
@@ -108,14 +106,14 @@ typedef struct hashing_thread_ctx {
 static void *hash_worker_thread (void *arg) {
   hashing_thread_ctx *targs = (hashing_thread_ctx *) arg;
 
-  const size_t segments = targs->config->segments;
+  const usize segments = targs->config->segments;
   enum AK_STATUS *results = targs->results;
   ak_file *files = targs->files->items;
   ak_hash_entry *hash_entries = targs->hash_entries;
 
   for (;;) {
     /* Get index of next file in queue */
-    size_t q_idx = atomic_fetch_add_explicit(&targs->current_idx, 1, memory_order_relaxed);
+    usize q_idx = atomic_fetch_add_explicit(&targs->current_idx, 1, memory_order_relaxed);
 
     /* Check if next index exceeds file count */
     if (q_idx >= atomic_load_explicit(&targs->pending_count, memory_order_relaxed)) {
@@ -123,9 +121,9 @@ static void *hash_worker_thread (void *arg) {
     }
 
     /* Get actual file index from the queue index */
-    size_t file_idx = targs->pending_indices[q_idx];
+    usize file_idx = targs->pending_indices[q_idx];
 
-    size_t entry_offset = (file_idx * segments);
+    usize entry_offset = (file_idx * segments);
 
     /* Do the hashing and store return code */
     results[file_idx] =
@@ -172,13 +170,13 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
 
   int ret = 0;
   /* Number of pending files to process */
-  size_t file_count = args->pending_count;
+  usize file_count = args->pending_count;
 
   /* NOTE: Thread count should not exceed file count */
   if (config->thread_count == 0) {
     config->thread_count = 1;
   }
-  size_t final_thread_count = MINIMUM(config->thread_count, file_count);
+  usize final_thread_count = MINIMUM(config->thread_count, file_count);
   log_debug("Utilising [%zu/%hhu] threads.", final_thread_count, config->thread_count);
   config->thread_count = (u8) final_thread_count;
 
@@ -207,7 +205,7 @@ static int execute_hash_worker_threads (ak_config *config, hashing_thread_ctx *a
   int threads_joined = 0;
 
   /* Spawn hashing worker threads */
-  for (size_t i = 0; i < final_thread_count; i++) {
+  for (usize i = 0; i < final_thread_count; i++) {
     int success = (pthread_create(&threads[i], NULL, hash_worker_thread, args) == 0);
     threads_made += success;
     if (!success) {
@@ -254,9 +252,9 @@ cleanup:
 
 /* Tries to load a single file from cache. */
 static bool search_cache_for_file (ak_cache_ctx *db,
-                                   size_t segments_needed,
+                                   usize segments_needed,
                                    ak_file *file,
-                                   size_t file_idx,
+                                   usize file_idx,
                                    ak_hash_entry *hash_entries) {
   u64 row_id = 0;
   i64 duration = 0;
@@ -265,8 +263,8 @@ static bool search_cache_for_file (ak_cache_ctx *db,
     return false;
   }
 
-  size_t out_count = 0;
-  size_t entry_offset = (file_idx * segments_needed);
+  usize out_count = 0;
+  usize entry_offset = (file_idx * segments_needed);
 
   int ret = cache_get_hashes(db, row_id, segments_needed, (hash_entries + entry_offset), &out_count);
 
@@ -324,8 +322,8 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
   enum AK_STATUS *file_statuses AK_AUTO(free) = xmalloc(file_count * sizeof(*file_statuses));
 
   /* File queue */
-  size_t *pending_indices AK_AUTO(free) = xcalloc(file_count, sizeof(*pending_indices));
-  size_t pending_count = 0;
+  usize *pending_indices AK_AUTO(free) = xcalloc(file_count, sizeof(*pending_indices));
+  usize pending_count = 0;
 
   /* Database context, will remain NULL if caching is disabled */
   ak_cache_ctx *cache_ctx AK_AUTO(cache_ctx) = NULL;
@@ -345,9 +343,10 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
   if (cache_ctx) {
     log_debug("Checking database cache for already hashed files...");
 
-    for (size_t i = 0; i < file_count; i++) {
+    for (usize i = 0; i < file_count; i++) {
 
       ak_file *file = &kv_A(files, i);
+
       if (search_cache_for_file(cache_ctx, config->segments, file, i, hash_entries)) {
         /* If file is successfully loaded from cache mark it as so */
         file_statuses[i] = AK_STATUS_FILE_CACHED;
@@ -355,7 +354,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
         /* Else add it to our work queue */
         file_statuses[i] = AK_STATUS_FILE_PENDING;
         pending_indices[pending_count] = i;
-        ++pending_count;
+        pending_count++;
       }
     }
   } else {
@@ -367,7 +366,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
     config->runtime_flags &= ~AK_RUNTIME_FLAG_CACHE;
 
     /* Add all files found to our work queue and set their status as PENDING */
-    for (size_t i = 0; i < file_count; i++) {
+    for (usize i = 0; i < file_count; i++) {
       pending_indices[i] = i;
       file_statuses[i] = AK_STATUS_FILE_PENDING;
     }
@@ -428,11 +427,11 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
 
   bk_node *hash_tree = NULL;
 
-  for (size_t i = 0; i < file_count; i++) {
+  for (usize i = 0; i < file_count; i++) {
     /* Current file */
     ak_file *file = &kv_A(files, i);
     enum AK_STATUS result = file_statuses[i];
-    size_t segment_start_idx = (i * config->segments);
+    usize segment_start_idx = (i * config->segments);
     /* Check the result saved by the thread */
 
     /* Failed to hash a file */
@@ -458,8 +457,8 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
     }
 
     /* Add items to bk hash */
-    for (size_t segment_off = 0; segment_off < config->segments; segment_off++) {
-      size_t curr_seg_idx = segment_start_idx + segment_off;
+    for (usize segment_off = 0; segment_off < config->segments; segment_off++) {
+      usize curr_seg_idx = segment_start_idx + segment_off;
       u64 curr_hash = hash_entries[curr_seg_idx].hash;
       bk_tree_insert(&hash_tree, curr_hash, i);
     }

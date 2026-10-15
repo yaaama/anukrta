@@ -2,7 +2,6 @@
 #define AK_CACHE_H_
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include "config.h"
 #include "defs.h"
