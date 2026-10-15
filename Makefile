@@ -56,7 +56,7 @@ SETUP_STAMP = $(BUILD_ROOT)/$@/.make-opts
 define setup_once
 	@if [ ! -f $(BUILD_ROOT)/$@/build.ninja ]; then \
 		echo "[setup] $@ ($(MESON_OPTS))"; \
-		meson setup $(BUILD_ROOT)/$@ $(MESON_OPTS) > /dev/null || exit 1; \
+		meson setup $(BUILD_ROOT)/$@ $(MESON_OPTS) || exit 1; \
 		echo '$(MESON_OPTS)' > $(SETUP_STAMP); \
 	elif [ "$$(cat $(SETUP_STAMP) 2>/dev/null)" != '$(MESON_OPTS)' ]; then \
 		echo "[reconfigure] $@ (options changed)"; \
@@ -113,6 +113,10 @@ clean-all:
 # ==========================================
 #   Tooling
 # ==========================================
+
+iwyu: bear
+	@iwyu-tool -p compile_commands.json -e $(TEST_DIR) -e $(VENDOR_DIR)
+
 bear: debug
 	$(Q)ln -sf $(BUILD_ROOT)/debug/compile_commands.json compile_commands.json
 	@echo "compile_commands.json -> $(BUILD_ROOT)/debug/compile_commands.json"
