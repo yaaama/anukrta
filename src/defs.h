@@ -4,6 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "util.h"
+
+#define AK_CLI_NAME anukrta
+#define AK_CLI_NAME_STR AK_STRINGIFY(AK_CLI_NAME)
+
 /**
  * @name Type Definitions
  * Shorthand fixed-width integer and primitive type definitions used throughout the codebase.
@@ -63,6 +68,7 @@ typedef enum AK_STATUS : int32_t {
   AK_OK = 0,              /**< Function executed successfully. */
   AK_IO_FAIL,             /**< IO failure. */
   AK_OOM,                 /**< Out of memory/ could not allocate memory. */
+  AK_NO_MEDIA_FOUND,      /**< No media files were found. */
   AK_STATUS_FILE_PENDING, /**< File is pending processing. */
   AK_STATUS_FILE_CACHED,  /**< File is already in the database. */
   AK_SKIP_SHORT_DURATION, /**< Video file is too short to process. */

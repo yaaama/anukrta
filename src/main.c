@@ -305,8 +305,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
 
   /* Exit early if we do not find any files */
   if (kv_size(files) == 0) {
-    log_warn("No video files found!");
-    return -1;
+    return AK_NO_MEDIA_FOUND;
   }
   const usize file_count = kv_size(files);
   log_info("Found `%zu` files", file_count);
@@ -565,6 +564,11 @@ int main (int argc, char *argv[]) {
 
   int driver_ret = anukrta_driver(&config, &paths, &signals);
   pthread_mutex_destroy(&log_mutex);
+
+  if (driver_ret == AK_NO_MEDIA_FOUND) {
+    puts(AK_CLI_NAME_STR ": No valid media files were found!");
+    return 0;
+  }
 
   return driver_ret;
 }
