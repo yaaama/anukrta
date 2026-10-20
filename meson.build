@@ -93,17 +93,12 @@ warning_flags = cc.get_supported_arguments(
     '-Wunused-result',
     '-Wmissing-noreturn',
     '-Wmissing-format-attribute',
-    checked: 'require',
-)
-
-dev_flags = cc.get_supported_arguments(
-    '-g3',
+    '-Wmissing-field-initializers',
     '-Walloc-size',
     '-Wcast-qual',
     '-Wformat=2',
     '-Wimplicit-fallthrough',
     '-Wmisleading-indentation',
-    '-Wmissing-field-initializers',
     '-Wnull-dereference',
     '-Wparentheses',
     '-Wstack-protector',
@@ -114,6 +109,11 @@ dev_flags = cc.get_supported_arguments(
     '-Wpedantic-macros',
     '-Wassign-enum',
     '-Wunused',
+)
+
+dev_flags = cc.get_supported_arguments(
+    '-g3',
+    '-march=native',
     '-Wsuggest-attribute=const',
     '-Wsuggest-attribute=format',
     '-Wsuggest-attribute=malloc',

@@ -41,7 +41,7 @@ TEST_DIR := tests
 
 VARIANTS := debug release profile asan tsan
 
-debug: MESON_OPTS := --buildtype=debug
+debug: MESON_OPTS := --buildtype=debugoptimized
 release: MESON_OPTS := --buildtype=release
 profile: MESON_OPTS := --buildtype=plain -Doptimization=3 -Ddebug=true
 asan: MESON_OPTS := --buildtype=debugoptimized -Db_sanitize=address
@@ -60,7 +60,7 @@ define setup_once
 		echo '$(MESON_OPTS)' > $(SETUP_STAMP); \
 	elif [ "$$(cat $(SETUP_STAMP) 2>/dev/null)" != '$(MESON_OPTS)' ]; then \
 		echo "[reconfigure] $@ (options changed)"; \
-		meson setup --reconfigure $(BUILD_ROOT)/$@ $(MESON_OPTS) > /dev/null || exit 1; \
+		meson setup --reconfigure $(BUILD_ROOT)/$@ $(MESON_OPTS) || exit 1; \
 		echo '$(MESON_OPTS)' > $(SETUP_STAMP); \
 	fi
 endef
