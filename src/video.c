@@ -237,7 +237,7 @@ static AK_NONNULL_ALL int get_video_stream_rotation (const AVStream *stream) {
  * False for RGB (GBRP has G in plane 0; packed RGB is interleaved), packed
  * YUV (YUYV/UYVY), high bit depth, palette and hardware formats.
  */
-static bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
+static AK_ALWAYS_INLINE bool luma_is_u8_plane0 (enum AVPixelFormat fmt) {
   const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(fmt);
   if (!d) {
     return false;
