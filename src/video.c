@@ -45,22 +45,18 @@
 #define AK_DEFAULT_WHITE_THRESHOLD (255 - AK_DEFAULT_BLACK_THRESHOLD)
 
 /* video.c private error domain. Must go through ak_errstr() to print. */
-#define AK_ERR_FRAME_BLACK FFERRTAG('B', 'L', 'K', 'F') /* Completely black frame */
+#define AK_AV_ERR_FRAME_BLACK FFERRTAG('B', 'L', 'K', 'F') /* Completely black frame */
 
-/* Wrapper for av_strerror with our own custom errors */
-static const char *ak_errstr (int err, char *buf, size_t buflen) {
+/**
+ * Writes error string into caller-provided storage.
+ *
+ * @param err libav error code or AK_AV_ERR_*
+ * @param buf Buffer to write into
+ * @param buflen Length of buffer
+ * @return buf */
+static inline char *ak_errstr (int err, char *buf, size_t buflen) {
   switch (err) { /* NOLINT */
-    case AK_ERR_FRAME_BLACK:
-      return "frame contains no content";
-    default:
-      return av_strerror(err, buf, buflen) < 0 ? "unknown error" : buf;
-  }
-}
-
-/* writes error string into caller-provided storage */
-static inline char *ak_errstr_r (int err, char *buf, size_t buflen) {
-  switch (err) { /* NOLINT */
-    case AK_ERR_FRAME_BLACK:
+    case AK_AV_ERR_FRAME_BLACK:
       av_strlcpy(buf, "frame contains no content", buflen);
       break;
     /* future AK_ERR_* tags: add a case here */
@@ -73,8 +69,8 @@ static inline char *ak_errstr_r (int err, char *buf, size_t buflen) {
   return buf;
 }
 
-/* ak_err2str-style wrapper */
-#define ak_err2str(err) ak_errstr_r((err), (char[AV_ERROR_MAX_STRING_SIZE]){0}, AV_ERROR_MAX_STRING_SIZE)
+/* av_err2str-style wrapper */
+#define ak_err2str(err) ak_errstr((err), (char[AV_ERROR_MAX_STRING_SIZE]){0}, AV_ERROR_MAX_STRING_SIZE)
 
 typedef struct vreader {
   /* File (container/AV file) context
@@ -800,7 +796,7 @@ static int apply_crop (vreader *vr, AVFrame *frame, const int threshold_black, c
   if (!detect_black_borders(src, threshold, &crop)) {
     log_info("[%s] Frame (#%" PRId64 ") is completely black.", vr->fname,
              pts_to_useconds(frame_pts, stream->time_base));
-    return AK_ERR_FRAME_BLACK;
+    return AK_AV_ERR_FRAME_BLACK;
   }
 
   const size_t c_left = (size_t) crop.left;
