@@ -6,10 +6,9 @@
 typedef void (*ak_signal_callback_fn)(int signo, void *userdata);
 
 typedef struct ak_signals_ctx {
-  atomic_int received;                        /* 0 = running, else signo */
-  _Atomic(ak_signal_callback_fn) on_shutdown; /* invoked on the signal thread */
-  /** Opaque argument handed to `on_shutdown`. */
-  void *on_shutdown_data;
+  atomic_int received;                        /**< 0 = running, else signo */
+  _Atomic(ak_signal_callback_fn) on_shutdown; /**< invoked on the signal thread */
+  void *on_shutdown_data;                     /**< Opaque argument handed to `on_shutdown`. */
 } ak_signals_ctx;
 
 /**

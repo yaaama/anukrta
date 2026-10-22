@@ -550,9 +550,9 @@ static int vreader_seek_decode_to_target (vreader *vr,
  *
  * @return true if at least one pixel exceeds @p threshold.
  */
-static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ARG(1) bool row_has_video (const uint8_t *const restrict row,
-                                                                      const int width,
-                                                                      const int threshold) {
+static AK_ALWAYS_INLINE AK_PURE AK_NONNULL_ALL bool row_has_video (const uint8_t *const restrict row,
+                                                                   const int width,
+                                                                   const int threshold) {
   AK_ASSUME(width >= 0);
   AK_ASSUME(threshold >= 0);
 

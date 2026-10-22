@@ -94,10 +94,27 @@ int ak_signals_install (ak_signals_ctx *ctx) {
   return 0;
 }
 
+/**
+ * Boolean check for whether we've received a shutdown request.
+ *
+ * @param ctx Signal context.
+ *
+ * @return boolean
+ */
 bool ak_shutdown_requested (const ak_signals_ctx *ctx) {
   return atomic_load_explicit(&ctx->received, memory_order_acquire) != 0;
 }
 
+/**
+ * Return signal number that we have may have received.
+ *
+ * @param ctx Signal context.
+ *
+ * @return integer signal code.
+ * @retval 130 SIGINT
+ * @retval 143 SIGTERM
+ * @retval 0 Nothing has been received.
+ */
 int ak_shutdown_exit_code (const ak_signals_ctx *ctx) {
   int signo = atomic_load_explicit(&ctx->received, memory_order_acquire);
   return signo ? 128 + signo : 0; /* 130 = SIGINT, 143 = SIGTERM */

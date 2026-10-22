@@ -135,7 +135,7 @@ dev_flags = cc.get_supported_arguments(
 add_project_arguments(warning_flags, language: 'c')
 
 # debug / asan / tsan builds
-if buildtype in ['debug']
+if buildtype in ['debug', 'debugoptimized']
     add_project_arguments(dev_flags, language: 'c')
     add_project_arguments('-DAK_DEBUG', language: 'c')
 endif

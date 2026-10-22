@@ -351,12 +351,17 @@ int ak_explore_filewalk (char *path, ak_file_v *files_out) {
 /**
  * Scan through directories stored in config.
  *
+ * @param config
+ * @param[in] paths Input paths to recursively search.
+ * @param[out] files Vector storing files we are interested in.
+ *
  * @todo Add a check for hard linked files (files with same inode number)
  */
 void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files) {
 
   /* Check if we need to scan current directory */
   bool scan_curr_dir_only = ak_flag_has(config->runtime_flags, AK_RUNTIME_FLAG_SCAN_CURR_DIR);
+
   if (scan_curr_dir_only) {
     char *resolved AK_AUTO(free) = NULL;
     resolved = realpath(".", NULL);
@@ -366,7 +371,7 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
     }
     log_info("Scanning current directory: '%s'", resolved);
     if (ak_explore_filewalk(resolved, files)) {
-      log_warn("Error searching for files in current directory.");
+      log_warn("Error searching for files in '%s'", resolved);
     }
     return;
   }
@@ -441,7 +446,7 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
 
     } else {
       kv_A(real_paths, unique_path_idx) = current; /* Keep the unique path */
-      ++unique_path_idx;
+      unique_path_idx++;
     }
   }
 

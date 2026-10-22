@@ -362,7 +362,7 @@ static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *s
       log_error("Failed to open cache database! Proceeding with caching disabled.");
     }
 
-    config->runtime_flags &= ~AK_RUNTIME_FLAG_CACHE;
+    config->runtime_flags &= ~AK_RUNTIME_FLAG_CACHE; /* Disable cache flag */
 
     /* Add all files found to our work queue and set their status as PENDING */
     for (usize i = 0; i < file_count; i++) {
@@ -532,7 +532,7 @@ int main (int argc, char *argv[]) {
   }
   ak_signals_ctx signals;
   if (ak_signals_install(&signals) != 0) {
-    fprintf(stderr, "Failed to install signal handling\n");
+    fputs("Failed to install signal handling", stderr);
     return -1;
   }
   assert(atomic_is_lock_free(signals.on_shutdown));
