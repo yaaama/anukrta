@@ -294,7 +294,7 @@ static bool search_cache_for_file (ak_cache_ctx *db,
  */
 static int anukrta_driver (ak_config *config, ak_paths *paths, ak_signals_ctx *signals) {
 
-  assert(config->segments > 0);
+  AK_CHECK(config->segments > 0);
 
   /* Initialise file list */
   ak_file_v files AK_AUTO(file_v) = {0};

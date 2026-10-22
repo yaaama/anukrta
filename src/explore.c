@@ -377,7 +377,7 @@ void ak_explore_scan_paths (ak_config *config, ak_paths *paths, ak_file_v *files
   }
 
   /* If we're not scanning current dir, then paths_count should be NON-ZERO */
-  assert(kv_size(*paths));
+  AK_CHECK(kv_size(*paths));
 
   /* Array to hold resolved paths */
   ak_paths real_paths AK_AUTO(ak_paths_alloced);
