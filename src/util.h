@@ -641,10 +641,10 @@ AK_DEFINE_AUTO(file, FILE *, if (*ak__obj) fclose(*ak__obj))
  * @{
  */
 
-/** @brief Unsigned integer with bit position @p n. */
+/** @brief Unsigned integer with bit position `n`. */
 #define AK_BIT(n) (1UL << (n))
 
-/** @brief 64-bit unsigned integer with bit position @p _n set. */
+/** @brief 64-bit unsigned integer with bit position `_n` set. */
 #define AK_BIT64(_n) (1ULL << (_n))
 
 /** @brief Check if a @p x is a power of two */
@@ -655,7 +655,7 @@ AK_DEFINE_AUTO(file, FILE *, if (*ak__obj) fclose(*ak__obj))
  * @param x value to check
  * @return true if @p x is a power of two, false otherwise
  */
-static inline bool ak_is_power_of_two (unsigned int x) {
+static AK_ALWAYS_INLINE AK_PURE bool ak_is_power_of_two (unsigned int x) {
   return AK_IS_POWER_OF_TWO(x);
 }
 
