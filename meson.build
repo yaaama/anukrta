@@ -152,6 +152,11 @@ if get_option('optimization') == '3'
     endif
 endif
 
+# required attributes
+cc.compiles('''#if !__has_attribute(cleanup)
+#error attribute cleanup not supported
+#endif''', name: '__attribute__(cleanup)', required: true)
+
 
 # ============================================================
 #   Toggles / linker
