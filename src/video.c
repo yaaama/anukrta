@@ -393,7 +393,7 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vr) {
   if (duration == AV_NOPTS_VALUE) {
 
     /* NOTE: Container durations are in microseconds (AV_TIME_BASE) */
-    duration = vr->fmt_ctx->duration > 0 ? vr->fmt_ctx->duration : 0;
+    duration = (vr->fmt_ctx->duration > 0) ? vr->fmt_ctx->duration : 0;
     log_info(
         "[%s] Video stream omitting duration, using container values as "
         "fallback (%.2fs)",
@@ -402,7 +402,7 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vr) {
   }
 
   /* If duration is larger than 0 then convert stream timebase duration to microseconds (AV_TIME_BASE) */
-  return duration > 0 ? pts_to_useconds(duration, stream_timebase) : 0;
+  return (duration > 0) ? pts_to_useconds(duration, stream_timebase) : 0;
 }
 
 /**
@@ -414,7 +414,7 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vr) {
  * @retval -11 Error, please try again.
  * @retval Anything else is an unknown error.
  */
-static AK_NONNULL_ALL int vreader_decode_frame (vreader *vr) {
+static inline AK_NONNULL_ALL int vreader_decode_frame (vreader *vr) {
   int ret = 0;
   AVCodecContext *codec_ctx = vr->codec_ctx;
 
