@@ -405,7 +405,6 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vr) {
   return duration > 0 ? pts_to_useconds(duration, stream_timebase) : 0;
 }
 
-
 /**
  * @brief Get a video frame.
  * @param [in] vr An instance of a vreader.
@@ -420,25 +419,33 @@ static AK_NONNULL_ALL int vreader_decode_frame (vreader *vr) {
   AVCodecContext *codec_ctx = vr->codec_ctx;
 
   for (;;) {
-    /* Try to grab a decoded frame first */
+
+    /* Try to grab a decoded frame first
+     * ret == EAGAIN means we need to send another frame (we continue)
+     * ret < 0 means genuine decoding error (exit)
+     * ret == AVERROR_EOF means end of file (exit)
+     * ret >= 0 means success (exit) */
     ret = avcodec_receive_frame(codec_ctx, vr->frame);
 
-    if (ret >= 0) {
-      /* Success: We have a frame */
-      return 0;
-    }
-    if (ret == AVERROR_EOF) {
-      /* EOF reached */
-      return ret;
-    }
     if (ret != AVERROR(EAGAIN)) {
-      /* Fatal decoding error */
-      log_error("[%s] Error receiving frame: %s", vr->fname, ak_err2str(ret));
+      if (ret < 0 && ret != AVERROR_EOF) {
+        log_error("[%s] Error receiving frame: %s", vr->fname, ak_err2str(ret));
+      }
       return ret;
     }
 
-    /* EAGAIN means the decoder needs more data. Read a packet. */
+    /*
+     * EGAIN PATH FROM NOW ON:
+     */
+
+    /* EAGAIN means decoder needs more packets:
+     * So we try to read the next frame
+     * ret == 0 if ok
+     * ret < 0 if error or EOF
+     * Error causes packet to be blank
+     */
     ret = av_read_frame(vr->fmt_ctx, vr->packet);
+
     if (ret == AVERROR_EOF) {
       /* Flush the decoder and loop back to receive the remaining frames */
       ret = avcodec_send_packet(codec_ctx, NULL);
@@ -446,30 +453,28 @@ static AK_NONNULL_ALL int vreader_decode_frame (vreader *vr) {
       if (ret == AVERROR(ENOMEM)) {
         return ret;
       };
+      if (ret < 0) {
+        log_error("[%s] Error flushing decoder: %s", vr->fname, ak_err2str(ret));
+        return ret;
+      }
 
       continue;
     }
 
-    if (ret == AVERROR_EXIT) {
-      return ret;
-    }
-
     if (ret < 0) {
-      log_warn("[%s] Decoding error: %s", vr->fname, ak_err2str(ret));
+      if (ret != AVERROR_EXIT) {
+        log_warn("[%s] Decoding error: %s", vr->fname, ak_err2str(ret));
+      }
       return ret;
     }
 
     /* Send the correct video packet to the decoder */
     ret = avcodec_send_packet(codec_ctx, vr->packet);
-
     av_packet_unref(vr->packet);
-
-    if (ret == AVERROR(ENOMEM) || ret == AVERROR_EXIT) {
-      return ret;
-    }
-
     if (ret < 0) {
-      log_warn("[%s] Decoding error: %s", vr->fname, ak_err2str(ret));
+      if (ret != AVERROR(ENOMEM) && ret != AVERROR_EXIT) {
+        log_warn("[%s] Decoding error: %s", vr->fname, ak_err2str(ret));
+      }
       return ret;
     }
 
