@@ -1059,7 +1059,7 @@ ak_oom_or_die (void *ptr, const char *file, int line, const char *expr) {
 #  if __has_builtin(__builtin_assume)
 #    define AK_ASSUME(cond) __builtin_assume(cond)
 #  else
-#    define AK_ASSUME(cond) ((cond) ? (void) 0 : AK_UNREACHABLE())
+#    define AK_ASSUME(cond) ((void) 0)
 #  endif
 
 #endif /* AK_DEBUG */
