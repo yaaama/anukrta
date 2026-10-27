@@ -405,34 +405,6 @@ static inline AK_NONNULL_ALL i64 vreader_get_duration (vreader *vr) {
   return duration > 0 ? pts_to_useconds(duration, stream_timebase) : 0;
 }
 
-/**
- * Seek to timestamp.
- *
- * Seeks to nearest preceding keyframe from target timestamp.
- *
- * @param vr VideoReader instance.
- * @param target_pts_streambase Target time stamp (in streams own time base).
- * @return 0 on success, libav's error code on on failure.
- */
-static int vreader_seek_pts (vreader *vr, int64_t target_pts_streambase) {
-
-  /* Perform seek
-   *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
-   jump to the nearest keyframe BEFORE this timestamp.
-   *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
-   * frame number (rarely works well), so we stick to TimeStamp seeking. */
-  int ret = av_seek_frame(vr->fmt_ctx, vr->video_stream_idx, target_pts_streambase, AVSEEK_FLAG_BACKWARD);
-
-  if (ret < 0) {
-    return ret;
-  }
-
-  /* Flush the decoder buffers after a SUCCESSFUL seek.
-   * If we don't do this, the decoder might return cached frames from the
-   * old position before decoding frames from the new position. */
-  avcodec_flush_buffers(vr->codec_ctx);
-  return 0;
-}
 
 /**
  * @brief Get a video frame.
@@ -519,10 +491,22 @@ static int vreader_seek_decode_to_target (vreader *vr,
                                           int64_t min_pts_streambase) {
 
   AK_ASSUME(target_pts_streambase >= 0);
-  int ret = vreader_seek_pts(vr, target_pts_streambase);
-  if (ret != 0) {
+
+  /* Perform seek
+   *   AVSEEK_FLAG_BACKWARD: If the exact TS isn't a keyframe,
+   jump to the nearest keyframe BEFORE this timestamp.
+   *   AVSEEK_FLAG_FRAME: Tells ffmpeg to interpret the target as a specific
+   * frame number (rarely works well), so we stick to TimeStamp seeking. */
+  int ret = av_seek_frame(vr->fmt_ctx, vr->video_stream_idx, target_pts_streambase, AVSEEK_FLAG_BACKWARD);
+
+  if (ret < 0) {
     return ret;
   }
+
+  /* Flush the decoder buffers after a SUCCESSFUL seek.
+   * If we don't do this, the decoder might return cached frames from the
+   * old position before decoding frames from the new position. */
+  avcodec_flush_buffers(vr->codec_ctx);
 
   for (;;) {
     ret = vreader_decode_frame(vr);
