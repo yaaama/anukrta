@@ -67,7 +67,7 @@ typedef struct ak_hash_entry {
 typedef enum AK_STATUS : int32_t {
   AK_OK = 0,              /**< Function executed successfully. */
   AK_IO_FAIL,             /**< IO failure. */
-  AK_OOM,                 /**< Out of memory/ could not allocate memory. */
+  AK_NO_MEM,              /**< Out of memory/ could not allocate memory. */
   AK_NO_MEDIA_FOUND,      /**< No media files were found. */
   AK_STATUS_FILE_PENDING, /**< File is pending processing. */
   AK_STATUS_FILE_CACHED,  /**< File is already in the database. */

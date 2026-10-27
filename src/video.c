@@ -1099,7 +1099,7 @@ AK_STATUS ak_video_hash (ak_file *file,
   /* Setup video reader */
   ret = vreader_init(file->path, signals, &vr);
   if (ret != 0) {
-    return (ret == AVERROR(ENOMEM)) ? AK_OOM : AK_IO_FAIL;
+    return (ret == AVERROR(ENOMEM)) ? AK_NO_MEM : AK_IO_FAIL;
   }
   vr.fname = ak_file_name(file);
   const char *vr_fname = vr.fname;
@@ -1196,7 +1196,7 @@ AK_STATUS ak_video_hash (ak_file *file,
         return AK_IO_FAIL;
       }
       if (ret == AVERROR(ENOMEM)) {
-        return AK_OOM;
+        return AK_NO_MEM;
       }
       log_warn("[%s] [%d/%d] Failed seeking PTS `%" PRId64 "`(%.1f s): %s", vr_fname, (i + 1),
                target_segments, seek_target_sb, seek_target_seconds, ak_err2str(ret));
@@ -1230,7 +1230,7 @@ AK_STATUS ak_video_hash (ak_file *file,
           log_error("[%s] Failed to init filter graph: %s", vr_fname, ak_err2str(ret));
 
           if (ret == AVERROR(ENOMEM)) {
-            return AK_OOM;
+            return AK_NO_MEM;
           }
           goto segment_failed;
         }
@@ -1281,7 +1281,7 @@ AK_STATUS ak_video_hash (ak_file *file,
         log_error("[%s] Could not greyscale frame (%" PRId64 " us): %s", vr_fname, pts_microseconds,
                   ak_err2str(ret));
         if (ret == AVERROR(ENOMEM)) {
-          return AK_OOM;
+          return AK_NO_MEM;
         }
 
         goto segment_failed;
@@ -1295,7 +1295,7 @@ AK_STATUS ak_video_hash (ak_file *file,
       if (ret < 0) {
         log_error("[%s] Cropping failed (%" PRId64 " us): %s", vr_fname, pts_microseconds, ak_err2str(ret));
         if (ret == AVERROR(ENOMEM)) {
-          return AK_OOM;
+          return AK_NO_MEM;
         }
         goto segment_failed;
       }
@@ -1309,7 +1309,7 @@ AK_STATUS ak_video_hash (ak_file *file,
     if (ret) {
       log_error("[%s] Failed to scale frame %s (%.1f s):", vr_fname, ak_err2str(ret), pts_seconds);
       if (ret == AVERROR(ENOMEM)) {
-        return AK_OOM;
+        return AK_NO_MEM;
       }
       goto segment_failed;
     }
